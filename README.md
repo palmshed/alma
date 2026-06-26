@@ -2,6 +2,10 @@
 
 Vortai is an AI platform that integrates web search, URL analysis, text generation, text-to-speech, image creation, and multimodal reasoning using Google Gemini models. It provides a React interface, a static web interface, and a REST API.
 
+## Stack
+
+Runs on thread. Calls mlapi for inference. Exposed via hautofix.
+
 # Details
 
 Vortai offers multiple components:
