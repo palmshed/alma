@@ -4,7 +4,7 @@
 # This module initializes the Flask application with CORS support,
 # configures the Gemini API, and registers the API blueprint.
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 from flask import Flask, send_file, request
 from .sdk import GeminiAI
