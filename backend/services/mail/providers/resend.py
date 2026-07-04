@@ -63,7 +63,9 @@ class ResendProvider(MailProvider):
                 provider="resend",
                 timestamp=datetime.now(timezone.utc),
                 retry_count=message.retry_count,
-                error=response_body.get("message", response_body.get("name", str(status))),
+                error=response_body.get(
+                    "message", response_body.get("name", str(status))
+                ),
             )
 
         return MailResult(

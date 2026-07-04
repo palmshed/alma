@@ -665,10 +665,12 @@ class TestResendProvider:
 
         mock_resp = MagicMock()
         mock_resp.status = 422
-        mock_resp.read.return_value = json.dumps({
-            "message": "Invalid sender address",
-            "name": "validation_error",
-        }).encode()
+        mock_resp.read.return_value = json.dumps(
+            {
+                "message": "Invalid sender address",
+                "name": "validation_error",
+            }
+        ).encode()
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_resp
 

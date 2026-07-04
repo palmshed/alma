@@ -11,7 +11,7 @@ repos:
     hooks:
       - id: pytest
         name: Run pytest
-        entry: uv run python -m pytest tests/ -v
+        entry: uv run python -m pytest backend/tests/ -v
         language: system
         pass_filenames: false
         always_run: true
