@@ -13,6 +13,12 @@ from typing import Any, cast, Dict, Tuple, Union
 from ..sdk import GeminiAI
 
 
+def _error_response(e: Exception) -> Tuple[Response, int]:
+    msg = str(e)
+    status = 429 if "429" in msg or "RESOURCE_EXHAUSTED" in msg else 500
+    return jsonify({"error": msg}), status
+
+
 def is_safe_path(base_path: str, target_path: str) -> bool:
     """Check if target_path is within base_path to prevent path traversal."""
     try:
@@ -51,7 +57,7 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
 
     except Exception as e:
         logging.error(f"Error in generate_response: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return _error_response(e)
 
 
 @api_bp.route("/api/generate-with-thinking", methods=["POST"])
@@ -71,7 +77,7 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
 
     except Exception as e:
         logging.error(f"Error in generate_response_with_thinking: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return _error_response(e)
 
 
 @api_bp.route("/api/generate-with-url-context", methods=["POST"])
@@ -91,7 +97,7 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
 
     except Exception as e:
         logging.error(f"Error in generate_response_with_url_context: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        return _error_response(e)
 
 
 @api_bp.route("/api/text-to-speech", methods=["POST"])
@@ -137,7 +143,7 @@ def text_to_speech() -> Union[Response, Tuple[Response, int]]:
                 os.unlink(filepath)
             except OSError:
                 pass
-        return jsonify({"error": "Internal server error"}), 500
+        return _error_response(e)
 
 
 @api_bp.route("/api/generate-image", methods=["POST"])
@@ -185,7 +191,7 @@ def generate_image() -> Union[Response, Tuple[Response, int]]:
                 os.unlink(filepath)
             except OSError:
                 pass
-        return jsonify({"error": "Internal server error"}), 500
+        return _error_response(e)
 
 
 @api_bp.route("/api/process-text-go", methods=["POST"])

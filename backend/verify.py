@@ -187,7 +187,12 @@ def check_canvas(config: Dict[str, str]) -> Dict[str, Any]:
     result["latency"] = elapsed
 
     if status != 200:
-        result["error"] = f"HTTP {status}: {body}"
+        err_detail = body
+        if isinstance(body, dict):
+            err_detail = body.get("error", body)
+        result["error"] = f"HTTP {status}: {err_detail}"
+        if status == 429:
+            result["details"] = {"note": "quota exhausted on free tier for this model"}
         return result
 
     if not isinstance(body, dict) or "response" not in body:
@@ -214,7 +219,12 @@ def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
     result["latency"] = elapsed
 
     if status != 200:
-        result["error"] = f"HTTP {status}: {body}"
+        err_detail = body
+        if isinstance(body, dict):
+            err_detail = body.get("error", body)
+        result["error"] = f"HTTP {status}: {err_detail}"
+        if status == 429:
+            result["details"] = {"note": "quota exhausted on free tier for this model"}
         return result
 
     if not isinstance(body, dict):
@@ -253,7 +263,12 @@ def check_web(config: Dict[str, str]) -> Dict[str, Any]:
     result["latency"] = elapsed
 
     if status != 200:
-        result["error"] = f"HTTP {status}: {body}"
+        err_detail = body
+        if isinstance(body, dict):
+            err_detail = body.get("error", body)
+        result["error"] = f"HTTP {status}: {err_detail}"
+        if status == 429:
+            result["details"] = {"note": "quota exhausted on free tier for this model"}
         return result
 
     if not isinstance(body, dict) or "response" not in body:
@@ -265,7 +280,7 @@ def check_web(config: Dict[str, str]) -> Dict[str, Any]:
         return result
 
     result["status"] = "pass"
-    result["details"] = {"url_context": "ok", "model": "gemini-2.5-pro"}
+    result["details"] = {"url_context": "ok", "model": "gemini-2.5-flash"}
     return result
 
 
@@ -284,6 +299,10 @@ def check_images(config: Dict[str, str]) -> Dict[str, Any]:
         if isinstance(body_data, dict):
             err_detail = body_data.get("error", body_data)
         result["error"] = f"HTTP {status}: {err_detail}"
+        if status == 429:
+            result["details"] = {
+                "note": "image generation quota exhausted on free tier"
+            }
         return result
 
     if isinstance(body_data, dict):
