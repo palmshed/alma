@@ -42,3 +42,4 @@ ENV/
 .coverage
 coverage.xml
 .env.local
+.env.prod

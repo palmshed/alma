@@ -37,10 +37,15 @@ except ImportError:
 
 #### 2. Model Configuration (`backend/palmshed_ai/models.py`)
 
-**Updated IMAGE_MODEL:**
+**Current IMAGE_MODEL (default):**
 ```python
-IMAGE_MODEL = "imagen-4.0-generate-001"  # Imagen model
-# Previously: "gemini-2.0-flash-exp-image-generation"
+IMAGE_MODEL = "gemini-2.5-flash-image"  # Gemini-native image generation
+```
+
+**Imagen model (Vertex AI required, optional):**
+```python
+IMAGE_MODEL = "imagen-4.0-generate-001"
+# Requires google-cloud-aiplatform: uv add --group vertex-ai google-cloud-aiplatform
 ```
 
 #### 3. Dependencies
