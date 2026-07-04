@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
 
 interface ResponseContainerProps {
@@ -39,8 +39,8 @@ const ResponseContainer: React.FC<ResponseContainerProps> = ({ content }) => {
             ol: ({ node, ...props }) => <ol className="list-decimal list-inside ml-4 my-2" {...props} />,
             li: ({ node, ...props }) => <li className="my-1" {...props} />,
             blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-gray-300 pl-4 italic my-2" {...props} />,
-            code: ({ node, inline, ...props }) =>
-              inline ? (
+            code: ({ node, ...props }) =>
+              (props as Record<string, unknown>).inline ? (
                 <code className="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono" {...props} />
               ) : (
                 <code className="block bg-gray-100 dark:bg-gray-800 p-4 rounded text-sm font-mono overflow-x-auto my-2" {...props} />

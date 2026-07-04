@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
 # Composite Action: Handle Release
@@ -19,7 +19,7 @@ runs:
         current=$(cat VERSION)
         new=$(echo $current | awk -F. '{print $1"."$2"."($3+1)}')
         echo $new > VERSION
-        sed -i "s/__version__ = \"$current\"/__version__ = \"$new\"/" vortai/__init__.py
+        sed -i "s/__version__ = \"$current\"/__version__ = \"$new\"/" backend/palmshed_ai/__init__.py
         sed -i "s/version = \"$current\"/version = \"$new\"/" pyproject.toml
         echo "CURRENT_VERSION=$current" >> $GITHUB_ENV
         echo "NEW_VERSION=$new" >> $GITHUB_ENV

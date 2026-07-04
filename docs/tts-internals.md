@@ -2,7 +2,7 @@
 
 ## Text-to-Speech Implementation
 
-Vortai uses Google Text-to-Speech (gTTS) for converting text to audio:
+Alma uses Google Text-to-Speech (gTTS) for converting text to audio:
 
 ```python
 from gtts import gTTS

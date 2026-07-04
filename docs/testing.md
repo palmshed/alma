@@ -2,10 +2,10 @@
 
 ## Test Structure
 
-Tests are located in the `tests/` directory:
+Tests are located in the `backend/tests/` directory:
 
 ```
-tests/
+backend/tests/
 └── test_app.py    # Basic Flask app tests
 ```
 
@@ -16,10 +16,10 @@ tests/
 make test
 
 # With coverage
-uv run pytest --cov=vortai --cov-report=html
+PYTHONPATH=backend uv run pytest --cov=palmshed_ai --cov-report=html
 
 # Specific test file
-uv run pytest tests/test_app.py
+PYTHONPATH=backend uv run pytest backend/tests/test_app.py
 ```
 
 ## Current Test Coverage
@@ -29,7 +29,7 @@ uv run pytest tests/test_app.py
 def test_app_creation():
     app = create_app()
     assert app is not None
-    assert app.name == "vortai"
+    assert app.name == "palmshed_ai"
 ```
 
 ### Index Route

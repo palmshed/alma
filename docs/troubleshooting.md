@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-This guide helps diagnose common issues with the Vortai application endpoints.
+This guide helps diagnose common issues with the Alma application endpoints.
 
 ## API Endpoint Diagnostics
 
@@ -33,7 +33,7 @@ This guide helps diagnose common issues with the Vortai application endpoints.
 
 #### `/api/generate-with-thinking` (500 errors)
 
-- **Model not found**: Update model names in `vortai/models.py` to current Gemini API models
+- **Model not found**: Update model names in `backend/palmshed_ai/models.py` to current Gemini API models
 - **Thinking config issues**: Ensure using Gemini 2.5 series models that support thinking mode
 - **Response parsing errors**: Check if API response structure has changed
 
