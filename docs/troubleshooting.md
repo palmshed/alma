@@ -63,11 +63,11 @@ GOOGLE_CLOUD_LOCATION=us-central1
 
 ### Model Configuration
 
-Current working models (as of December 2025):
+Current working models (as of July 2026):
 - **Text generation**: `gemini-2.5-flash`
-- **Thinking mode**: `gemini-2.5-pro` or `gemini-2.5-flash`
+- **Thinking mode**: `gemini-2.5-flash` (switched from `gemini-2.5-pro` due to free tier quota)
 - **URL context**: `gemini-2.5-flash`
-- **Image generation**: `imagen-4.0-generate-001` (requires Vertex AI setup) or Gemini models (limited by free tier)
+- **Image generation**: `gemini-2.5-flash-image` (switched from `imagen-4.0-generate-001` which requires Vertex AI)
 
 ### Vertex AI / Imagen Issues
 
