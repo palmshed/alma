@@ -7,9 +7,9 @@
 from flask import Blueprint, request, jsonify, send_file, after_this_request, Response
 import os
 import tempfile
-import mimetypes
 import logging
 from typing import Any, cast, Dict, Tuple, Union
+from ..image_models import ImageStatus
 from ..sdk import GeminiAI
 
 
@@ -148,18 +148,22 @@ def text_to_speech() -> Union[Response, Tuple[Response, int]]:
 
 @api_bp.route("/api/generate-image", methods=["POST"])
 def generate_image() -> Union[Response, Tuple[Response, int]]:
-    filepath = None
+    data = cast(Dict[str, Any], request.get_json() or {})
+    prompt = data.get("prompt", "").strip()
+
+    if not prompt:
+        return jsonify({"error": "No prompt provided"}), 400
+
+    if len(prompt) > 5000:
+        return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
+
     try:
-        data = cast(Dict[str, Any], request.get_json() or {})
-        prompt = data.get("prompt", "").strip()
+        result = ai.generate_image(prompt)
+    except Exception as e:
+        return _error_response(e)
 
-        if not prompt:
-            return jsonify({"error": "No prompt provided"}), 400
-
-        if len(prompt) > 5000:
-            return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-
-        filepath = ai.generate_image(prompt)
+    if result.status == ImageStatus.OK:
+        filepath = result.filepath
 
         # Prevent path traversal
         if not is_safe_path(TEMP_IMAGE_DIR, filepath):
@@ -177,21 +181,27 @@ def generate_image() -> Union[Response, Tuple[Response, int]]:
                 pass
             return response
 
-        # Detect mime type
-        mime_type, _ = mimetypes.guess_type(filepath)
-        if not mime_type:
-            mime_type = "image/png"
-
+        mime_type = result.mime_type or "image/png"
         return send_file(filepath, mimetype=mime_type)
 
-    except Exception as e:
-        logging.error(f"Error in generate_image: {e}")
-        if filepath is not None:
-            try:
-                os.unlink(filepath)
-            except OSError:
-                pass
-        return _error_response(e)
+    status_map = {
+        ImageStatus.QUOTA_EXCEEDED: 429,
+        ImageStatus.UNAVAILABLE: 503,
+        ImageStatus.UNSUPPORTED: 400,
+        ImageStatus.FAILED: 500,
+    }
+    http_status = status_map.get(result.status, 500)
+    return (
+        jsonify(
+            {
+                "error": result.error,
+                "provider": result.provider,
+                "provider_status": result.status.value,
+                "model": result.model,
+            }
+        ),
+        http_status,
+    )
 
 
 @api_bp.route("/api/process-text-go", methods=["POST"])

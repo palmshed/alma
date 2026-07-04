@@ -1,19 +1,15 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
-# SPDX-License-Identifier: MIT
-
-"""
-Image generation providers for Alma.
-Supports multiple AI providers (Gemini, Imagen) through a unified interface.
-"""
-
 import os
 import uuid
 import tempfile
 import mimetypes
+from abc import ABC, abstractmethod
+from typing import Optional
+
 from google import genai as google_genai
 from google.genai import types
 
-# Vertex AI for Imagen models
+from .image_models import ImageConfig, ImageResult, ImageStatus
+
 try:
     import vertexai
     from vertexai.preview.vision_models import ImageGenerationModel
@@ -23,138 +19,266 @@ except ImportError:
     VERTEX_AI_AVAILABLE = False
 
 
-class ImageProvider:
-    """Base class for image generation providers."""
+class ImageProvider(ABC):
+    @abstractmethod
+    def generate(self, prompt: str) -> ImageResult: ...
 
-    def generate_image(self, prompt: str, model: str) -> str:
-        """Generate image and return file path."""
-        raise NotImplementedError
-
-
-class GeminiImageProvider(ImageProvider):
-    """Image generation using Gemini API."""
-
-    def __init__(self, api_key: str):
-        self.client = google_genai.Client(api_key=api_key)
-
-    def generate_image(self, prompt: str, model: str) -> str:
-        """Generate image using Gemini API."""
-        contents = [
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text=f"Generate an image of: {prompt}"),
-                ],
-            ),
-        ]
-        generate_content_config = types.GenerateContentConfig(
-            response_modalities=["image", "text"],
-            response_mime_type="text/plain",
-        )
-        response = self.client.models.generate_content(
-            model=model,
-            contents=contents,
-            config=generate_content_config,
-        )
-        if (
-            response.candidates
-            and response.candidates[0].content
-            and response.candidates[0].content.parts
-        ):
-            for part in response.candidates[0].content.parts:
-                if part.inline_data:
-                    file_extension = mimetypes.guess_extension(
-                        part.inline_data.mime_type
-                    )
-                    filename = f"{uuid.uuid4()}{file_extension}"
-                    filepath = os.path.join(
-                        tempfile.gettempdir(), "generated_images", filename
-                    )
-                    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-                    with open(filepath, "wb") as f:
-                        f.write(part.inline_data.data)
-                    return filepath
-        raise ValueError("Failed to generate image")
+    @property
+    @abstractmethod
+    def provider_type(self) -> str: ...
 
 
-class ImagenImageProvider(ImageProvider):
-    """Image generation using Imagen via Vertex AI."""
+class GeminiFlashImage(ImageProvider):
+    def __init__(self, config: ImageConfig):
+        self.client = google_genai.Client(api_key=config.api_key)
+        self._model = config.model
+        self._provider = config.provider
 
-    def __init__(self):
-        """Initialize Vertex AI once for better performance."""
-        if VERTEX_AI_AVAILABLE:
-            # Get Vertex AI credentials from environment
-            project_id = os.environ.get("GOOGLE_CLOUD_PROJECT")
-            location = os.environ.get("GOOGLE_CLOUD_LOCATION", "us-central1")
+    @property
+    def provider_type(self) -> str:
+        return self._provider
 
-            if not project_id:
-                raise ValueError(
-                    "GOOGLE_CLOUD_PROJECT environment variable required for Imagen models"
+    def generate(self, prompt: str) -> ImageResult:
+        try:
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=f"Generate an image of: {prompt}"),
+                    ],
+                ),
+            ]
+            generate_content_config = types.GenerateContentConfig(
+                response_modalities=["image", "text"],
+                response_mime_type="text/plain",
+            )
+            response = self.client.models.generate_content(
+                model=self._model,
+                contents=contents,
+                config=generate_content_config,
+            )
+            if (
+                response.candidates
+                and response.candidates[0].content
+                and response.candidates[0].content.parts
+            ):
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        file_extension = mimetypes.guess_extension(
+                            part.inline_data.mime_type
+                        )
+                        filename = f"{uuid.uuid4()}{file_extension}"
+                        filepath = os.path.join(
+                            tempfile.gettempdir(),
+                            "generated_images",
+                            filename,
+                        )
+                        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                        with open(filepath, "wb") as f:
+                            f.write(part.inline_data.data)
+                        return ImageResult(
+                            status=ImageStatus.OK,
+                            filepath=filepath,
+                            provider=self._provider,
+                            model=self._model,
+                            mime_type=part.inline_data.mime_type,
+                            size_bytes=len(part.inline_data.data),
+                        )
+            return ImageResult(
+                status=ImageStatus.FAILED,
+                error="No image data in response",
+                provider=self._provider,
+                model=self._model,
+            )
+        except Exception as e:
+            msg = str(e)
+            if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+                return ImageResult(
+                    status=ImageStatus.QUOTA_EXCEEDED,
+                    error="Daily image generation quota exhausted",
+                    provider=self._provider,
+                    model=self._model,
                 )
-
-            # Initialize Vertex AI once
-            vertexai.init(project=project_id, location=location)
-
-        # Cache for model instances
-        self._model_cache = {}
-
-    def generate_image(self, prompt: str, model: str) -> str:
-        """Generate image using Imagen via Vertex AI."""
-        if not VERTEX_AI_AVAILABLE:
-            raise ValueError(
-                "Vertex AI not available. Install google-cloud-aiplatform package."
+            if "503" in msg or "UNAVAILABLE" in msg:
+                return ImageResult(
+                    status=ImageStatus.UNAVAILABLE,
+                    error="Image generation temporarily unavailable",
+                    provider=self._provider,
+                    model=self._model,
+                )
+            if "only supports text output" in msg:
+                return ImageResult(
+                    status=ImageStatus.UNSUPPORTED,
+                    error=f"Model {self._model} does not support image generation",
+                    provider=self._provider,
+                    model=self._model,
+                )
+            return ImageResult(
+                status=ImageStatus.FAILED,
+                error=msg,
+                provider=self._provider,
+                model=self._model,
             )
 
-        # Get cached model or create new one
-        if model not in self._model_cache:
-            self._model_cache[model] = ImageGenerationModel.from_pretrained(model)
 
-        imagen_model = self._model_cache[model]
+class VertexImagen(ImageProvider):
+    def __init__(self, config: ImageConfig):
+        self._model = config.model
+        self._provider = config.provider
+        self._model_cache = {}
 
-        # Generate image
-        images = imagen_model.generate_images(
-            prompt=prompt,
-            number_of_images=1,
-            aspect_ratio="1:1",
-            safety_filter_level="block_some",
-            person_generation="allow_adult",
+        if VERTEX_AI_AVAILABLE:
+            project_id = config.project_id
+            if not project_id:
+                raise ValueError(
+                    "GOOGLE_CLOUD_PROJECT required for Vertex AI image generation"
+                )
+            vertexai.init(project=project_id, location=config.location)
+
+    @property
+    def provider_type(self) -> str:
+        return self._provider
+
+    def generate(self, prompt: str) -> ImageResult:
+        if not VERTEX_AI_AVAILABLE:
+            return ImageResult(
+                status=ImageStatus.UNSUPPORTED,
+                error="Vertex AI not available. Install google-cloud-aiplatform",
+                provider=self._provider,
+                model=self._model,
+            )
+
+        try:
+            if self._model not in self._model_cache:
+                self._model_cache[self._model] = ImageGenerationModel.from_pretrained(
+                    self._model
+                )
+
+            imagen_model = self._model_cache[self._model]
+            images = imagen_model.generate_images(
+                prompt=prompt,
+                number_of_images=1,
+                aspect_ratio="1:1",
+                safety_filter_level="block_some",
+                person_generation="allow_adult",
+            )
+
+            if images and len(images) > 0:
+                filename = f"{uuid.uuid4()}.png"
+                filepath = os.path.join(
+                    tempfile.gettempdir(), "generated_images", filename
+                )
+                os.makedirs(os.path.dirname(filepath), exist_ok=True)
+                images[0].save(location=filepath, include_generation_parameters=False)
+                return ImageResult(
+                    status=ImageStatus.OK,
+                    filepath=filepath,
+                    provider=self._provider,
+                    model=self._model,
+                    mime_type="image/png",
+                    size_bytes=os.path.getsize(filepath),
+                )
+
+            return ImageResult(
+                status=ImageStatus.FAILED,
+                error="No image generated",
+                provider=self._provider,
+                model=self._model,
+            )
+
+        except Exception as e:
+            msg = str(e)
+            if "429" in msg or "quota" in msg.lower():
+                return ImageResult(
+                    status=ImageStatus.QUOTA_EXCEEDED,
+                    error="Vertex AI image generation quota exceeded",
+                    provider=self._provider,
+                    model=self._model,
+                )
+            return ImageResult(
+                status=ImageStatus.FAILED,
+                error=msg,
+                provider=self._provider,
+                model=self._model,
+            )
+
+
+class MockImage(ImageProvider):
+    @property
+    def provider_type(self) -> str:
+        return "mock"
+
+    def generate(self, prompt: str) -> ImageResult:
+        import struct
+        import zlib
+
+        width, height = 64, 64
+        raw_data = b""
+        for y in range(height):
+            raw_data += b"\x00"
+            for x in range(width):
+                raw_data += b"\xff\x00\x00"
+        compressor = zlib.compressobj()
+        compressed = compressor.compress(raw_data) + compressor.flush()
+
+        def chunk(chunk_type, data):
+            c = chunk_type + data
+            return (
+                struct.pack(">I", len(data))
+                + c
+                + struct.pack(">I", zlib.crc32(c) & 0xFFFFFFFF)
+            )
+
+        ihdr = chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+        idat = chunk(b"IDAT", compressed)
+        iend = chunk(b"IEND", b"")
+
+        png_data = b"\x89PNG\r\n\x1a\n" + ihdr + idat + iend
+
+        filename = f"{uuid.uuid4()}.png"
+        filepath = os.path.join(tempfile.gettempdir(), "generated_images", filename)
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "wb") as f:
+            f.write(png_data)
+
+        return ImageResult(
+            status=ImageStatus.OK,
+            filepath=filepath,
+            provider="mock",
+            model="mock",
+            mime_type="image/png",
+            width=width,
+            height=height,
+            size_bytes=len(png_data),
         )
 
-        if images and len(images) > 0:
-            filename = f"{uuid.uuid4()}.png"
-            filepath = os.path.join(tempfile.gettempdir(), "generated_images", filename)
-            os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
-            # Save the image
-            images[0].save(location=filepath, include_generation_parameters=False)
-            return filepath
+class ImageProviderRegistry:
+    _providers: dict[str, type[ImageProvider]] = {}
 
-        raise ValueError("Failed to generate image with Imagen")
+    @classmethod
+    def register(cls, name: str, provider_cls: type[ImageProvider]) -> None:
+        cls._providers[name] = provider_cls
+
+    @classmethod
+    def create(cls, name: str, config: ImageConfig) -> ImageProvider:
+        provider_cls = cls._providers.get(name)
+        if not provider_cls:
+            registered = ", ".join(cls.available())
+            raise ValueError(
+                f"Unknown image provider '{name}'. Registered: {registered}"
+            )
+        return provider_cls(config)
+
+    @classmethod
+    def available(cls) -> list[str]:
+        return list(cls._providers.keys())
+
+    @classmethod
+    def get(cls, name: str) -> Optional[type[ImageProvider]]:
+        return cls._providers.get(name)
 
 
-class ImageGenerationService:
-    """Unified service for image generation across multiple providers."""
-
-    def __init__(self, api_key: str):
-        self.providers = {
-            "gemini": GeminiImageProvider(api_key),
-            "imagen": ImagenImageProvider(),
-        }
-
-    def generate_image(self, prompt: str, model: str) -> str:
-        """Generate image using the appropriate provider based on model name."""
-        # Centralize prompt validation to follow DRY principle
-        if not prompt or len(prompt) > 5000:
-            raise ValueError("Invalid prompt")
-
-        if model.startswith("imagen-"):
-            provider = self.providers.get("imagen")
-            if not provider:
-                raise ValueError("Imagen provider not available")
-            return provider.generate_image(prompt, model)
-        else:
-            # Default to Gemini for other models
-            provider = self.providers.get("gemini")
-            if not provider:
-                raise ValueError("Gemini provider not available")
-            return provider.generate_image(prompt, model)
+ImageProviderRegistry.register("gemini", GeminiFlashImage)
+ImageProviderRegistry.register("vertex", VertexImagen)
+ImageProviderRegistry.register("mock", MockImage)

@@ -16,7 +16,8 @@ from gtts import gTTS
 from google import genai as google_genai
 from google.genai import types
 from . import models
-from .image_providers import ImageGenerationService
+from .image_models import ImageConfig, ImageResult, ImageStatus
+from .image_providers import ImageProviderRegistry
 
 try:
     import redis
@@ -44,7 +45,10 @@ class GeminiAI:
                 )
         if self.cache is None:
             self.cache = {}  # In-memory cache
-        self.image_service = ImageGenerationService(self.api_key)
+        self.image_config = ImageConfig.from_env()
+        self.image_provider = ImageProviderRegistry.create(
+            self.image_config.provider, self.image_config
+        )
 
     def generate_text(self, prompt: str) -> str:
         """Generate text response from prompt."""
@@ -149,13 +153,15 @@ class GeminiAI:
         # Simple text normalization: trim and normalize spaces
         return re.sub(r"\s+", " ", text.strip())
 
-    def generate_image(self, prompt: str) -> str:
-        """Generate image and return file path."""
+    def generate_image(self, prompt: str) -> ImageResult:
+        """Generate image and return result."""
         if not prompt or len(prompt) > 5000:
-            raise ValueError("Invalid prompt")
+            return ImageResult(
+                status=ImageStatus.FAILED,
+                error="Invalid prompt (max 5000 chars)",
+            )
 
-        model = models.IMAGE_MODEL
-        return self.image_service.generate_image(prompt, model)
+        return self.image_provider.generate(prompt)
 
     def research_topic(self, topic: str) -> Dict[str, Any]:
         """Perform multi-step research using Deep Research agent."""
