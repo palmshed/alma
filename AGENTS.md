@@ -82,7 +82,7 @@ Never introduce upward dependencies.
 
 Before creating something new, ask:
 
-1. Can an existing component naturally own this?
+1. Can an existing component, hook, or service be extended?
 2. Is it reusable UI?
 3. Is it UI behavior?
 4. Is it external communication?
