@@ -1,0 +1,13 @@
+Welcome to ${product}
+========================
+
+Hi ${name},
+
+We're excited to have you onboard. Get started by exploring your
+dashboard and setting up your profile.
+
+Get started: ${link}
+
+---
+Sent by ${product}
+Built by Palmshed
