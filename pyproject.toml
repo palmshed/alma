@@ -19,6 +19,7 @@ dependencies = [
 
 [project.scripts]
 palmshed-ai = "palmshed_ai:main"
+alma = "backend.verify:main"
 
 [dependency-groups]
 dev = [
@@ -49,7 +50,7 @@ target-version = ['py312']
 
 [tool.setuptools.packages.find]
 where = ["backend"]
-include = ["palmshed_ai*", "services*"]
+include = ["palmshed_ai*", "services*", "backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
