@@ -39,10 +39,21 @@ class ResendProvider(MailProvider):
             headers["X-Request-Id"] = message.id
 
         try:
-            conn = http.client.HTTPSConnection(HOST, timeout=self.timeout)
-            conn.request("POST", "/emails", body=payload, headers=headers)
-            resp = conn.getresponse()
-            response_body = json.loads(resp.read())
+            with http.client.HTTPSConnection(HOST, timeout=self.timeout) as conn:
+                conn.request("POST", "/emails", body=payload, headers=headers)
+                resp = conn.getresponse()
+                resp json.loads(resp.read().decode("utf-8"))
+                
+                if not (200 <= resp.status < 300):
+                    logger.error("Resend API error (HTTP %d): %s", resp.status, response_body)
+                    return MailResult(
+                        mail_id=message.id or "",
+                        status=MailStatus.FAILED,
+                        provider="resend",
+                        timestamp=datetime.now(timezone.utc),
+                        retry_count=message.retry_count,
+                        error=response_body.get("message", "Unknown error"),
+                    )
             status = resp.status
             conn.close()
         except Exception as exc:
