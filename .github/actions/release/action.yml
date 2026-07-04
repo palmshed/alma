@@ -24,10 +24,10 @@ runs:
     - name: Bump version files
       run: |
         python3 -c "
-        import re, sys
+        import os, re
 
-        current = '${{ env.CURRENT }}'
-        new = '${{ env.NEW }}'
+        current = os.environ['CURRENT']
+        new = os.environ['NEW']
 
         # VERSION
         with open('VERSION', 'w') as f:
