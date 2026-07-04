@@ -62,6 +62,9 @@ runs:
         print(f'Version bumped: {current} → {new}')
         "
       shell: bash
+    - name: Sync uv.lock
+      run: uv lock
+      shell: bash
     - name: Create PR
       id: create-pr
       uses: peter-evans/create-pull-request@v6
