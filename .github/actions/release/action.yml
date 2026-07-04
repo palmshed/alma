@@ -1,12 +1,12 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# Composite Action: Handle Release
-# This action automates the release process: version bumping, PR creation,
-# tagging, and GitHub release publishing.
+# Composite Action: Prepare Version Bump
+# Creates a PR that bumps VERSION, __init__.py, and pyproject.toml.
+# Tagging and release happen in a separate workflow after merge.
 
-name: 'Handle Release'
-description: 'Bump version, create PR, tag, and release'
+name: 'Prepare Version Bump'
+description: 'Bump version and create PR'
 inputs:
   token:
     description: GitHub token for API access
@@ -14,15 +14,53 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Bump version
+    - name: Compute new version
       run: |
         current=$(cat VERSION)
-        new=$(echo $current | awk -F. '{print $1"."$2"."($3+1)}')
-        echo $new > VERSION
-        sed -i "s/__version__ = \"$current\"/__version__ = \"$new\"/" backend/palmshed_ai/__init__.py
-        sed -i "s/version = \"$current\"/version = \"$new\"/" pyproject.toml
-        echo "CURRENT_VERSION=$current" >> $GITHUB_ENV
-        echo "NEW_VERSION=$new" >> $GITHUB_ENV
+        new=$(echo "$current" | awk -F. '{print $1"."$2"."($3+1)}')
+        echo "CURRENT=$current" >> $GITHUB_ENV
+        echo "NEW=$new" >> $GITHUB_ENV
+      shell: bash
+    - name: Bump version files
+      run: |
+        python3 -c "
+        import re, sys
+
+        current = '${{ env.CURRENT }}'
+        new = '${{ env.NEW }}'
+
+        # VERSION
+        with open('VERSION', 'w') as f:
+            f.write(new + '\n')
+
+        # __init__.py
+        with open('backend/palmshed_ai/__init__.py', 'r') as f:
+            content = f.read()
+        content = content.replace(f'__version__ = \"{current}\"', f'__version__ = \"{new}\"')
+        with open('backend/palmshed_ai/__init__.py', 'w') as f:
+            f.write(content)
+
+        # pyproject.toml — only the top-level version line
+        with open('pyproject.toml', 'r') as f:
+            lines = f.readlines()
+        for i, line in enumerate(lines):
+            if line.startswith('version = ') and 'target-version' not in line:
+                lines[i] = f'version = \"{new}\"\n'
+                break
+        with open('pyproject.toml', 'w') as f:
+            f.writelines(lines)
+
+        # Verify all three agree
+        with open('VERSION') as f:
+            v1 = f.read().strip()
+        with open('backend/palmshed_ai/__init__.py') as f:
+            v2 = re.search(r'__version__ = \"(.+?)\"', f.read()).group(1)
+        with open('pyproject.toml') as f:
+            v3 = re.search(r'^version = \"(.+?)\"', f.read(), re.MULTILINE).group(1)
+
+        assert v1 == v2 == v3 == new, f'Version mismatch: VERSION={v1} __init__={v2} pyproject={v3}'
+        print(f'Version bumped: {current} → {new}')
+        "
       shell: bash
     - name: Create PR
       id: create-pr
@@ -30,65 +68,13 @@ runs:
       with:
         token: ${{ inputs.token }}
         branch: automated/version-bump
-        title: "Automated version bump"
+        title: "chore: bump version to v${{ env.NEW }}"
         body: |
-          This PR bumps the version for a new release.
+          Prepares release v${{ env.NEW }}.
 
-          - Increments patch version
-          - Updates VERSION, __init__.py, pyproject.toml
-        commit-message: "chore: bump version"
+          - Updates VERSION, `__init__.py`, pyproject.toml
+          - All version sources verified in sync
+        commit-message: "chore: bump version to v${{ env.NEW }}"
         labels: |
           automated
           version-bump
-    - name: Update PR description
-      run: |
-        # Generate updated PR description with actual changes
-        changes=$(git log --oneline --pretty=format:"- %s" HEAD~1..HEAD | grep -v "fix: pre-commit" | grep -v "feat: add pre-commit" | head -10)
-        pr_body="This PR prepares a new release (v${{ env.NEW_VERSION }}).
-
-        ## Changes Included
-        $changes
-
-        ## Automated Updates
-        - Increments patch version
-        - Updates VERSION, __init__.py, pyproject.toml
-
-        ---
-        *This PR was auto-generated. Review changes before merging.*"
-
-        # Update the PR description using GitHub CLI
-        gh pr edit ${{ steps.create-pr.outputs.pull-request-number }} --body "$pr_body"
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-    - name: Create tag
-      run: |
-        if ! git ls-remote --tags origin | grep -q "refs/tags/v${{ env.NEW_VERSION }}"; then
-          git tag v${{ env.NEW_VERSION }} && git push origin v${{ env.NEW_VERSION }}
-        fi
-      shell: bash
-    - name: Generate release notes
-      run: |
-        notes=$(git log --oneline --pretty=format:"- %s" HEAD~1..HEAD | grep -v "fix: pre-commit" | grep -v "feat: add pre-commit")
-        echo "RELEASE_NOTES<<EOF" >> $GITHUB_ENV
-        echo "## Automated release v${{ env.NEW_VERSION }}" >> $GITHUB_ENV
-        echo "" >> $GITHUB_ENV
-        echo "### Changes" >> $GITHUB_ENV
-        echo "$notes" >> $GITHUB_ENV
-        echo "" >> $GITHUB_ENV
-        echo "### Features" >> $GITHUB_ENV
-        echo "- Multi-language AI platform (Python, Rust, Go, TypeScript, Cython)" >> $GITHUB_ENV
-        echo "- Async operations and caching" >> $GITHUB_ENV
-        echo "- Security hardening" >> $GITHUB_ENV
-        echo "- CI/CD automation" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-      shell: bash
-
-    - name: Create release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: v${{ env.NEW_VERSION }}
-        name: Release v${{ env.NEW_VERSION }}
-        body: ${{ env.RELEASE_NOTES }}
-        draft: false
-        prerelease: false
