@@ -543,16 +543,16 @@ Record the successful end-to-end delivery test here.
 
 | Field | Value |
 |-------|-------|
-| Date | |
+| Date | 2026-07-04 |
 | Provider | Resend |
 | Sender | `onboarding@resend.dev` |
-| Recipient | `yourname@gmail.com` |
+| Recipient | Verified Resend account owner |
 | Template | `WELCOME` |
-| `provider_message_id` returned | ✅ / ❌ |
-| Arrived in inbox | ✅ / ❌ / Spam |
-| HTML rendered correctly | ✅ / ❌ |
-| Plain text rendered correctly | ✅ / ❌ |
-| Migration required | No — custom domain purchase deferred |
+| `provider_message_id` returned | ✅ `999810f5-03f9-4777-a380-3fa84add28d3` |
+| Arrived in inbox | ✅ |
+| HTML rendered correctly | ✅ |
+| Plain text rendered correctly | ✅ |
+| Migration required | Yes — sender still uses `onboarding@resend.dev` |
 
 ### Migration to custom domain
 
