@@ -9,15 +9,22 @@ This document describes the architectural principles for contributors. It intent
 The application is organized into clear ownership boundaries.
 
 ```
-Layouts
-↓
-Components
-↓
-Hooks
-↓
-Services
-↓
-Backend
+Application
+│
+├── UI
+│   ├── Layouts
+│   ├── Components
+│   └── Hooks
+│
+├── Application Services
+│
+├── Platform Services
+│   ├── Mail
+│   ├── Auth (future)
+│   ├── Storage (future)
+│   └── Notifications (future)
+│
+└── Infrastructure
 ```
 
 ### Layouts
@@ -44,10 +51,34 @@ Backend
 
 ### Services
 
-- Own all communication with external systems.
+- Operate at the product layer (application-specific).
+- Coordinate calls to Platform Services.
 - Never import React.
 - Never depend on UI components.
 - Provide stable interfaces for hooks.
+
+### Platform Services
+
+Platform services provide reusable infrastructure shared across Palmshed products.
+
+A capability belongs in Platform Services when it is reusable across
+products, owns external integrations or infrastructure, and can evolve
+independently of any single application.
+
+Examples:
+
+- Mail
+- Authentication (future)
+- Storage (future)
+- Notifications (future)
+
+Platform services:
+
+- are product-agnostic
+- expose stable public APIs
+- own external integrations
+- never depend on application-specific modules
+- are designed for future extraction without changing consumers
 
 ### Utils
 
@@ -63,20 +94,29 @@ Backend
 Dependencies should always flow downward.
 
 ```
-Layouts
+UI
 ↓
-Components
+Application Services
 ↓
-Hooks
+Platform Services
 ↓
-Services
-↓
-Backend
+Infrastructure
 ```
 
 Never introduce upward dependencies.
 
 ---
+
+## Application
+
+Code lives under the Application umbrella. It composes UI, routes
+requests to services, and owns product-specific behavior.
+
+Application code may depend on Platform Services but must never import
+from other application modules in a way that creates tight coupling
+across unrelated features.
+
+--- 
 
 ## Ownership Rules
 
@@ -96,11 +136,27 @@ Use the following mapping:
 | Presentation | Component |
 | UI behavior | Hook |
 | External communication | Service |
+| Shared infrastructure | Platform Service |
 | Pure logic | Utils |
 
 Avoid introducing new layers without a clear long-term responsibility.
 
 ---
+
+## Architecture Decision Records
+
+Major architectural decisions are documented in `docs/architecture/`.
+
+AGENTS.md explains **how** contributors work.
+
+ADRs explain **why** important decisions were made.
+
+Current records:
+
+- `0001-platform-services.md` — introducing the Platform Services layer
+- `0002-mail-service.md` — mail as a reusable platform capability
+
+--- 
 
 ## Composition Philosophy
 

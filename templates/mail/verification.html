@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verify your email</title>
+</head>
+<body style="margin:0;padding:0;background:#0a0a0a;color:#e0e0e0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td align="center" style="padding:48px 16px;">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:100%;">
+          <tr>
+            <td style="padding:0 0 32px;text-align:center;">
+              <h1 style="margin:0;font-size:24px;font-weight:600;color:#ffffff;">${product}</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#141414;border-radius:8px;padding:32px;">
+              <h2 style="margin:0 0 16px;font-size:20px;font-weight:500;color:#ffffff;">Verify your email</h2>
+              <p style="margin:0 0 24px;line-height:1.6;color:#a0a0a0;">Use the code below to verify your email address. This code expires in ${expires_in}.</p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
+                <tr>
+                  <td style="background:#1a1a1a;border-radius:6px;padding:16px 32px;font-family:monospace;font-size:28px;font-weight:600;color:#24d455;letter-spacing:6px;text-align:center;">
+                    ${code}
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0;font-size:12px;color:#666666;">Or click the link: <a href="${link}" style="color:#24d455;">${link}</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 0 0;text-align:center;font-size:12px;color:#666666;">
+              <p style="margin:0 0 4px;">Sent by ${product}</p>
+              <p style="margin:0;">Built by Palmshed</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
