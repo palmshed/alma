@@ -1,5 +1,5 @@
 import React from 'react';
-// SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
 
 interface ImageContainerProps {

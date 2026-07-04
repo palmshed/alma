@@ -1,11 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
 import os
 import tempfile
 import pytest
 from unittest.mock import patch
-from vortai import create_app
+from palmshed_ai import create_app
 
 # Set dummy API key for testing
 os.environ["GEMINI_API_KEY"] = "dummy"
@@ -29,10 +29,10 @@ def test_app_creation():
     """Test that the Flask app creates successfully."""
     app = create_app()
     assert app is not None
-    assert app.name == "vortai"
+    assert app.name == "palmshed_ai"
 
 
-@patch("vortai.routes.api.ai.generate_text")
+@patch("palmshed_ai.routes.api.ai.generate_text")
 def test_generate_api_success(mock_generate, client):
     """Test the generate API with valid prompt."""
     mock_generate.return_value = "Mocked response"
@@ -73,7 +73,7 @@ def test_generate_api_prompt_too_long(client):
     assert "Prompt too long" in data["error"]
 
 
-@patch("vortai.routes.api.ai.generate_text_with_thinking")
+@patch("palmshed_ai.routes.api.ai.generate_text_with_thinking")
 def test_generate_with_thinking_success(mock_thinking, client):
     """Test the thinking mode API with valid prompt."""
     mock_response = {
@@ -100,7 +100,7 @@ def test_generate_with_thinking_missing_prompt(client):
     assert "No prompt provided" in data["error"]
 
 
-@patch("vortai.routes.api.ai.generate_text_with_url_context")
+@patch("palmshed_ai.routes.api.ai.generate_text_with_url_context")
 def test_generate_with_url_context_success(mock_url_context, client):
     """Test the URL context API with valid prompt."""
     mock_url_context.return_value = "Mocked URL context response"
@@ -124,7 +124,7 @@ def test_generate_with_url_context_missing_prompt(client):
     assert "No prompt provided" in data["error"]
 
 
-@patch("vortai.routes.api.ai.text_to_speech")
+@patch("palmshed_ai.routes.api.ai.text_to_speech")
 def test_text_to_speech_success(mock_tts, client):
     """Test the TTS API with valid text."""
     # Use a path within the expected temp directory
@@ -177,12 +177,12 @@ def test_text_to_speech_text_too_long(client):
     assert "Text too long" in data["error"]
 
 
-@patch("vortai.routes.api.ai.generate_image")
+@patch("palmshed_ai.routes.api.ai.generate_image")
 def test_generate_image_success(mock_image_gen, client):
     """Test the image generation API with valid prompt."""
     # Use a path within the expected temp directory
     temp_image_path = os.path.join(
-        tempfile.gettempdir(), "vortai_images", "test_image.png"
+        tempfile.gettempdir(), "generated_images", "test_image.png"
     )
     # Create the file so send_file works
     os.makedirs(os.path.dirname(temp_image_path), exist_ok=True)
@@ -232,7 +232,7 @@ def test_generate_image_prompt_too_long(client):
     assert "Prompt too long" in data["error"]
 
 
-@patch("vortai.routes.api.ai.generate_text")
+@patch("palmshed_ai.routes.api.ai.generate_text")
 def test_generate_api_exception_handling(mock_generate, client):
     """Test exception handling in generate API."""
     mock_generate.side_effect = Exception("API Error")
@@ -244,7 +244,7 @@ def test_generate_api_exception_handling(mock_generate, client):
     assert data["error"] == "Internal server error"
 
 
-@patch("vortai.routes.api.ai.generate_text_with_thinking")
+@patch("palmshed_ai.routes.api.ai.generate_text_with_thinking")
 def test_thinking_api_exception_handling(mock_thinking, client):
     """Test exception handling in thinking API."""
     mock_thinking.side_effect = Exception("Thinking API Error")
@@ -256,7 +256,7 @@ def test_thinking_api_exception_handling(mock_thinking, client):
     assert data["error"] == "Internal server error"
 
 
-@patch("vortai.routes.api.ai.generate_text_with_url_context")
+@patch("palmshed_ai.routes.api.ai.generate_text_with_url_context")
 def test_url_context_api_exception_handling(mock_url_context, client):
     """Test exception handling in URL context API."""
     mock_url_context.side_effect = Exception("URL Context API Error")
@@ -268,7 +268,7 @@ def test_url_context_api_exception_handling(mock_url_context, client):
     assert data["error"] == "Internal server error"
 
 
-@patch("vortai.routes.api.ai.text_to_speech")
+@patch("palmshed_ai.routes.api.ai.text_to_speech")
 def test_tts_api_exception_handling(mock_tts, client):
     """Test exception handling in TTS API."""
     mock_tts.side_effect = Exception("TTS API Error")
@@ -280,7 +280,7 @@ def test_tts_api_exception_handling(mock_tts, client):
     assert data["error"] == "Internal server error"
 
 
-@patch("vortai.routes.api.ai.generate_image")
+@patch("palmshed_ai.routes.api.ai.generate_image")
 def test_image_api_exception_handling(mock_image_gen, client):
     """Test exception handling in image generation API."""
     mock_image_gen.side_effect = Exception("Image API Error")
@@ -292,7 +292,7 @@ def test_image_api_exception_handling(mock_image_gen, client):
     assert data["error"] == "Internal server error"
 
 
-@patch("vortai.routes.api.ai.research_topic")
+@patch("palmshed_ai.routes.api.ai.research_topic")
 def test_research_api_success(mock_research, client):
     """Test the research API with valid topic."""
     mock_response = {"report": "Mocked research report", "citations": []}
@@ -331,7 +331,7 @@ def test_research_api_topic_too_long(client):
     assert "Topic too long" in data["error"]
 
 
-@patch("vortai.routes.api.ai.research_topic")
+@patch("palmshed_ai.routes.api.ai.research_topic")
 def test_research_api_exception_handling(mock_research, client):
     """Test exception handling in research API."""
     mock_research.side_effect = Exception("Research API Error")

@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
 [project]
-name = "vortai"
+name = "palmshed-ai"
 version = "0.0.8"
 license = "MIT"
 requires-python = ">=3.9"
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-vortai = "vortai:main"
+palmshed-ai = "palmshed_ai:main"
 
 [dependency-groups]
 dev = [
@@ -48,9 +48,11 @@ line-length = 88
 target-version = ['py312']
 
 [tool.setuptools.packages.find]
-include = ["vortai*"]
+where = ["backend"]
+include = ["palmshed_ai*"]
 
 [tool.pytest.ini_options]
+testpaths = ["backend/tests"]
 filterwarnings = [
     "ignore::DeprecationWarning:google.*",
 ]

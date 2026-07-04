@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-// SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
-// SPDX-License-Identifier: MIT
+import { api } from '../services/api';
 
 interface TTSButtonProps {
   text: string;
@@ -12,34 +11,14 @@ const TTSButton: React.FC<TTSButtonProps> = ({ text, onAudio }) => {
 
   const handleTTS = async () => {
     if (!text.trim()) return;
-
-    console.log('🔊 Starting TTS for text:', text.substring(0, 50) + '...');
     setIsLoading(true);
-
     try {
-      const response = await fetch('http://localhost:8000/api/text-to-speech', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
-
-      console.log('📊 TTS response status:', response.status);
-
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        onAudio(url);
-        console.log('✅ TTS audio generated successfully');
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ TTS error:', errorData.error);
-        throw new Error(errorData.error || 'TTS failed');
-      }
-    } catch (error) {
-      console.error('💥 TTS failed:', error);
+      const blob = await api.textToSpeech(text);
+      const url = URL.createObjectURL(blob);
+      onAudio(url);
+    } catch {
     } finally {
       setIsLoading(false);
-      console.log('🏁 TTS completed');
     }
   };
 

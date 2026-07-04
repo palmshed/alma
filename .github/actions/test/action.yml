@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
 # Composite Action: Run Tests
@@ -33,10 +33,10 @@ runs:
       run: uv run black --check .
       shell: bash
     - name: Run unit tests with coverage
-      run: PYTHONPATH=. uv run pytest tests/ --cov=vortai --cov-report=xml -W ignore::DeprecationWarning
+      run: PYTHONPATH=backend uv run pytest backend/tests/ --cov=palmshed_ai --cov-report=xml -W ignore::DeprecationWarning
       shell: bash
     - name: Run integration test
-      run: uv run pytest tests/integration/test_smoke.py
+      run: PYTHONPATH=backend uv run pytest backend/tests/integration/test_smoke.py
       shell: bash
     - name: Validate vercel.json
       run: python -m json.tool deploy/vercel/vercel.json > /dev/null && echo "vercel.json is valid"

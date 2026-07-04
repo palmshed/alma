@@ -1,470 +1,456 @@
 "use strict";
-// SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
-// SPDX-License-Identifier: MIT
-// Initialize marked.js for markdown rendering
-marked.setOptions({
-    breaks: true,
-    gfm: true
-});
+marked.setOptions({ breaks: true, gfm: true });
 
-// TTS button handler
+/* ── Helpers ── */
+
+function getActiveInput() {
+  const landing = document.getElementById('landing');
+  const conversation = document.getElementById('conversation');
+  if (landing && landing.style.display !== 'none') {
+    return document.getElementById('landing-input');
+  }
+  return document.getElementById('conversation-input');
+}
+
+function getActiveSubmit() {
+  const landing = document.getElementById('landing');
+  if (landing && landing.style.display !== 'none') {
+    return document.getElementById('submit-button');
+  }
+  return document.getElementById('conversation-submit');
+}
+
+function getActiveMode() {
+  const active = document.querySelector('.segmented-control-btn.active');
+  return {
+    mode: active ? active.dataset.mode : 'text',
+    style: active ? active.dataset.style : 'normal',
+  };
+}
+
+/* ── TTS ── */
+
 function handleTTS() {
-    const ttsButton = document.getElementById('tts-button');
-    const text = ttsButton.getAttribute('data-text');
-    const audioPlayer = document.getElementById('audio-player');
+  const btn = document.getElementById('tts-button');
+  const text = btn.getAttribute('data-text');
+  const audio = document.getElementById('audio-player');
+  if (!text || !text.trim()) return;
 
-    if (!text || !text.trim()) {
-        showError('No text available for TTS');
-        return;
-    }
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
 
-    // Show loading state
-    ttsButton.disabled = true;
-    ttsButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-    fetch('/api/text-to-speech', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: text })
+  fetch('/api/text-to-speech', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('TTS failed');
+      return r.blob();
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('TTS request failed');
-        }
-        return response.blob();
+    .then((blob) => {
+      audio.src = URL.createObjectURL(blob);
+      audio.style.display = 'block';
+      audio.play();
     })
-    .then(blob => {
-        const url = URL.createObjectURL(blob);
-        audioPlayer.src = url;
-        audioPlayer.style.display = 'block';
-        audioPlayer.play();
-    })
-    .catch(error => {
-        console.error('TTS Error:', error);
-        showError('Failed to generate audio. Please try again.');
-    })
+    .catch((e) => console.error('TTS:', e))
     .finally(() => {
-        // Reset button state
-        ttsButton.disabled = false;
-        ttsButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+      btn.disabled = false;
+      btn.textContent = 'Listen';
     });
 }
 
-// Unified search handler
-function handleUnifiedSearch() {
-    const input = document.querySelector('.unified-input');
-    const { mode, style } = getSelectedMode();
-    const prompt = input.value.trim();
-    if (!prompt) {
-        showError('Hmm… we\'re waiting on your next word. What would you like to ask?');
-        return;
-    }
-    // Clear previous results
-    clearResults();
-    // Show loading state
-    showLoading(mode);
-    // Route to appropriate handler based on mode and style
-    if (mode === 'text') {
-        handleTextGeneration(prompt, style);
-    }
-    else if (mode === 'image') {
-        handleImageGeneration(prompt);
-    }
-}
-// Clear all result containers
+/* ── Results ── */
+
 function clearResults() {
-    const responseContainer = document.getElementById('response');
-    const thinkingContainer = document.getElementById('thinking');
-    const imageContainer = document.getElementById('image-container');
-    const ttsButton = document.getElementById('tts-button');
-    const audioPlayer = document.getElementById('audio-player');
-    responseContainer.style.display = 'none';
-    thinkingContainer.style.display = 'none';
-    imageContainer.style.display = 'none';
-    ttsButton.style.display = 'none';
-    audioPlayer.style.display = 'none';
-    audioPlayer.pause();
-    audioPlayer.src = '';
+  const scroll = document.getElementById('conversation-scroll');
+  scroll.innerHTML = '';
+  document.getElementById('tts-button').style.display = 'none';
+  const audio = document.getElementById('audio-player');
+  audio.style.display = 'none';
+  audio.pause();
+  audio.src = '';
+  document.getElementById('image-container').style.display = 'none';
 }
-// Show loading state
-function showLoading(mode) {
-    const submitButton = document.getElementById('submit-button');
-    submitButton.classList.add('loading');
-    submitButton.disabled = true;
-    if (mode === 'text') {
-        const responseContainer = document.getElementById('response');
-        responseContainer.innerHTML = '<em id="thinking-text" class="character-by-character">Thinking...</em>';
-        animateText(responseContainer.querySelector('#thinking-text'));
-        responseContainer.style.display = 'block';
-    }
-    else if (mode === 'image') {
-        const imageContainer = document.getElementById('image-container');
-        const imageMessage = document.getElementById('image-message');
-        imageMessage.textContent = 'Generating your image. This may take a minute...';
-        imageMessage.style.display = 'block';
-        imageContainer.style.display = 'block';
-    }
+
+function showLoading() {
+  const btn = getActiveSubmit();
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="composer-loading-dots"><span></span><span></span><span></span></span>';
+  }
+  document.getElementById('conversation-loading-bar').style.display = 'block';
 }
-// Hide loading state
+
 function hideLoading() {
-    const submitButton = document.getElementById('submit-button');
-    submitButton.classList.remove('loading');
-    submitButton.disabled = false;
+  const btn = getActiveSubmit();
+  if (btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>';
+  }
+  document.getElementById('conversation-loading-bar').style.display = 'none';
 }
-// Show error message
-function showError(message) {
-    const responseContainer = document.getElementById('response');
-    responseContainer.innerHTML = `<em>Error: ${message}</em>`;
-    responseContainer.style.display = 'block';
+
+function showError(msg) {
+  const scroll = document.getElementById('conversation-scroll');
+  scroll.innerHTML = `<div class="response-container"><em>Error: ${msg}</em></div>`;
 }
-// Handle text generation based on style
-function handleTextGeneration(prompt, style) {
-    if (style === 'thinking') {
-        handleThinkingMode(prompt);
-    }
-    else if (style === 'url-context') {
-        handleUrlContext(prompt);
-    }
-    else {
-        handleNormalGeneration(prompt);
-    }
+
+/* ── API Calls ── */
+
+function handleSubmit() {
+  const input = getActiveInput();
+  const prompt = input.value.trim();
+  if (!prompt) return;
+  const { mode, style } = getActiveMode();
+
+  switchToConversation();
+
+  const scroll = document.getElementById('conversation-scroll');
+  scroll.innerHTML = `
+    <div class="response-container">
+      <div class="loading-dots" role="status" aria-label="Generating">
+        <span class="loading-dots-label">Generating</span>
+        <div class="loading-dots-track" style="gap:5px">
+          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span>
+          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span>
+          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span>
+        </div>
+      </div>
+    </div>`;
+
+  if (mode === 'image') {
+    handleImageGen(prompt);
+  } else {
+    handleTextGen(prompt, style);
+  }
 }
-// Handle normal text generation
-function handleNormalGeneration(prompt) {
-    fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: prompt })
+
+function handleTextGen(prompt, style) {
+  const endpoint =
+    style === 'thinking' ? '/api/generate-with-thinking'
+    : style === 'url-context' ? '/api/generate-with-url-context'
+    : '/api/generate';
+
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('Request failed');
+      return r.json();
     })
-        .then((response) => {
-        if (!response.ok) {
-            throw new Error('Hmm… grace takes time. Try again.');
-        }
-        return response.json();
+    .then((data) => {
+      const scroll = document.getElementById('conversation-scroll');
+      let html = '';
+      if (data.thinking_summary) {
+        html += `<div class="thinking-container">${data.thinking_summary.join('\n')}</div>`;
+      }
+      html += `<div class="response-container">${marked.parse(data.response || '')}</div>`;
+      scroll.innerHTML = html;
+
+      if (data.response && data.response.trim()) {
+        const btn = document.getElementById('tts-button');
+        btn.style.display = 'block';
+        btn.setAttribute('data-text', data.response);
+      }
     })
-        .then((data) => {
-        const responseContainer = document.getElementById('response');
-        responseContainer.innerHTML = marked.parse(data.response || '');
-        // Show the TTS button if we have a response
-        if (data.response && data.response.trim()) {
-            const ttsButton = document.getElementById('tts-button');
-            ttsButton.style.display = 'block';
-            ttsButton.setAttribute('data-text', data.response);
-        }
-        hideLoading();
+    .catch((e) => { showError(e.message); });
+}
+
+function handleImageGen(prompt) {
+  fetch('/api/generate-image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  })
+    .then((r) => {
+      if (!r.ok) throw new Error('Image generation failed');
+      return r.blob();
     })
-        .catch((error) => {
-        console.error('Error:', error);
-        showError(error.message);
-        hideLoading();
-    });
-}
-// Get selected mode
-function getSelectedMode() {
-    const activeTab = document.querySelector('.search-tab.active');
-    return {
-        mode: activeTab.dataset.mode || '',
-        style: activeTab.dataset.style || ''
-    };
-}
-// Character-by-character animation
-function animateText(element) {
-    const text = element.textContent || '';
-    element.textContent = '';
-    let i = 0;
-    const intervalId = setInterval(() => {
-        element.textContent += text[i];
-        i++;
-        if (i === text.length) {
-            clearInterval(intervalId);
-        }
-    }, 20);
-}
-// Initialize everything when DOM is loaded
-document.addEventListener('DOMContentLoaded', function () {
-    setupUnifiedSearchHandlers();
-    setupThemeToggle();
-    setupMenuToggle();
-    // Initialize suggestions visibility
-    updateSuggestionsVisibility();
-    // Add other setup functions as needed
-});
-// Setup unified search handlers
-function setupUnifiedSearchHandlers() {
-    const input = document.querySelector('.unified-input');
-    const submitButton = document.getElementById('submit-button');
-    const clearButton = document.getElementById('clear-button');
-    const searchTabs = document.querySelectorAll('.search-tab');
-
-    // Handle search tab clicks
-    searchTabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            // Remove active class from all tabs
-            searchTabs.forEach(t => t.classList.remove('active'));
-            // Add active class to clicked tab
-            this.classList.add('active');
-            // Update suggestions visibility
-            updateSuggestionsVisibility();
-        });
-    });
-
-    // Handle submit button click
-    submitButton.addEventListener('click', handleUnifiedSearch);
-    // Handle clear button click
-    clearButton.addEventListener('click', function () {
-        input.value = '';
-        clearButton.style.display = 'none';
-        clearResults();
-        input.focus();
-    });
-    // Handle Enter key press
-    input.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            handleUnifiedSearch();
-        }
-    });
-    // Show/hide clear button and suggestions based on input content
-    input.addEventListener('input', function () {
-        const hasContent = input.value.trim();
-        clearButton.style.display = hasContent ? 'block' : 'none';
-        updateSuggestionsVisibility();
-        // Auto-resize textarea
-        input.style.height = 'auto';
-        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
-    });
-
-    // Handle suggestion chip clicks
-    const suggestionChips = document.querySelectorAll('.suggestion-chip');
-    suggestionChips.forEach(chip => {
-        chip.addEventListener('click', function() {
-            input.value = this.dataset.text;
-            input.focus();
-            // Trigger input event to hide suggestions and show clear button
-            input.dispatchEvent(new Event('input'));
-        });
-    });
-    // Auto-focus on input
-    input.focus();
+    .then((blob) => {
+      const url = URL.createObjectURL(blob);
+      document.getElementById('generated-image').src = url;
+      document.getElementById('generated-image').style.display = 'block';
+      document.getElementById('download-image').href = url;
+      document.getElementById('download-image').style.display = 'inline-block';
+      document.getElementById('fullscreen-image').style.display = 'inline-block';
+      document.getElementById('image-container').style.display = 'block';
+      document.getElementById('conversation-scroll').innerHTML = '';
+    })
+    .catch((e) => { showError(e.message); });
 }
 
-// Setup menu toggle functionality
-function setupMenuToggle() {
-    const menuToggle = document.getElementById('menu-toggle');
-    const sidebarMenu = document.getElementById('sidebar-menu');
-    const menuOverlay = document.getElementById('menu-overlay');
-    const closeMenu = document.getElementById('close-menu');
+/* ── Layout Transitions ── */
 
-    // Function to open menu
-    function openMenu() {
-        sidebarMenu.classList.add('open');
-        menuOverlay.classList.add('active');
-        document.body.style.overflow = 'hidden'; // Prevent body scroll
-    }
-
-    // Function to close menu
-    function closeMenuFunc() {
-        sidebarMenu.classList.remove('open');
-        menuOverlay.classList.remove('active');
-        document.body.style.overflow = ''; // Restore body scroll
-    }
-
-    // Menu toggle button click
-    menuToggle.addEventListener('click', openMenu);
-
-    // Close menu button click
-    closeMenu.addEventListener('click', closeMenuFunc);
-
-    // Overlay click to close
-    menuOverlay.addEventListener('click', closeMenuFunc);
-
-    // Close menu on Escape key
-    document.addEventListener('keydown', function(event) {
-        if (event.key === 'Escape' && sidebarMenu.classList.contains('open')) {
-            closeMenuFunc();
-        }
-    });
-
-    // TTS button click
-    const ttsButton = document.getElementById('tts-button');
-    if (ttsButton) {
-        ttsButton.addEventListener('click', handleTTS);
-    }
+function switchToConversation() {
+  document.getElementById('landing').style.display = 'none';
+  document.getElementById('conversation').style.display = 'flex';
 }
 
-// Setup theme toggle functionality
-function setupThemeToggle() {
-    const themeToggle = document.getElementById('theme-toggle');
-
-    // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-        document.documentElement.setAttribute('data-theme', 'light');
-    }
-
-    // Handle theme toggle click
-    themeToggle.addEventListener('click', function() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        if (currentTheme === 'light') {
-            // Switch to dark theme
-            document.documentElement.removeAttribute('data-theme');
-            localStorage.setItem('theme', 'dark');
-        } else {
-            // Switch to light theme
-            document.documentElement.setAttribute('data-theme', 'light');
-            localStorage.setItem('theme', 'light');
-        }
-    });
+function switchToLanding() {
+  document.getElementById('landing').style.display = '';
+  document.getElementById('conversation').style.display = 'none';
 }
 
-// Update suggestions visibility based on active tab and input content
+function hasConversationContent() {
+  const scroll = document.getElementById('conversation-scroll');
+  return scroll && scroll.innerHTML.trim().length > 0;
+}
+
+function handleNewChat() {
+  var loadingBar = document.getElementById('conversation-loading-bar');
+  if (loadingBar && loadingBar.style.display !== 'none') return;
+  if (hasConversationContent()) {
+    showNewChatDialog();
+  } else {
+    clearResults();
+    switchToLanding();
+    var input = document.getElementById('landing-input');
+    if (input) input.focus();
+  }
+}
+
+function showNewChatDialog() {
+  document.getElementById('new-chat-dialog').style.display = '';
+  document.getElementById('dialog-overlay').style.display = '';
+}
+
+function hideNewChatDialog() {
+  document.getElementById('new-chat-dialog').style.display = 'none';
+  document.getElementById('dialog-overlay').style.display = 'none';
+}
+
+function confirmNewChat() {
+  hideNewChatDialog();
+  clearResults();
+  switchToLanding();
+  const input = document.getElementById('landing-input');
+  if (input) input.focus();
+  const sidebar = document.getElementById('sidebar-menu');
+  if (sidebar && sidebar.classList.contains('open')) closeMenu();
+}
+
+/* ── Suggestions ── */
+
 function updateSuggestionsVisibility() {
-    const input = document.querySelector('.unified-input');
-    const hasContent = input.value.trim();
-    const suggestions = document.getElementById('input-suggestions');
-    const activeTab = document.querySelector('.search-tab.active');
+  const input = getActiveInput();
+  const hasContent = input && input.value.trim();
+  const suggestions = document.querySelector('.landing-suggestions');
+  if (!suggestions) return;
 
-    if (hasContent) {
-        suggestions.style.display = 'none';
-        return;
+  if (hasContent) {
+    suggestions.style.display = 'none';
+    return;
+  }
+
+  suggestions.style.display = 'flex';
+  const active = document.querySelector('.segmented-control-btn.active');
+  const tabStyle = active ? active.dataset.style : 'normal';
+  const tabMode = active ? active.dataset.mode : 'text';
+
+  document.querySelectorAll('.chip').forEach((c) => (c.style.display = 'none'));
+
+  let selector = '.tab-canvas';
+  if (tabMode === 'image') selector = '.tab-image';
+  else if (tabStyle === 'thinking') selector = '.tab-thinking';
+  else if (tabStyle === 'url-context') selector = '.tab-url';
+
+  document.querySelectorAll(selector).forEach((c) => (c.style.display = 'inline-block'));
+}
+
+/* ── Init ── */
+
+document.addEventListener('DOMContentLoaded', function () {
+  const input = getActiveInput();
+  const submitBtn = document.getElementById('submit-button');
+  const clearBtn = document.getElementById('clear-button');
+  const convInput = document.getElementById('conversation-input');
+  const convSubmit = document.getElementById('conversation-submit');
+
+  /* Segmented control clicks */
+  document.querySelectorAll('.segmented-control-btn').forEach((btn) => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.segmented-control-btn').forEach((b) => {
+        b.classList.remove('active');
+        b.setAttribute('aria-checked', 'false');
+      });
+      this.classList.add('active');
+      this.setAttribute('aria-checked', 'true');
+      updateSuggestionsVisibility();
+    });
+  });
+
+  /* Submit handlers */
+  function onInputChange() {
+    const val = input.value.trim();
+    if (submitBtn) {
+      submitBtn.disabled = !val;
+      if (val) submitBtn.classList.add('has-text');
+      else submitBtn.classList.remove('has-text');
     }
+    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
+    updateSuggestionsVisibility();
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
 
-    // Show suggestions container
-    suggestions.style.display = 'flex';
-
-    // Get active tab style
-    const tabStyle = activeTab.dataset.style || 'normal';
-    const tabMode = activeTab.dataset.mode || 'text';
-
-    // Hide all suggestion chips first
-    const allChips = document.querySelectorAll('.suggestion-chip');
-    allChips.forEach(chip => chip.style.display = 'none');
-
-    // Show chips for current tab
-    let chipsToShow;
-    if (tabMode === 'image') {
-        chipsToShow = document.querySelectorAll('.tab-image');
-    } else if (tabStyle === 'thinking') {
-        chipsToShow = document.querySelectorAll('.tab-thinking');
-    } else if (tabStyle === 'url-context') {
-        chipsToShow = document.querySelectorAll('.tab-url');
-    } else {
-        // Canvas/normal text mode
-        chipsToShow = document.querySelectorAll('.tab-canvas');
+    /* Conversation input sync */
+    if (convInput) {
+      convInput.value = input.value;
     }
+  }
 
-    chipsToShow.forEach(chip => chip.style.display = 'inline-block');
-}
-// Placeholder for other functions (simplified for demo)
-function handleThinkingMode(prompt) {
-    fetch('/api/generate-with-thinking', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: prompt })
-    })
-        .then((response) => {
-        if (!response.ok) {
-            throw new Error('Hmm… grace takes time. Try again.');
-        }
-        return response.json();
-    })
-        .then((data) => {
-        const responseContainer = document.getElementById('response');
-        responseContainer.innerHTML = marked.parse(data.response || '');
-        // Show the TTS button if we have a response
-        if (data.response && data.response.trim()) {
-            const ttsButton = document.getElementById('tts-button');
-            ttsButton.style.display = 'block';
-            ttsButton.setAttribute('data-text', data.response);
-        }
-        hideLoading();
-    })
-        .catch((error) => {
-        console.error('Error:', error);
-        showError(error.message);
-        hideLoading();
-    });
-}
-function handleUrlContext(prompt) {
-    fetch('/api/generate-with-url-context', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: prompt })
-    })
-        .then((response) => {
-        if (!response.ok) {
-            throw new Error('Hmm… grace takes time. Try again.');
-        }
-        return response.json();
-    })
-        .then((data) => {
-        const responseContainer = document.getElementById('response');
-        responseContainer.innerHTML = marked.parse(data.response || '');
-        // Show the TTS button if we have a response
-        if (data.response && data.response.trim()) {
-            const ttsButton = document.getElementById('tts-button');
-            ttsButton.style.display = 'block';
-            ttsButton.setAttribute('data-text', data.response);
-        }
-        hideLoading();
-    })
-        .catch((error) => {
-        console.error('Error:', error);
-        showError(error.message);
-        hideLoading();
-    });
-}
-function handleImageGeneration(prompt) {
-    fetch('/api/generate-image', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: prompt })
-    })
-        .then((response) => {
-        if (!response.ok) {
-            throw new Error('Hmm… grace takes time. Try again.');
-        }
-        return response.json();
-    })
-        .then((data) => {
-        const imageContainer = document.getElementById('image-container');
-        const generatedImage = document.getElementById('generated-image');
-        const imageMessage = document.getElementById('image-message');
-        const downloadImage = document.getElementById('download-image');
-        const fullscreenImage = document.getElementById('fullscreen-image');
+  function onConvInputChange() {
+    const val = convInput.value.trim();
+    if (convSubmit) {
+      convSubmit.disabled = !val;
+      if (val) convSubmit.classList.add('has-text');
+      else convSubmit.classList.remove('has-text');
+    }
+  }
 
-        if (data.image_url) {
-            generatedImage.src = data.image_url;
-            generatedImage.style.display = 'block';
-            downloadImage.href = data.image_url;
-            downloadImage.style.display = 'inline-block';
-            fullscreenImage.style.display = 'inline-block';
-            imageMessage.style.display = 'none';
-        } else {
-            imageMessage.textContent = data.message || 'Image generation failed';
-            imageMessage.style.display = 'block';
-        }
-
-        imageContainer.style.display = 'block';
-        hideLoading();
-    })
-        .catch((error) => {
-        console.error('Error:', error);
-        const imageContainer = document.getElementById('image-container');
-        const imageMessage = document.getElementById('image-message');
-        imageMessage.textContent = error.message;
-        imageMessage.style.display = 'block';
-        imageContainer.style.display = 'block';
-        hideLoading();
+  if (input) {
+    input.addEventListener('input', onInputChange);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (input.value.trim()) handleSubmit();
+      }
     });
-}
+    input.focus();
+  }
+
+  if (convInput) {
+    convInput.addEventListener('input', onConvInputChange);
+    convInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        if (convInput.value.trim()) {
+          /* Sync and submit */
+          const landingInput = document.getElementById('landing-input');
+          if (landingInput) landingInput.value = convInput.value;
+          handleSubmit();
+        }
+      }
+    });
+  }
+
+  if (submitBtn) submitBtn.addEventListener('click', handleSubmit);
+  if (convSubmit) convSubmit.addEventListener('click', handleSubmit);
+
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function () {
+      input.value = '';
+      clearBtn.style.display = 'none';
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.remove('has-text'); }
+      updateSuggestionsVisibility();
+      input.focus();
+    });
+  }
+
+  /* Chip clicks */
+  document.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', function () {
+      input.value = this.dataset.text;
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    });
+  });
+
+  /* Theme toggle */
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    themeToggle.addEventListener('click', function () {
+      const cur = document.documentElement.getAttribute('data-theme');
+      if (cur === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('theme', 'light');
+      }
+    });
+  }
+
+  /* Menu toggle */
+  const menuToggle = document.getElementById('menu-toggle');
+  const sidebar = document.getElementById('sidebar-menu');
+  const overlay = document.getElementById('menu-overlay');
+  const close = document.getElementById('close-menu');
+
+  function openMenu() {
+    sidebar.classList.add('open');
+    overlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeMenu() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  if (menuToggle) menuToggle.addEventListener('click', openMenu);
+  if (close) close.addEventListener('click', closeMenu);
+  if (overlay) overlay.addEventListener('click', closeMenu);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && sidebar && sidebar.classList.contains('open')) closeMenu();
+  });
+
+  /* TTS */
+  const ttsBtn = document.getElementById('tts-button');
+  if (ttsBtn) ttsBtn.addEventListener('click', handleTTS);
+
+  /* New conversation */
+  const newChatBtn = document.getElementById('new-chat-btn');
+  const sidebarNewChat = document.getElementById('sidebar-new-chat');
+  const dialogConfirm = document.getElementById('dialog-confirm');
+  const dialogCancel = document.getElementById('dialog-cancel');
+  const dialogOverlay = document.getElementById('dialog-overlay');
+
+  if (newChatBtn) newChatBtn.addEventListener('click', handleNewChat);
+  if (sidebarNewChat) {
+    sidebarNewChat.addEventListener('click', function () {
+      closeMenu();
+      handleNewChat();
+    });
+  }
+  if (dialogConfirm) dialogConfirm.addEventListener('click', confirmNewChat);
+  if (dialogCancel) dialogCancel.addEventListener('click', hideNewChatDialog);
+  if (dialogOverlay) dialogOverlay.addEventListener('click', hideNewChatDialog);
+
+  document.addEventListener('keydown', function (e) {
+    var dialog = document.getElementById('new-chat-dialog');
+    if (!dialog || dialog.style.display === 'none') return;
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      hideNewChatDialog();
+      return;
+    }
+    if (e.key === 'Tab') {
+      var focusable = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+      e.preventDefault();
+      handleNewChat();
+    }
+  });
+
+  /* Initial suggestions */
+  updateSuggestionsVisibility();
+});

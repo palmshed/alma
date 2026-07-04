@@ -1,6 +1,6 @@
 # Imagen Model Integration Guide
 
-This document outlines the process of integrating Google's Imagen models alongside existing Gemini models for image generation in the Vortai application.
+This document outlines the process of integrating Google's Imagen models alongside existing Gemini models for image generation in the Alma application.
 
 ## Overview
 
@@ -12,7 +12,7 @@ The application now supports two image generation pipelines:
 
 ### Code Changes Made
 
-#### 1. SDK Modifications (`vortai/sdk.py`)
+#### 1. SDK Modifications (`backend/palmshed_ai/sdk.py`)
 
 **Added Vertex AI imports:**
 ```python
@@ -35,7 +35,7 @@ except ImportError:
 - Uses `ImageGenerationModel.from_pretrained()` for Imagen models
 - Handles image saving and temporary file management
 
-#### 2. Model Configuration (`vortai/models.py`)
+#### 2. Model Configuration (`backend/palmshed_ai/models.py`)
 
 **Updated IMAGE_MODEL:**
 ```python
@@ -175,8 +175,8 @@ curl -X POST http://localhost:5001/api/generate-image \
 
 ## Files Modified
 
-- `vortai/sdk.py`: Added Vertex AI pipeline
-- `vortai/models.py`: Updated IMAGE_MODEL to Imagen
+- `backend/palmshed_ai/sdk.py`: Added Vertex AI pipeline
+- `backend/palmshed_ai/models.py`: Updated IMAGE_MODEL to Imagen
 - `docs/troubleshooting.md`: Added Vertex AI setup guide
 - `pyproject.toml`: Added google-cloud-aiplatform dependency
 - `.env`: Added Google Cloud variables

@@ -8,7 +8,7 @@ def test_smoke():
     import os
 
     os.environ["GEMINI_API_KEY"] = "dummy"
-    from vortai import create_app
+    from palmshed_ai import create_app
 
     app = create_app()
     client = app.test_client()

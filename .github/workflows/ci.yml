@@ -1,28 +1,23 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# CI/CD Workflow for Gemini AI Search
-# This workflow automates testing, linting, and releasing on commits to main.
-# It uses composite actions for modularity and reusability.
+# CI Workflow
+# Runs tests on every push and PR to main.
+# On main push, also prepares a version bump PR.
 
 name: CI
 
-# Permissions required for the workflow to create PRs, tags, and releases
 permissions:
-  contents: write       # For tagging and releasing
-  pull-requests: write  # For creating PRs
+  contents: write
+  pull-requests: write
 
-# Triggers: Run on pushes and PRs to main branch
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
-  # Test job: Validates code quality and functionality
   test:
     runs-on: ubuntu-latest
     env:
@@ -35,19 +30,18 @@ jobs:
         with:
           python-version: '3.12'
       - name: Run tests
-        uses: ./.github/actions/test  # Composite action for all test steps
+        uses: ./.github/actions/test
 
-  # Release job: Handles version bumping, PR creation, tagging, and releasing
   release:
-    needs: test  # Only run after tests pass
+    needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'  # Only on main branch pushes
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for version bumping
-      - name: Handle release
+          fetch-depth: 0
+      - name: Prepare version bump
         uses: ./.github/actions/release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}  # Composite action for release process
+          token: ${{ secrets.GITHUB_TOKEN }}

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 # This module defines the API routes for the Gemini AI Search application,
@@ -30,7 +30,7 @@ api_bp = Blueprint("api", __name__)
 TEMP_AUDIO_DIR = os.path.join(tempfile.gettempdir(), "gemini_tts")
 os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
 
-TEMP_IMAGE_DIR = os.path.join(tempfile.gettempdir(), "vortai_images")
+TEMP_IMAGE_DIR = os.path.join(tempfile.gettempdir(), "generated_images")
 os.makedirs(TEMP_IMAGE_DIR, exist_ok=True)
 
 

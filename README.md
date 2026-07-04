@@ -1,104 +1,28 @@
-# Summary
+## Troubleshooting
 
-Vortai is an AI platform that integrates web search, URL analysis, text generation, text-to-speech, image creation, and multimodal reasoning using Google Gemini models. It provides a React interface, a static web interface, and a REST API.
+### Internal Server Error (HTTP 500)
 
-## Stack
+An HTTP 500 response means the backend encountered an unexpected exception while processing the request. The browser only reports that the request failed. The underlying cause is available in the backend logs.
 
-Runs on thread. Calls mlapi for inference. Exposed via hautofix.
+Common causes include:
 
-# Details
+- Missing or invalid environment variables
+- AI provider or model configuration errors
+- Missing API credentials
+- Backend startup or dependency issues
+- Unexpected runtime exceptions
 
-Vortai offers multiple components:
+To diagnose the issue:
 
-* Web search and URL context extraction
-* High-quality text generation with optional reasoning traces
-* AI-generated images and TTS output
-* Redis-based caching and optional Rust/Cython acceleration
-* React and static HTML interfaces
-* REST API endpoints for all major AI operations
+1. Check the backend console or server logs for the traceback.
+2. Verify that your environment variables are correctly configured.
+3. Confirm the AI provider credentials and model configuration are valid.
+4. Restart the backend after changing configuration.
 
-The project includes secure file handling, rate limiting (100 req/hour/IP), origin control, path traversal protection, and temporary file cleanup.
-All services can be run together or independently using `run-dev.sh`.
+When reporting a bug, include:
 
-**Development workflow**
+- The endpoint or action that failed
+- The backend traceback
+- Relevant environment details (excluding secrets)
 
-* Python backend (Flask)
-* React (TypeScript) frontend on port 8000
-* Static HTML interface on port 5001
-* Optional Go processor on port 8080
-* Rust/Cython modules for performance
-
-**Key directories**
-
-```
-vortai/            – Python core SDK + API
-frontend/          – React interface
-deploy/            – Vercel and static deployments
-scripts/           – Setup + service manager
-go/                – Optional Go microservice
-tests/             – Full test suite
-docs/              – API examples + security notes
-```
-
-# PoC (Usage Examples)
-
-**Basic text generation**
-
-```python
-from vortai import GeminiAI
-ai = GeminiAI()
-response = await ai.generate_text("Explain quantum computing")
-print(response)
-```
-
-**Reasoning mode**
-
-```python
-result = ai.generate_text_with_thinking("Solve: 2x + 3 = 7")
-print(result["response"])
-print(result["thinking_summary"])
-```
-
-**Web search context**
-
-```python
-response = ai.generate_text_with_url_context(
-    "Summarize latest AI research from https://example.com"
-)
-```
-
-**Text-to-Speech**
-
-```python
-file = ai.text_to_speech("Hello world")
-```
-
-**Image generation**
-
-```python
-file = ai.generate_image("A serene mountain landscape at sunset")
-```
-
-**REST endpoints**
-
-| Method | Path                             | Purpose                       |
-| ------ | -------------------------------- | ----------------------------- |
-| POST   | `/api/generate`                  | Text generation               |
-| POST   | `/api/generate-with-thinking`    | Reasoning mode                |
-| POST   | `/api/generate-with-url-context` | Web-search contextual         |
-| POST   | `/api/text-to-speech`            | TTS                           |
-| POST   | `/api/generate-image`            | Image generation              |
-| POST   | `/api/process-text-go`           | Go-powered text normalization |
-
-# Impact
-
-Vortai provides full-stack AI capabilities suitable for production use, local development, and rapid prototyping. Users can:
-
-* Generate text with or without reasoning
-* Pull real-time web data into AI responses
-* Produce images and TTS audio
-* Use both React and static web interfaces
-* Deploy to Vercel or run locally
-* Integrate via Python SDK or REST API
-
-With strong security defaults (rate limiting, sanitization, file safety), Vortai is suitable for environments where user inputs, web requests, and file generation are sensitive.
+The traceback is the authoritative source for diagnosing HTTP 500 errors.

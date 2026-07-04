@@ -1,11 +1,11 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 # This is the main entry point for the Gemini AI Search Flask application.
 # It creates and runs the app using the factory pattern.
 
 from dotenv import load_dotenv
-from vortai import create_app
+from palmshed_ai import create_app
 
 # Load environment variables from .env file
 load_dotenv()

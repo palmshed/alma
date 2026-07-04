@@ -1,8 +1,8 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
 """
-Image generation providers for Vortai.
+Image generation providers for Alma.
 Supports multiple AI providers (Gemini, Imagen) through a unified interface.
 """
 
@@ -68,7 +68,7 @@ class GeminiImageProvider(ImageProvider):
                     )
                     filename = f"{uuid.uuid4()}{file_extension}"
                     filepath = os.path.join(
-                        tempfile.gettempdir(), "vortai_images", filename
+                        tempfile.gettempdir(), "generated_images", filename
                     )
                     os.makedirs(os.path.dirname(filepath), exist_ok=True)
                     with open(filepath, "wb") as f:
@@ -122,7 +122,7 @@ class ImagenImageProvider(ImageProvider):
 
         if images and len(images) > 0:
             filename = f"{uuid.uuid4()}.png"
-            filepath = os.path.join(tempfile.gettempdir(), "vortai_images", filename)
+            filepath = os.path.join(tempfile.gettempdir(), "generated_images", filename)
             os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
             # Save the image

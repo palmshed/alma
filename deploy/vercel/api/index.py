@@ -1,16 +1,19 @@
 import json
 
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 
 import base64
 import os
+import sys
 import tempfile
 import mimetypes
 from http.server import BaseHTTPRequestHandler
 from dotenv import load_dotenv
-from vortai import GeminiAI
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "backend"))
+from palmshed_ai import GeminiAI
 
 # Load environment variables
 load_dotenv()

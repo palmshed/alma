@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 # This module initializes the Flask application with CORS support,
@@ -28,10 +28,10 @@ def create_app():
     app = Flask(
         __name__,
         static_folder=os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../deploy/static/web/static")
+            os.path.join(os.path.dirname(__file__), "../../deploy/static/web/static")
         ),
         template_folder=os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../deploy/static/web")
+            os.path.join(os.path.dirname(__file__), "../../deploy/static/web")
         ),
     )
     CORS(app)  # Enable CORS for all routes

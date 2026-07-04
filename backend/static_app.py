@@ -1,7 +1,7 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
-# Static web interface Flask application for Vortai.
+# Static web interface Flask application for Alma.
 # Serves the original HTML/CSS/JS interface on port 5000.
 
 from flask import Flask, render_template
@@ -22,7 +22,7 @@ def create_static_app():
     CORS(app)  # Enable CORS for API calls
 
     # Register API blueprint for backend functionality
-    from vortai.routes.api import api_bp
+    from palmshed_ai.routes.api import api_bp
 
     app.register_blueprint(api_bp)
 

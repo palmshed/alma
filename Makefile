@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025 Niladri Das <bniladridas>
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 # This Makefile provides commands for linting, formatting, testing,
@@ -13,19 +13,19 @@ format:
 	uv run black .
 
 test:
-	GEMINI_API_KEY=dummy PYTHONPATH=. uv run pytest tests/
+	GEMINI_API_KEY=dummy PYTHONPATH=backend uv run pytest backend/tests/
 
 run:
-	uv run python app.py
+	uv run python backend/app.py
 
 run-static:
-	uv run python static_app.py
+	uv run python backend/static_app.py
 
 run-all:
 	@echo "Starting both interfaces..."
-	uv run python static_app.py &
+	uv run python backend/static_app.py &
 	sleep 2
-	uv run python app.py &
+	uv run python backend/app.py &
 	@echo "React interface: http://localhost:8000"
 	@echo "Static interface: http://localhost:5000"
 	@echo "Press Ctrl+C to stop all services"
