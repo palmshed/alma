@@ -116,7 +116,7 @@ Application code may depend on Platform Services but must never import
 from other application modules in a way that creates tight coupling
 across unrelated features.
 
---- 
+---
 
 ## Ownership Rules
 
@@ -156,7 +156,7 @@ Current records:
 - `0001-platform-services.md` — introducing the Platform Services layer
 - `0002-mail-service.md` — mail as a reusable platform capability
 
---- 
+---
 
 ## Composition Philosophy
 

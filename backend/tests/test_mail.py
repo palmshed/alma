@@ -3,9 +3,7 @@
 
 import json
 import time
-import urllib.error
 from unittest.mock import patch, MagicMock
-from io import BytesIO
 
 import pytest
 import os
@@ -637,11 +635,14 @@ class TestResendProvider:
             subject_override="Test",
         )
 
-        mock_response = MagicMock()
-        mock_response.__enter__.return_value = mock_response
-        mock_response.read.return_value = json.dumps({"id": "resend-id-123"}).encode()
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.read.return_value = json.dumps({"id": "resend-id-123"}).encode()
+        mock_conn = MagicMock()
+        mock_conn.getresponse.return_value = mock_resp
+        mock_conn.__enter__.return_value = mock_conn
 
-        with patch("urllib.request.urlopen", return_value=mock_response):
+        with patch("http.client.HTTPSConnection", return_value=mock_conn):
             result = provider.send(msg)
 
         assert result.status == MailStatus.SENT
@@ -663,23 +664,19 @@ class TestResendProvider:
             subject_override="Test",
         )
 
-        http_error_body = json.dumps(
+        mock_resp = MagicMock()
+        mock_resp.status = 422
+        mock_resp.read.return_value = json.dumps(
             {
                 "message": "Invalid sender address",
                 "name": "validation_error",
             }
         ).encode()
+        mock_conn = MagicMock()
+        mock_conn.getresponse.return_value = mock_resp
+        mock_conn.__enter__.return_value = mock_conn
 
-        def _raise(*args, **kwargs):
-            raise urllib.error.HTTPError(
-                url="https://api.resend.com/emails",
-                code=422,
-                msg="Unprocessable Entity",
-                hdrs={},
-                fp=BytesIO(http_error_body),
-            )
-
-        with patch("urllib.request.urlopen", side_effect=_raise):
+        with patch("http.client.HTTPSConnection", return_value=mock_conn):
             result = provider.send(msg)
 
         assert result.status == MailStatus.FAILED

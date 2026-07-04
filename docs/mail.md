@@ -492,10 +492,10 @@ Check Resend dashboard for:
 
 ### Sign-off
 
-- [ ] Record the test date: `__________________`
-- [ ] Record the sender address used: `__________________`
-- [ ] Record the deployment URL: `__________________`
-- [ ] Record the Resend environment (development/production): `__________________`
+- [x] Record the test date: `2026-07-04`
+- [x] Record the sender address used: `Palmshed <onboarding@resend.dev>`
+- [x] Record the deployment URL: `https://palmshed.vercel.app`
+- [x] Record the Resend environment (development/production): `development (no custom domain)`
 
 ---
 
@@ -546,7 +546,7 @@ Record the successful end-to-end delivery test here.
 | Date | |
 | Provider | Resend |
 | Sender | `onboarding@resend.dev` |
-| Recipient | `dasniladri874@gmail.com` |
+| Recipient | `yourname@gmail.com` |
 | Template | `WELCOME` |
 | `provider_message_id` returned | ✅ / ❌ |
 | Arrived in inbox | ✅ / ❌ / Spam |
