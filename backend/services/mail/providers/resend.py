@@ -10,7 +10,7 @@ from .base import MailProvider
 
 logger = logging.getLogger("palmshed.mail.resend")
 
-HOST = "api.resend.com"
+BASE_URL = "https://api.resend.com/emails"
 
 
 class ResendProvider(MailProvider):
