@@ -8,11 +8,11 @@ Centralized location for all model names used in the application.
 
 # Text generation models
 TEXT_MODEL = "gemini-2.5-flash"
-THINKING_MODEL = "gemini-2.5-pro"
-URL_CONTEXT_MODEL = "gemini-2.5-pro"
+THINKING_MODEL = "gemini-2.5-flash"
+URL_CONTEXT_MODEL = "gemini-2.5-flash"
 
 # Image generation model
-IMAGE_MODEL = "imagen-4.0-generate-001"
+IMAGE_MODEL = "gemini-2.5-flash-image"
 
 # Deep Research agent
 DEEP_RESEARCH_MODEL = "deep-research-pro-preview-12-2025"

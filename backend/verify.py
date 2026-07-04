@@ -232,7 +232,7 @@ def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
     thinking = body.get("thinking_summary", [])
     details: Dict[str, Any] = {
         "has_thinking_summary": len(thinking) > 0,
-        "model": "gemini-2.5-pro",
+        "model": "gemini-2.5-flash",
     }
 
     result["status"] = "pass"
@@ -309,7 +309,7 @@ def check_images(config: Dict[str, str]) -> Dict[str, Any]:
         "content_type": content_type,
         "size_bytes": len(body_data),
         "dimensions": f"{w}x{h}",
-        "model": "imagen-4.0-generate-001",
+        "model": "gemini-2.5-flash-image",
     }
     return result
 
