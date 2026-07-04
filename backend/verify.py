@@ -22,6 +22,10 @@ from typing import Any, Dict, List, Optional, Tuple
 REQUIRED_ENV_KEYS = ["ALMA_BASE_URL"]
 TIMEOUT = 60
 
+# Categories
+INFRASTRUCTURE = "infrastructure"
+QUOTA = "quota"
+
 
 def get_config() -> Dict[str, str]:
     missing = [k for k in REQUIRED_ENV_KEYS if not os.environ.get(k)]
@@ -144,8 +148,23 @@ def parse_image_dimensions(data: bytes) -> Tuple[int, int]:
     return 0, 0
 
 
+def classify_response(status: int, body: Any) -> str:
+    if status == 429:
+        return QUOTA
+    if isinstance(body, dict):
+        provider_status = body.get("provider_status", "")
+        if provider_status == "quota_exceeded":
+            return QUOTA
+    return INFRASTRUCTURE
+
+
 def check_health(config: Dict[str, str]) -> Dict[str, Any]:
-    result = {"name": "health", "label": "Health", "status": "fail"}
+    result = {
+        "name": "health",
+        "label": "Health",
+        "category": INFRASTRUCTURE,
+        "status": "fail",
+    }
     t0 = time.time()
     status, body, headers = api_get(f"{config['base_url']}/api/health")
     elapsed = round(time.time() - t0, 1)
@@ -177,7 +196,12 @@ def check_health(config: Dict[str, str]) -> Dict[str, Any]:
 
 
 def check_canvas(config: Dict[str, str]) -> Dict[str, Any]:
-    result = {"name": "canvas", "label": "Canvas", "status": "fail"}
+    result = {
+        "name": "canvas",
+        "label": "Canvas",
+        "category": INFRASTRUCTURE,
+        "status": "fail",
+    }
     t0 = time.time()
     status, body, headers = api_post(
         f"{config['base_url']}/api/generate",
@@ -191,8 +215,7 @@ def check_canvas(config: Dict[str, str]) -> Dict[str, Any]:
         if isinstance(body, dict):
             err_detail = body.get("error", body)
         result["error"] = f"HTTP {status}: {err_detail}"
-        if status == 429:
-            result["details"] = {"note": "quota exhausted on free tier for this model"}
+        result["category"] = classify_response(status, body)
         return result
 
     if not isinstance(body, dict) or "response" not in body:
@@ -209,7 +232,12 @@ def check_canvas(config: Dict[str, str]) -> Dict[str, Any]:
 
 
 def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
-    result = {"name": "thinking", "label": "Thinking", "status": "fail"}
+    result = {
+        "name": "thinking",
+        "label": "Thinking",
+        "category": INFRASTRUCTURE,
+        "status": "fail",
+    }
     t0 = time.time()
     status, body, headers = api_post(
         f"{config['base_url']}/api/generate-with-thinking",
@@ -223,8 +251,7 @@ def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
         if isinstance(body, dict):
             err_detail = body.get("error", body)
         result["error"] = f"HTTP {status}: {err_detail}"
-        if status == 429:
-            result["details"] = {"note": "quota exhausted on free tier for this model"}
+        result["category"] = classify_response(status, body)
         return result
 
     if not isinstance(body, dict):
@@ -251,7 +278,12 @@ def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
 
 
 def check_web(config: Dict[str, str]) -> Dict[str, Any]:
-    result = {"name": "web", "label": "Web", "status": "fail"}
+    result = {
+        "name": "web",
+        "label": "Web",
+        "category": INFRASTRUCTURE,
+        "status": "fail",
+    }
     t0 = time.time()
     status, body, headers = api_post(
         f"{config['base_url']}/api/generate-with-url-context",
@@ -267,8 +299,7 @@ def check_web(config: Dict[str, str]) -> Dict[str, Any]:
         if isinstance(body, dict):
             err_detail = body.get("error", body)
         result["error"] = f"HTTP {status}: {err_detail}"
-        if status == 429:
-            result["details"] = {"note": "quota exhausted on free tier for this model"}
+        result["category"] = classify_response(status, body)
         return result
 
     if not isinstance(body, dict) or "response" not in body:
@@ -285,7 +316,12 @@ def check_web(config: Dict[str, str]) -> Dict[str, Any]:
 
 
 def check_images(config: Dict[str, str]) -> Dict[str, Any]:
-    result = {"name": "images", "label": "Images", "status": "fail"}
+    result = {
+        "name": "images",
+        "label": "Images",
+        "category": INFRASTRUCTURE,
+        "status": "fail",
+    }
     t0 = time.time()
     status, body_data, headers = api_post(
         f"{config['base_url']}/api/generate-image",
@@ -299,9 +335,11 @@ def check_images(config: Dict[str, str]) -> Dict[str, Any]:
         if isinstance(body_data, dict):
             err_detail = body_data.get("error", body_data)
         result["error"] = f"HTTP {status}: {err_detail}"
-        if status == 429:
+        result["category"] = classify_response(status, body_data)
+        if isinstance(body_data, dict):
             result["details"] = {
-                "note": "image generation quota exhausted on free tier"
+                "provider": body_data.get("provider", "unknown"),
+                "provider_status": body_data.get("provider_status", "unknown"),
             }
         return result
 
@@ -354,17 +392,31 @@ def run_checks(
     for name, fn in check_map.items():
         results.append(fn(config))
 
-    passed = sum(1 for r in results if r["status"] == "pass")
-    return {"results": results, "passed": passed, "total": len(results)}
+    infra_pass = all(
+        r["status"] == "pass" for r in results if r["category"] == INFRASTRUCTURE
+    )
+    quota_pass = all(r["status"] == "pass" for r in results if r["category"] == QUOTA)
+
+    return {
+        "results": results,
+        "passed": sum(1 for r in results if r["status"] == "pass"),
+        "total": len(results),
+        "infrastructure_pass": infra_pass,
+        "quota_pass": quota_pass,
+    }
+
+
+STATUS_LABELS = {
+    "pass": "\N{CHECK MARK}",
+    "fail": "\N{CROSS MARK}",
+}
 
 
 def format_human(results: Dict[str, Any]) -> str:
     lines = []
     for r in results["results"]:
-        if r["status"] == "pass":
-            lines.append(f"\N{CHECK MARK} {r['label']}")
-        else:
-            lines.append(f"\N{CROSS MARK} {r['label']}")
+        marker = STATUS_LABELS.get(r["status"], "?")
+        lines.append(f"{marker} {r['label']}")
 
         if r.get("error"):
             lines.append(f"  {r['error']}")
@@ -375,15 +427,29 @@ def format_human(results: Dict[str, Any]) -> str:
             lines.append(f"  {r['latency']} s")
         lines.append("")
 
-    lines.append("Summary")
-    lines.append(f"{results['passed']}/{results['total']} passed")
+    lines.append("Overall:")
+    lines.append(
+        f"  Infrastructure: {'PASS' if results['infrastructure_pass'] else 'FAILED'}"
+    )
+    lines.append(f"  Quota:          {'PASS' if results['quota_pass'] else 'FAILED'}")
+    lines.append("")
     return "\n".join(lines)
 
 
 def format_json(results: Dict[str, Any]) -> str:
     out = {}
     for r in results["results"]:
-        out[r["name"]] = r["status"]
+        out[r["name"]] = {
+            "status": r["status"],
+            "category": r["category"],
+            "error": r.get("error", ""),
+        }
+    out["_summary"] = {
+        "infrastructure": "pass" if results["infrastructure_pass"] else "fail",
+        "quota": "pass" if results["quota_pass"] else "fail",
+        "passed": results["passed"],
+        "total": results["total"],
+    }
     return json.dumps(out, indent=2)
 
 
@@ -414,7 +480,8 @@ def main() -> None:
     else:
         print(format_human(results))
 
-    sys.exit(0 if results["passed"] == results["total"] else 1)
+    all_pass = results["infrastructure_pass"] and results["quota_pass"]
+    sys.exit(0 if all_pass else 1)
 
 
 if __name__ == "__main__":

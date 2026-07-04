@@ -11,7 +11,8 @@ TEXT_MODEL = "gemini-2.5-flash"
 THINKING_MODEL = "gemini-2.5-flash"
 URL_CONTEXT_MODEL = "gemini-2.5-flash"
 
-# Image generation model
+# Image generation provider and model
+IMAGE_PROVIDER = "gemini"
 IMAGE_MODEL = "gemini-2.5-flash-image"
 
 # Deep Research agent

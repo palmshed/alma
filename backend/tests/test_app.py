@@ -6,6 +6,7 @@ import tempfile
 import pytest
 from unittest.mock import patch
 from palmshed_ai import create_app
+from palmshed_ai.image_models import ImageResult, ImageStatus
 
 # Set dummy API key for testing
 os.environ["GEMINI_API_KEY"] = "dummy"
@@ -188,18 +189,22 @@ def test_generate_image_success(mock_image_gen, client):
     os.makedirs(os.path.dirname(temp_image_path), exist_ok=True)
     with open(temp_image_path, "wb") as f:
         f.write(b"fake image data")
-    mock_image_gen.return_value = temp_image_path
+    mock_image_gen.return_value = ImageResult(
+        status=ImageStatus.OK,
+        filepath=temp_image_path,
+        mime_type="image/png",
+        provider="mock",
+        model="test",
+    )
 
     try:
         response = client.post(
             "/api/generate-image", json={"prompt": "A beautiful sunset"}
         )
         assert response.status_code == 200
-        # Should return a file
         assert "image" in response.headers["Content-Type"].lower()
         mock_image_gen.assert_called_once_with("A beautiful sunset")
     finally:
-        # Clean up
         if os.path.exists(temp_image_path):
             os.remove(temp_image_path)
 
