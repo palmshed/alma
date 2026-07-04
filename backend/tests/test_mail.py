@@ -28,7 +28,11 @@ from services.mail import (
 from services.mail.models import Address, Attachment, HealthStatus
 from services.mail.providers import MockProvider
 from services.mail.queue import ThreadMailQueue
-from services.mail.templates import MailTemplates, template_metadata, TemplateValidationError
+from services.mail.templates import (
+    MailTemplates,
+    template_metadata,
+    TemplateValidationError,
+)
 
 
 class TestMailModels:
@@ -505,9 +509,18 @@ class TestTemplateValidation:
         tmpdir = tempfile.mkdtemp()
 
         for name in ("welcome", "verification", "password_reset", "notification"):
-            content = " ".join("${" + p + "}" for p in (
-                "name", "product", "link", "code", "expires_in", "subject", "body"
-            ))
+            content = " ".join(
+                "${" + p + "}"
+                for p in (
+                    "name",
+                    "product",
+                    "link",
+                    "code",
+                    "expires_in",
+                    "subject",
+                    "body",
+                )
+            )
             with open(os.path.join(tmpdir, f"{name}.html"), "w") as f:
                 f.write(f"<p>{content}</p>")
             with open(os.path.join(tmpdir, f"{name}.txt"), "w") as f:
