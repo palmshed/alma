@@ -49,7 +49,7 @@ target-version = ['py312']
 
 [tool.setuptools.packages.find]
 where = ["backend"]
-include = ["palmshed_ai*"]
+include = ["palmshed_ai*", "services*"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
