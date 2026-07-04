@@ -2,15 +2,15 @@ import base64
 import http.client
 import json
 import logging
-import urllib.request
-import urllib.error
+from datetime import datetime, timezone
+
 from ..config import MailConfig
 from ..models import MailMessage, MailResult, MailStatus, ProviderCapabilities
 from .base import MailProvider
 
 logger = logging.getLogger("palmshed.mail.resend")
 
-BASE_URL = "https://api.resend.com/emails"
+HOST = "api.resend.com"
 
 
 class ResendProvider(MailProvider):
@@ -30,7 +30,7 @@ class ResendProvider(MailProvider):
 
     def send(self, message: MailMessage) -> MailResult:
         body = self._build_payload(message)
-        payload = json.dumps(body)
+        payload = json.dumps(body).encode("utf-8")
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -42,20 +42,8 @@ class ResendProvider(MailProvider):
             with http.client.HTTPSConnection(HOST, timeout=self.timeout) as conn:
                 conn.request("POST", "/emails", body=payload, headers=headers)
                 resp = conn.getresponse()
-                resp json.loads(resp.read().decode("utf-8"))
-                
-                if not (200 <= resp.status < 300):
-                    logger.error("Resend API error (HTTP %d): %s", resp.status, response_body)
-                    return MailResult(
-                        mail_id=message.id or "",
-                        status=MailStatus.FAILED,
-                        provider="resend",
-                        timestamp=datetime.now(timezone.utc),
-                        retry_count=message.retry_count,
-                        error=response_body.get("message", "Unknown error"),
-                    )
-            status = resp.status
-            conn.close()
+                status = resp.status
+                resp_data = resp.read()
         except Exception as exc:
             logger.exception("Resend request error")
             return MailResult(
@@ -67,6 +55,27 @@ class ResendProvider(MailProvider):
                 error=str(exc),
             )
 
+        try:
+            response_body = json.loads(resp_data)
+        except Exception as exc:
+            if status != 200:
+                return MailResult(
+                    mail_id=message.id or "",
+                    status=MailStatus.FAILED,
+                    provider="resend",
+                    timestamp=datetime.now(timezone.utc),
+                    retry_count=message.retry_count,
+                    error=f"HTTP {status}",
+                )
+            return MailResult(
+                mail_id=message.id or "",
+                status=MailStatus.FAILED,
+                provider="resend",
+                timestamp=datetime.now(timezone.utc),
+                retry_count=message.retry_count,
+                error=f"Failed to parse response JSON: {exc}",
+            )
+
         if status != 200:
             return MailResult(
                 mail_id=message.id or "",
@@ -75,7 +84,7 @@ class ResendProvider(MailProvider):
                 timestamp=datetime.now(timezone.utc),
                 retry_count=message.retry_count,
                 error=response_body.get(
-                    "message", response_body.get("name", str(status))
+                    "message", response_body.get("name", f"HTTP {status}")
                 ),
             )
 
