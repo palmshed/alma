@@ -38,12 +38,13 @@ class ResendProvider(MailProvider):
         if message.id:
             headers["X-Request-Id"] = message.id
 
+        conn = None
         try:
-            with http.client.HTTPSConnection(HOST, timeout=self.timeout) as conn:
-                conn.request("POST", "/emails", body=payload, headers=headers)
-                resp = conn.getresponse()
-                status = resp.status
-                resp_data = resp.read()
+            conn = http.client.HTTPSConnection(HOST, timeout=self.timeout)
+            conn.request("POST", "/emails", body=payload, headers=headers)
+            resp = conn.getresponse()
+            status = resp.status
+            resp_data = resp.read()
         except Exception as exc:
             logger.exception("Resend request error")
             return MailResult(
@@ -54,6 +55,9 @@ class ResendProvider(MailProvider):
                 retry_count=message.retry_count,
                 error=str(exc),
             )
+        finally:
+            if conn:
+                conn.close()
 
         try:
             response_body = json.loads(resp_data)
