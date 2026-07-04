@@ -237,3 +237,32 @@ def research_topic() -> Union[Response, Tuple[Response, int]]:
     except Exception as e:
         logging.error(f"Error in research_topic: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
+
+@api_bp.route("/api/health", methods=["GET"])
+def health_check():
+    """Health endpoint including mail provider status."""
+    from services.mail.config import MailConfig
+    from services.mail.service import MailService
+
+    config = MailConfig.from_env()
+    mail_status = {"provider": config.provider, "from_email": config.from_email}
+
+    valid, errors = config.is_valid()
+    mail_status["config_valid"] = valid
+    if errors:
+        mail_status["config_errors"] = errors
+
+    try:
+        svc = MailService(config=config)
+        health = svc.health()
+        mail_status["provider"] = health.provider
+        mail_status["queue_running"] = health.queue_running
+        mail_status["queue_depth"] = health.queue_depth
+        mail_status["templates_valid"] = health.templates_valid
+        mail_status["template_count"] = health.template_count
+    except Exception as exc:
+        mail_status["error"] = str(exc)
+        logging.warning("Mail service health check failed: %s", exc)
+
+    return jsonify({"status": "ok", "mail": mail_status})
