@@ -640,6 +640,7 @@ class TestResendProvider:
         mock_resp.read.return_value = json.dumps({"id": "resend-id-123"}).encode()
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_resp
+        mock_conn.__enter__.return_value = mock_conn
 
         with patch("http.client.HTTPSConnection", return_value=mock_conn):
             result = provider.send(msg)
@@ -673,6 +674,7 @@ class TestResendProvider:
         ).encode()
         mock_conn = MagicMock()
         mock_conn.getresponse.return_value = mock_resp
+        mock_conn.__enter__.return_value = mock_conn
 
         with patch("http.client.HTTPSConnection", return_value=mock_conn):
             result = provider.send(msg)
