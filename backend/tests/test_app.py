@@ -241,7 +241,7 @@ def test_generate_api_exception_handling(mock_generate, client):
     assert response.status_code == 500
     data = response.get_json()
     assert "error" in data
-    assert data["error"] == "Internal server error"
+    assert data["error"] == "API Error"
 
 
 @patch("palmshed_ai.routes.api.ai.generate_text_with_thinking")
@@ -253,7 +253,7 @@ def test_thinking_api_exception_handling(mock_thinking, client):
     assert response.status_code == 500
     data = response.get_json()
     assert "error" in data
-    assert data["error"] == "Internal server error"
+    assert data["error"] == "Thinking API Error"
 
 
 @patch("palmshed_ai.routes.api.ai.generate_text_with_url_context")
@@ -265,7 +265,7 @@ def test_url_context_api_exception_handling(mock_url_context, client):
     assert response.status_code == 500
     data = response.get_json()
     assert "error" in data
-    assert data["error"] == "Internal server error"
+    assert data["error"] == "URL Context API Error"
 
 
 @patch("palmshed_ai.routes.api.ai.text_to_speech")
@@ -277,7 +277,7 @@ def test_tts_api_exception_handling(mock_tts, client):
     assert response.status_code == 500
     data = response.get_json()
     assert "error" in data
-    assert data["error"] == "Internal server error"
+    assert data["error"] == "TTS API Error"
 
 
 @patch("palmshed_ai.routes.api.ai.generate_image")
@@ -289,7 +289,7 @@ def test_image_api_exception_handling(mock_image_gen, client):
     assert response.status_code == 500
     data = response.get_json()
     assert "error" in data
-    assert data["error"] == "Internal server error"
+    assert data["error"] == "Image API Error"
 
 
 @patch("palmshed_ai.routes.api.ai.research_topic")
