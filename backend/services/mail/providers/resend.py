@@ -2,8 +2,8 @@ import base64
 import http.client
 import json
 import logging
-from datetime import datetime, timezone
-
+import urllib.request
+import urllib.error
 from ..config import MailConfig
 from ..models import MailMessage, MailResult, MailStatus, ProviderCapabilities
 from .base import MailProvider
