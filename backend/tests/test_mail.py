@@ -4,17 +4,11 @@
 import json
 import time
 import urllib.error
-from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 from io import BytesIO
 
 import pytest
-
-import importlib
 import os
-import sys
-
-import pytest
 
 from services.mail import (
     MailConfig,
@@ -34,7 +28,7 @@ from services.mail import (
 from services.mail.models import Address, Attachment, HealthStatus
 from services.mail.providers import MockProvider
 from services.mail.queue import ThreadMailQueue
-from services.mail.templates import MailTemplates, TemplateDefinition, template_metadata
+from services.mail.templates import MailTemplates, template_metadata
 
 
 class TestMailModels:
@@ -458,7 +452,7 @@ class TestQueue:
         from services.mail.queue import MailQueue as ABCQueue
         q = ABCQueue()
         assert q.depth == 0
-        assert q.running == False
+        assert not q.running
         q.drain()
 
     def test_retry_policy_in_queue(self):
@@ -485,7 +479,8 @@ class TestTemplateValidation:
         assert len(errors) == 0
 
     def test_template_validation_checks_missing_placeholders(self):
-        import tempfile, os
+        import tempfile
+        import os
         tmpdir = tempfile.mkdtemp()
         with open(os.path.join(tmpdir, "test.html"), "w") as f:
             f.write("<p>Hello</p>")
@@ -522,7 +517,6 @@ class TestResendProvider:
 
     def test_payload_structure(self):
         """Verify the JSON payload sent to Resend API is correctly shaped."""
-        import json
         from services.mail.providers.resend import ResendProvider
         from services.mail.models import Attachment
 
