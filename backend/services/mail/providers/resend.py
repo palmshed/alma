@@ -4,7 +4,6 @@ import logging
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
-from typing import Optional
 
 from ..config import MailConfig
 from ..models import MailMessage, MailResult, MailStatus, ProviderCapabilities

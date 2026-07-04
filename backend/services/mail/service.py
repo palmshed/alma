@@ -6,7 +6,7 @@ from typing import Optional
 from .config import MailConfig
 from .logging import MailLogger
 from .metrics import MailMetrics
-from .models import Address, Attachment, HealthStatus, MailMessage, MailResult, MailStatus, ProviderCapabilities
+from .models import Address, Attachment, HealthStatus, MailMessage, MailResult, MailStatus
 from .providers import MailProvider, get_provider
 from .queue import MailQueue, get_queue
 from .templates import MailTemplate, MailTemplates, registered_templates, template_metadata
