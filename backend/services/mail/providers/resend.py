@@ -111,11 +111,13 @@ class ResendProvider(MailProvider):
         if message.attachments:
             body["attachments"] = []
             for att in message.attachments:
-                body["attachments"].append({
-                    "filename": att.filename,
-                    "content": base64.b64encode(att.content).decode(),
-                    "content_type": att.mime_type,
-                })
+                body["attachments"].append(
+                    {
+                        "filename": att.filename,
+                        "content": base64.b64encode(att.content).decode(),
+                        "content_type": att.mime_type,
+                    }
+                )
 
         return body
 

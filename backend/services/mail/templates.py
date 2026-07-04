@@ -58,7 +58,9 @@ _TEMPLATE_METADATA: dict[MailTemplate, TemplateDefinition] = {
     MailTemplate.VERIFICATION: TemplateDefinition(
         name="verification",
         subject="Verify your email",
-        required_placeholders=frozenset({"name", "product", "code", "link", "expires_in"}),
+        required_placeholders=frozenset(
+            {"name", "product", "code", "link", "expires_in"}
+        ),
         description="Email verification with a code and link.",
     ),
     MailTemplate.PASSWORD_RESET: TemplateDefinition(
@@ -111,7 +113,9 @@ class MailTemplates:
                 txt_placeholders = _extract_placeholders(f.read())
 
             subject_placeholders = _extract_placeholders(meta.subject)
-            all_file_placeholders = html_placeholders | txt_placeholders | subject_placeholders
+            all_file_placeholders = (
+                html_placeholders | txt_placeholders | subject_placeholders
+            )
             missing = meta.required_placeholders - all_file_placeholders
             if missing:
                 errors.append(

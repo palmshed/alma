@@ -203,7 +203,9 @@ class TestMockProvider:
 
     def test_reset(self):
         provider = MockProvider()
-        provider.send(MailMessage(template="test", recipient=Address("a@b.com"), id="1"))
+        provider.send(
+            MailMessage(template="test", recipient=Address("a@b.com"), id="1")
+        )
         provider.reset()
         assert len(provider.sent) == 0
 
@@ -234,7 +236,10 @@ class TestMailTemplates:
 
     def test_render_returns_html_and_text(self):
         templates = MailTemplates()
-        result = templates.render("welcome", {"name": "Test", "product": "Alma", "link": "https://alma.palmshed.dev"})
+        result = templates.render(
+            "welcome",
+            {"name": "Test", "product": "Alma", "link": "https://alma.palmshed.dev"},
+        )
         assert "html_body" in result
         assert "text_body" in result
         assert "Palmshed" in result["html_body"]
@@ -256,6 +261,7 @@ class TestMailTemplates:
 
     def test_registered_templates_include_all(self):
         from services.mail.templates import registered_templates
+
         names = [t.value for t in registered_templates()]
         assert "welcome" in names
         assert "verification" in names
@@ -398,7 +404,11 @@ class TestMailValidation:
                 MailTemplate.NOTIFICATION,
                 "to@example.com",
                 context={"subject": "T", "body": "B", "product": "Alma"},
-                attachments=[Attachment("big.bin", b"x" * (2 * 1024 * 1024), "application/octet-stream")],
+                attachments=[
+                    Attachment(
+                        "big.bin", b"x" * (2 * 1024 * 1024), "application/octet-stream"
+                    )
+                ],
             )
 
     def test_rejects_attachments_when_provider_does_not_support(self):
@@ -407,7 +417,9 @@ class TestMailValidation:
         provider = svc.provider
         caps = provider.capabilities
         if not caps.attachments:
-            with pytest.raises(MailValidationError, match="does not support attachments"):
+            with pytest.raises(
+                MailValidationError, match="does not support attachments"
+            ):
                 svc.send(
                     MailTemplate.NOTIFICATION,
                     "to@example.com",
@@ -435,8 +447,10 @@ class TestMailSendErrors:
 class TestQueue:
     def test_thread_mail_queue_enqueue(self):
         sent = []
+
         def worker(msg):
             sent.append(msg)
+
         queue = ThreadMailQueue(worker=worker)
         msg = MailMessage(template="test", recipient=Address("a@b.com"), id="1")
         queue.enqueue(msg)
@@ -450,6 +464,7 @@ class TestQueue:
 
     def test_queue_abc_defaults(self):
         from services.mail.queue import MailQueue as ABCQueue
+
         q = ABCQueue()
         assert q.depth == 0
         assert not q.running
@@ -457,6 +472,7 @@ class TestQueue:
 
     def test_retry_policy_in_queue(self):
         attempts = []
+
         def worker(msg):
             attempts.append(msg.retry_count)
             if len(attempts) < 3:
@@ -481,6 +497,7 @@ class TestTemplateValidation:
     def test_template_validation_checks_missing_placeholders(self):
         import tempfile
         import os
+
         tmpdir = tempfile.mkdtemp()
         with open(os.path.join(tmpdir, "test.html"), "w") as f:
             f.write("<p>Hello</p>")
@@ -494,6 +511,7 @@ class TestTemplateValidation:
     def test_template_not_found(self):
         templates = MailTemplates()
         from services.mail.templates import TemplateNotFound
+
         with pytest.raises(TemplateNotFound):
             templates.render("nonexistent", {})
 
@@ -502,6 +520,7 @@ class TestResendProvider:
     def test_registered_in_registry(self):
         """Resend provider is registered and available."""
         from services.mail.providers.resend import ResendProvider
+
         registered_cls = ProviderRegistry.get("resend")
         assert registered_cls is not None
         assert registered_cls is ResendProvider
@@ -509,6 +528,7 @@ class TestResendProvider:
     def test_capabilities(self):
         """Resend supports html, attachments, inline images; not scheduling."""
         from services.mail.providers.resend import ResendProvider
+
         provider = ResendProvider(MailConfig(resend_api_key="test"))
         assert provider.capabilities.html
         assert provider.capabilities.attachments
@@ -552,6 +572,7 @@ class TestResendProvider:
     def test_payload_no_optional_fields(self):
         """Minimal payload should exclude optional keys."""
         from services.mail.providers.resend import ResendProvider
+
         config = MailConfig(resend_api_key="test")
         provider = ResendProvider(config)
         msg = MailMessage(
@@ -584,6 +605,7 @@ class TestResendProvider:
     def test_send_success_returns_provider_id(self):
         """Successful Resend API call returns provider_message_id."""
         from services.mail.providers.resend import ResendProvider
+
         config = MailConfig(resend_api_key="re_abc123", sync=True)
         provider = ResendProvider(config)
         msg = MailMessage(
@@ -609,6 +631,7 @@ class TestResendProvider:
         """Resend API error (e.g. 422) returns FAILED with error message."""
         from services.mail.providers.resend import ResendProvider
         from services.mail import MailStatus
+
         config = MailConfig(resend_api_key="re_abc123", sync=True)
         provider = ResendProvider(config)
         msg = MailMessage(
@@ -619,10 +642,12 @@ class TestResendProvider:
             subject_override="Test",
         )
 
-        http_error_body = json.dumps({
-            "message": "Invalid sender address",
-            "name": "validation_error",
-        }).encode()
+        http_error_body = json.dumps(
+            {
+                "message": "Invalid sender address",
+                "name": "validation_error",
+            }
+        ).encode()
 
         def _raise(*args, **kwargs):
             raise urllib.error.HTTPError(
@@ -662,6 +687,7 @@ class TestArchitecture:
     def test_mail_never_imports_application_modules(self):
         """Mail is a platform service — must not depend on application code."""
         import services.mail
+
         mail_path = os.path.dirname(services.mail.__file__)
         for root, _dirs, files in os.walk(mail_path):
             for fname in files:
@@ -671,15 +697,17 @@ class TestArchitecture:
                 with open(filepath) as f:
                     content = f.read()
                 for forbidden in self.FORBIDDEN_IMPORTS["services.mail"]:
-                    if f"import {forbidden}" in content or f"from {forbidden}" in content:
+                    if (
+                        f"import {forbidden}" in content
+                        or f"from {forbidden}" in content
+                    ):
                         rel = os.path.relpath(filepath, mail_path)
-                        pytest.fail(
-                            f"{rel} imports forbidden module '{forbidden}'"
-                        )
+                        pytest.fail(f"{rel} imports forbidden module '{forbidden}'")
 
     def test_providers_never_import_application_code(self):
         """Providers must remain application-agnostic."""
         import services.mail.providers
+
         providers_path = os.path.dirname(services.mail.providers.__file__)
         for root, _dirs, files in os.walk(providers_path):
             for fname in files:
@@ -689,22 +717,24 @@ class TestArchitecture:
                 with open(filepath) as f:
                     content = f.read()
                 for forbidden in self.FORBIDDEN_IMPORTS["services.mail"]:
-                    if f"import {forbidden}" in content or f"from {forbidden}" in content:
+                    if (
+                        f"import {forbidden}" in content
+                        or f"from {forbidden}" in content
+                    ):
                         rel = os.path.relpath(filepath, providers_path)
-                        pytest.fail(
-                            f"{rel} imports forbidden module '{forbidden}'"
-                        )
+                        pytest.fail(f"{rel} imports forbidden module '{forbidden}'")
 
     def test_providers_use_base_class(self):
         """All registered providers must extend MailProvider."""
         from services.mail.providers.base import MailProvider
         from services.mail.providers.registry import ProviderRegistry
+
         for name in ProviderRegistry.available():
             cls = ProviderRegistry.get(name)
             assert cls is not None, f"Provider '{name}' not found in registry"
-            assert issubclass(cls, MailProvider), (
-                f"Provider '{name}' ({cls.__name__}) does not extend MailProvider"
-            )
+            assert issubclass(
+                cls, MailProvider
+            ), f"Provider '{name}' ({cls.__name__}) does not extend MailProvider"
 
     def test_templates_have_html_and_txt(self):
         """Every template must have both HTML and plain-text versions."""
@@ -721,6 +751,7 @@ class TestArchitecture:
     def test_config_is_single_source_of_env(self):
         """os.environ should only be read in config.py, not in other modules."""
         import services.mail
+
         mail_path = os.path.dirname(services.mail.__file__)
         for root, _dirs, files in os.walk(mail_path):
             for fname in files:

@@ -16,7 +16,9 @@ class ProviderRegistry:
         provider_cls = cls._providers.get(name)
         if not provider_cls:
             registered = ", ".join(cls.available())
-            raise ValueError(f"Unknown mail provider '{name}'. Registered: {registered}")
+            raise ValueError(
+                f"Unknown mail provider '{name}'. Registered: {registered}"
+            )
         return provider_cls(config)
 
     @classmethod

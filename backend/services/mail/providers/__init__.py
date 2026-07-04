@@ -18,4 +18,11 @@ def get_provider(config: Optional[MailConfig] = None) -> MailProvider:
     return ProviderRegistry.create(config.provider, config)
 
 
-__all__ = ["MailProvider", "SMTPProvider", "MockProvider", "ResendProvider", "ProviderRegistry", "get_provider"]
+__all__ = [
+    "MailProvider",
+    "SMTPProvider",
+    "MockProvider",
+    "ResendProvider",
+    "ProviderRegistry",
+    "get_provider",
+]

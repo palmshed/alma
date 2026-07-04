@@ -14,17 +14,13 @@ logger = logging.getLogger("palmshed.mail.queue")
 
 class MailQueue(ABC):
     @abstractmethod
-    def enqueue(self, message: MailMessage) -> None:
-        ...
+    def enqueue(self, message: MailMessage) -> None: ...
 
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def stop(self) -> None:
-        ...
+    def stop(self) -> None: ...
 
-    def drain(self, timeout: float = 5.0) -> None:
-        ...
+    def drain(self, timeout: float = 5.0) -> None: ...
 
     @property
     def depth(self) -> int:
@@ -53,7 +49,12 @@ class ThreadMailQueue(MailQueue):
     def enqueue(self, message: MailMessage) -> None:
         message.status = MailStatus.PENDING
         self._queue.put(message)
-        logger.info("Queued mail: to=%s template=%s id=%s", message.recipient.email, message.template, message.id)
+        logger.info(
+            "Queued mail: to=%s template=%s id=%s",
+            message.recipient.email,
+            message.template,
+            message.id,
+        )
 
     def start(self) -> None:
         if self._running or self._draining:

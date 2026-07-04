@@ -6,10 +6,22 @@ from typing import Optional
 from .config import MailConfig
 from .logging import MailLogger
 from .metrics import MailMetrics
-from .models import Address, Attachment, HealthStatus, MailMessage, MailResult, MailStatus
+from .models import (
+    Address,
+    Attachment,
+    HealthStatus,
+    MailMessage,
+    MailResult,
+    MailStatus,
+)
 from .providers import MailProvider, get_provider
 from .queue import MailQueue, get_queue
-from .templates import MailTemplate, MailTemplates, registered_templates, template_metadata
+from .templates import (
+    MailTemplate,
+    MailTemplates,
+    registered_templates,
+    template_metadata,
+)
 
 
 class MailError(Exception):
@@ -72,7 +84,8 @@ class MailService:
             context=merged,
             subject_override=subject,
             reply_to=self.config.reply_to or None,
-            sender=sender or Address(
+            sender=sender
+            or Address(
                 email=self.config.from_email,
                 name=self.config.from_name,
             ),

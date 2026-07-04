@@ -51,7 +51,9 @@ def verify(args: argparse.Namespace) -> int:
     if args.context:
         for pair in args.context:
             if "=" not in pair:
-                print(f"WARNING: ignoring malformed context '{pair}' (expected key=value)")
+                print(
+                    f"WARNING: ignoring malformed context '{pair}' (expected key=value)"
+                )
                 continue
             key, value = pair.split("=", 1)
             context[key] = value

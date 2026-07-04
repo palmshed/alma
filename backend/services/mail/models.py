@@ -48,10 +48,12 @@ class MailMessage:
     priority: MailPriority = MailPriority.NORMAL
     metadata: dict = field(default_factory=dict)
 
-    sender: Address = field(default_factory=lambda: Address(
-        email="hello@palmshed.dev",
-        name="Palmshed",
-    ))
+    sender: Address = field(
+        default_factory=lambda: Address(
+            email="hello@palmshed.dev",
+            name="Palmshed",
+        )
+    )
 
     id: Optional[str] = None
     status: MailStatus = MailStatus.PENDING
@@ -87,7 +89,7 @@ class RetryPolicy:
     backoff_factor: float = 2.0
 
     def delay_for(self, attempt: int) -> float:
-        delay = self.base_delay_seconds * (self.backoff_factor ** attempt)
+        delay = self.base_delay_seconds * (self.backoff_factor**attempt)
         return min(delay, self.max_delay_seconds)
 
 
