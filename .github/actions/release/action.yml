@@ -68,12 +68,13 @@ runs:
       with:
         token: ${{ inputs.token }}
         branch: automated/version-bump
-        title: "chore: bump version to v${{ env.NEW }}"
+        title: "Prepare v${{ env.NEW }}"
         body: |
-          Prepares release v${{ env.NEW }}.
+          ## Release
 
-          - Updates VERSION, `__init__.py`, pyproject.toml
-          - All version sources verified in sync
+          Prepare v${{ env.NEW }}.
+
+          Please review the version bump before merging.
         commit-message: "chore: bump version to v${{ env.NEW }}"
         labels: |
           automated
