@@ -281,4 +281,25 @@ def health_check():
         mail_status["error"] = str(exc)
         logging.warning("Mail service health check failed: %s", exc)
 
-    return jsonify({"status": "ok", "mail": mail_status})
+    auth_status = {"provider": "unknown"}
+    try:
+        from services.auth.config import AuthConfig
+        from services.auth.service import AuthService
+
+        auth_config = AuthConfig.from_env()
+        auth_status["provider"] = auth_config.provider
+        valid, errors = auth_config.is_valid()
+        auth_status["config_valid"] = valid
+        if errors:
+            auth_status["config_errors"] = errors
+        svc = AuthService(config=auth_config)
+        health = svc.health()
+        auth_status["provider"] = health.provider
+        auth_status["config_valid"] = health.config_valid
+        if health.config_errors:
+            auth_status["config_errors"] = health.config_errors
+    except Exception as exc:
+        auth_status["error"] = str(exc)
+        logging.warning("Auth service health check failed: %s", exc)
+
+    return jsonify({"status": "ok", "mail": mail_status, "auth": auth_status})
