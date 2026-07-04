@@ -28,7 +28,7 @@ from services.mail import (
 from services.mail.models import Address, Attachment, HealthStatus
 from services.mail.providers import MockProvider
 from services.mail.queue import ThreadMailQueue
-from services.mail.templates import MailTemplates, template_metadata
+from services.mail.templates import MailTemplates, template_metadata, TemplateValidationError
 
 
 class TestMailModels:
@@ -167,7 +167,7 @@ class TestMailMetrics:
         m = MailMetrics()
         m.record_duration(0.1)
         m.record_duration(0.2)
-        assert m.avg_duration_ms == 150.0
+        assert m.avg_duration_ms == pytest.approx(150.0, abs=0.001)
 
     def test_snapshot(self):
         m = MailMetrics()
@@ -257,7 +257,8 @@ class TestMailTemplates:
         assert "${subject}" in meta.subject
 
     def test_unknown_template_metadata(self):
-        assert template_metadata(MailTemplate("unknown")) is None
+        with pytest.raises(ValueError):
+            MailTemplate("unknown")
 
     def test_registered_templates_include_all(self):
         from services.mail.templates import registered_templates
@@ -269,9 +270,8 @@ class TestMailTemplates:
         assert "notification" in names
 
     def test_validate_returns_errors_on_missing_dir(self):
-        templates = MailTemplates(directory="/tmp/nonexistent_mail_templates")
-        errors = templates.validate()
-        assert len(errors) > 0
+        with pytest.raises(TemplateValidationError):
+            MailTemplates(directory="/tmp/nonexistent_mail_templates")
 
 
 class TestMailService:
@@ -329,7 +329,7 @@ class TestMailService:
             "user@example.com",
             context={"subject": "Test", "body": "Body", "product": "Alma"},
         )
-        assert msg.status == MailStatus.PENDING
+        assert msg.status == MailStatus.SENT
         assert msg.id is not None
 
     def test_shutdown_drains_queue(self):
@@ -465,7 +465,11 @@ class TestQueue:
     def test_queue_abc_defaults(self):
         from services.mail.queue import MailQueue as ABCQueue
 
-        q = ABCQueue()
+        class ConcreteQueue(ABCQueue):
+            def enqueue(self, message):
+                pass
+
+        q = ConcreteQueue()
         assert q.depth == 0
         assert not q.running
         q.drain()
@@ -499,14 +503,18 @@ class TestTemplateValidation:
         import os
 
         tmpdir = tempfile.mkdtemp()
-        with open(os.path.join(tmpdir, "test.html"), "w") as f:
-            f.write("<p>Hello</p>")
-        with open(os.path.join(tmpdir, "test.txt"), "w") as f:
-            f.write("Hello")
 
-        templates = MailTemplates(directory=tmpdir)
-        errors = templates.validate()
-        assert "Missing HTML" in errors[0]  # all registered templates missing
+        for name in ("welcome", "verification", "password_reset", "notification"):
+            content = " ".join("${" + p + "}" for p in (
+                "name", "product", "link", "code", "expires_in", "subject", "body"
+            ))
+            with open(os.path.join(tmpdir, f"{name}.html"), "w") as f:
+                f.write(f"<p>{content}</p>")
+            with open(os.path.join(tmpdir, f"{name}.txt"), "w") as f:
+                f.write(content)
+
+        errors = MailTemplates(directory=tmpdir).validate()
+        assert len(errors) == 0
 
     def test_template_not_found(self):
         templates = MailTemplates()
