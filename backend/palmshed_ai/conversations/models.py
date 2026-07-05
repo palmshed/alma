@@ -9,10 +9,27 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 
-_KNOWN_MESSAGE_KEYS = {"id", "role", "timestamp", "content",
-                       "thinking", "image", "attachments", "metadata"}
-_KNOWN_CONVERSATION_KEYS = {"id", "title", "mode", "schema_version",
-                            "created_at", "updated_at", "messages", "metadata"}
+_KNOWN_MESSAGE_KEYS = {
+    "id",
+    "role",
+    "timestamp",
+    "content",
+    "thinking",
+    "image",
+    "attachments",
+    "metadata",
+}
+_KNOWN_CONVERSATION_KEYS = {
+    "id",
+    "title",
+    "mode",
+    "schema_version",
+    "created_at",
+    "updated_at",
+    "messages",
+    "metadata",
+    "title_is_manual",
+}
 
 
 @dataclass
@@ -69,6 +86,7 @@ class Conversation:
     updated_at: str
     messages: list[Message]
     schema_version: int = SCHEMA_VERSION
+    title_is_manual: bool = False
     metadata: dict[str, Any] | None = None
     _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
@@ -81,6 +99,8 @@ class Conversation:
         d["created_at"] = self.created_at
         d["updated_at"] = self.updated_at
         d["messages"] = [m.to_dict() for m in self.messages]
+        if self.title_is_manual:
+            d["title_is_manual"] = True
         if self.metadata:
             d["metadata"] = copy.deepcopy(self.metadata)
         d.update(self._extra)
@@ -104,6 +124,7 @@ class Conversation:
             created_at=d["created_at"],
             updated_at=d["updated_at"],
             messages=messages,
+            title_is_manual=d.get("title_is_manual", False),
             metadata=copy.deepcopy(d.get("metadata")),
             _extra=extra,
         )

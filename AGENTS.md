@@ -307,6 +307,17 @@ This keeps the verifier lean and grounded in real failures rather than hypotheti
 
 ---
 
+## Roadmap
+
+See `docs/roadmap.md` for the high-level project roadmap.
+
 ## Product-First
 
-Platform infrastructure is locked at v0.1.0. Do not build new platform services unless a product feature requires it. The overwhelming majority of pull requests should be features users can see, starting with conversation history (persist, rename, delete, pin, reopen, sidebar integration).
+Platform infrastructure is locked at v0.1.0. Do not build new platform services unless a product feature requires it.
+
+v0.2.0 (Conversation History) is complete — persist, rename, delete,
+sidebar, auto titles, restore, switching, search.
+
+Future releases should make the application more useful rather than
+expanding the platform beneath it. Each release builds on the stable
+conversation model and Storage service established in v0.2.0.
