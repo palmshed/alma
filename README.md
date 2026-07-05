@@ -1,3 +1,13 @@
+## Dependencies
+
+Backend: Flask, flask-cors, flask-limiter, google-generativeai, google-genai, gTTS, python-dotenv, redis (optional).
+
+Frontend: React 18, react-markdown, remark-gfm, lucide-react, Tailwind CSS 4, Vite, TypeScript.
+
+See `pyproject.toml` and `frontend/package.json` for pinned versions.
+
+---
+
 ## Troubleshooting
 
 ### Internal Server Error (HTTP 500)
