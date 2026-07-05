@@ -797,9 +797,8 @@ def main() -> None:
     else:
         print(output)
 
-    overall = (
-        results.get("platform_pass", True)
-        and results.get("infrastructure_pass", True)
+    overall = results.get("platform_pass", True) and results.get(
+        "infrastructure_pass", True
     )
     sys.exit(0 if overall else 1)
 
