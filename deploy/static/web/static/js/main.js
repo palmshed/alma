@@ -104,6 +104,7 @@ function handleSubmit() {
   if (!prompt) return;
   const { mode, style } = getActiveMode();
 
+  lastPrompt = prompt;
   switchToConversation();
 
   const scroll = document.getElementById('conversation-scroll');
@@ -144,8 +145,10 @@ function handleTextGen(prompt, style) {
     .then((data) => {
       const scroll = document.getElementById('conversation-scroll');
       let html = '';
+      var thinkingText = '';
       if (data.thinking_summary) {
-        html += `<div class="thinking-container">${data.thinking_summary.join('\n')}</div>`;
+        thinkingText = data.thinking_summary.join('\n');
+        html += `<div class="thinking-container">${thinkingText}</div>`;
       }
       html += `<div class="response-container">${marked.parse(data.response || '')}</div>`;
       scroll.innerHTML = html;
@@ -155,6 +158,8 @@ function handleTextGen(prompt, style) {
         btn.style.display = 'block';
         btn.setAttribute('data-text', data.response);
       }
+
+      saveConversation(lastPrompt, data.response || '', thinkingText);
     })
     .catch((e) => { showError(e.message); });
 }
@@ -178,6 +183,8 @@ function handleImageGen(prompt) {
       document.getElementById('fullscreen-image').style.display = 'inline-block';
       document.getElementById('image-container').style.display = 'block';
       document.getElementById('conversation-scroll').innerHTML = '';
+
+      saveConversation(lastPrompt, '[Image generated]', '');
     })
     .catch((e) => { showError(e.message); });
 }
@@ -225,11 +232,266 @@ function hideNewChatDialog() {
 function confirmNewChat() {
   hideNewChatDialog();
   clearResults();
+  activeConversationId = null;
+  activeConversationData = null;
   switchToLanding();
   const input = document.getElementById('landing-input');
   if (input) input.focus();
   const sidebar = document.getElementById('sidebar-menu');
   if (sidebar && sidebar.classList.contains('open')) closeMenu();
+}
+
+/* ── Conversation State ── */
+
+var activeConversationId = null;
+var activeConversationData = null;
+var lastPrompt = '';
+var sidebarConversations = [];
+var sidebarEditingId = null;
+var sidebarEditTitle = '';
+var sidebarConfirmDeleteId = null;
+
+function formatDate(iso) {
+  var d = new Date(iso);
+  var now = new Date();
+  var diffMs = now.getTime() - d.getTime();
+  var diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return diffDays + 'd ago';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function fetchConversations() {
+  fetch('/api/conversations')
+    .then(function (r) {
+      if (!r.ok) throw new Error('Failed to fetch conversations');
+      return r.json();
+    })
+    .then(function (list) {
+      sidebarConversations = list || [];
+      renderConversationList();
+    })
+    .catch(function () {
+      sidebarConversations = [];
+      renderConversationList();
+    });
+}
+
+function renderConversationList() {
+  var list = document.getElementById('conversation-list');
+  var empty = document.getElementById('sidebar-empty');
+  if (!list) return;
+
+  list.innerHTML = '';
+
+  if (sidebarConversations.length === 0) {
+    if (empty) empty.style.display = '';
+    return;
+  }
+
+  if (empty) empty.style.display = 'none';
+
+  var sorted = sidebarConversations.slice().sort(function (a, b) {
+    return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+  });
+
+  sorted.forEach(function (conv) {
+    var item = document.createElement('div');
+    item.className = 'sidebar-conversation-item' + (conv.id === activeConversationId ? ' sidebar-conversation-item--active' : '');
+    item.setAttribute('role', 'button');
+    item.setAttribute('tabindex', '0');
+
+    var main = document.createElement('div');
+    main.className = 'sidebar-conversation-item-main';
+
+    if (sidebarEditingId === conv.id) {
+      var input = document.createElement('input');
+      input.className = 'sidebar-conversation-rename-input';
+      input.value = sidebarEditTitle || conv.title;
+      input.addEventListener('blur', function () { finishRename(conv.id); });
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') finishRename(conv.id);
+        if (e.key === 'Escape') { sidebarEditingId = null; renderConversationList(); }
+      });
+      input.addEventListener('click', function (e) { e.stopPropagation(); });
+      setTimeout(function () { input.focus(); input.select(); }, 10);
+      main.appendChild(input);
+    } else {
+      var title = document.createElement('span');
+      title.className = 'sidebar-conversation-title';
+      title.textContent = conv.title;
+      main.appendChild(title);
+
+      var date = document.createElement('span');
+      date.className = 'sidebar-conversation-date';
+      date.textContent = formatDate(conv.updated_at);
+      main.appendChild(date);
+    }
+
+    item.appendChild(main);
+
+    var actions = document.createElement('div');
+    actions.className = 'sidebar-conversation-actions';
+
+    if (sidebarEditingId !== conv.id) {
+      var renameBtn = document.createElement('button');
+      renameBtn.className = 'btn btn--ghost sidebar-action-btn';
+      renameBtn.setAttribute('aria-label', 'Rename conversation');
+      renameBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>';
+      renameBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        sidebarEditingId = conv.id;
+        sidebarEditTitle = conv.title;
+        renderConversationList();
+      });
+      actions.appendChild(renameBtn);
+
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn--ghost sidebar-action-btn';
+      deleteBtn.setAttribute('aria-label', 'Delete conversation');
+      deleteBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+      deleteBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        sidebarConfirmDeleteId = conv.id;
+        document.getElementById('sidebar-delete-dialog').style.display = '';
+      });
+      actions.appendChild(deleteBtn);
+    }
+
+    item.appendChild(actions);
+
+    item.addEventListener('click', function () { selectConversation(conv.id); });
+
+    list.appendChild(item);
+  });
+}
+
+function selectConversation(id) {
+  fetch('/api/conversations/' + encodeURIComponent(id))
+    .then(function (r) {
+      if (!r.ok) throw new Error('Failed to load conversation');
+      return r.json();
+    })
+    .then(function (conv) {
+      activeConversationId = id;
+      activeConversationData = conv;
+      var msgs = conv.messages || [];
+      var lastAssistant = null;
+      var lastThinking = null;
+      for (var i = msgs.length - 1; i >= 0; i--) {
+        if (msgs[i].role === 'assistant' && !lastAssistant) lastAssistant = msgs[i];
+        if (msgs[i].thinking && !lastThinking) lastThinking = msgs[i];
+      }
+      var scroll = document.getElementById('conversation-scroll');
+      var html = '';
+      msgs.forEach(function (m) {
+        if (m.role === 'user') {
+          html += '<div class="user-message">' + m.content + '</div>';
+        } else if (m.role === 'assistant') {
+          if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
+          html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
+        }
+      });
+      scroll.innerHTML = html;
+      if (lastAssistant && lastAssistant.content) {
+        var btn = document.getElementById('tts-button');
+        btn.style.display = '';
+        btn.setAttribute('data-text', lastAssistant.content);
+      }
+      switchToConversation();
+      renderConversationList();
+      closeMenu();
+    })
+    .catch(function () {});
+}
+
+function finishRename(id) {
+  var input = document.querySelector('.sidebar-conversation-rename-input');
+  var trimmed = input ? input.value.trim() : sidebarEditTitle;
+  if (!trimmed) {
+    sidebarEditingId = null;
+    renderConversationList();
+    return;
+  }
+  fetch('/api/conversations/' + encodeURIComponent(id))
+    .then(function (r) { return r.json(); })
+    .then(function (conv) {
+      conv.title = trimmed;
+      return fetch('/api/conversations/' + encodeURIComponent(id), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(conv),
+      });
+    })
+    .then(function () {
+      sidebarEditingId = null;
+      fetchConversations();
+    })
+    .catch(function () {
+      sidebarEditingId = null;
+      renderConversationList();
+    });
+}
+
+function confirmDeleteConversation() {
+  var id = sidebarConfirmDeleteId;
+  if (!id) return;
+  fetch('/api/conversations/' + encodeURIComponent(id), { method: 'DELETE' })
+    .then(function () {
+      if (id === activeConversationId) {
+        activeConversationId = null;
+        activeConversationData = null;
+      }
+      sidebarConfirmDeleteId = null;
+      document.getElementById('sidebar-delete-dialog').style.display = 'none';
+      fetchConversations();
+    })
+    .catch(function () {
+      sidebarConfirmDeleteId = null;
+      document.getElementById('sidebar-delete-dialog').style.display = 'none';
+    });
+}
+
+function cancelDeleteConversation() {
+  sidebarConfirmDeleteId = null;
+  document.getElementById('sidebar-delete-dialog').style.display = 'none';
+}
+
+function saveConversation(prompt, responseText, thinkingText) {
+  var existing = (activeConversationData && activeConversationData.messages) || [];
+  var newMessages = existing.concat([
+    { role: 'user', content: prompt, timestamp: new Date().toISOString() },
+    { role: 'assistant', content: responseText || '', thinking: thinkingText || undefined, timestamp: new Date().toISOString() },
+  ]);
+  var nextTitle = existing.length === 0 ? (responseText || prompt).slice(0, 60) : undefined;
+
+  if (activeConversationId) {
+    var payload = { messages: newMessages };
+    if (nextTitle) payload.title = nextTitle;
+    fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+      .then(function () {
+        fetchConversations();
+      })
+      .catch(function () {});
+  } else {
+    fetch('/api/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: nextTitle || 'New conversation', messages: newMessages }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (conv) {
+        activeConversationId = conv.id;
+        activeConversationData = conv;
+        fetchConversations();
+      })
+      .catch(function () {});
+  }
 }
 
 /* ── Suggestions ── */
@@ -385,16 +647,25 @@ document.addEventListener('DOMContentLoaded', function () {
     sidebar.classList.add('open');
     overlay.classList.add('active');
     document.body.style.overflow = 'hidden';
+    fetchConversations();
   }
   function closeMenu() {
     sidebar.classList.remove('open');
     overlay.classList.remove('active');
     document.body.style.overflow = '';
+    sidebarEditingId = null;
+    sidebarConfirmDeleteId = null;
+    document.getElementById('sidebar-delete-dialog').style.display = 'none';
+    renderConversationList();
   }
 
   if (menuToggle) menuToggle.addEventListener('click', openMenu);
   if (close) close.addEventListener('click', closeMenu);
   if (overlay) overlay.addEventListener('click', closeMenu);
+
+  /* Delete dialog buttons */
+  document.getElementById('sidebar-delete-confirm').addEventListener('click', confirmDeleteConversation);
+  document.getElementById('sidebar-delete-cancel').addEventListener('click', cancelDeleteConversation);
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && sidebar && sidebar.classList.contains('open')) closeMenu();
   });
@@ -453,4 +724,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* Initial suggestions */
   updateSuggestionsVisibility();
+
+  /* Pre-fetch conversations for sidebar */
+  setTimeout(fetchConversations, 500);
 });
