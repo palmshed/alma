@@ -108,7 +108,15 @@ jobs:
         if: always()
         run: |
           if [ -f backend/verify-output/report.json ]; then
-            PASS=$(python3 -c "import json; r=json.load(open('backend/verify-output/report.json')); s=r.get('summary',{}); print(s.get('ui_checks_passed','unknown'))" 2>/dev/null)
+            PASS=$(python3 -c "
+import json
+try:
+    r = json.load(open('backend/verify-output/report.json'))
+    s = r.get('summary', {})
+    print(s.get('ui_checks_passed', 'unknown'))
+except Exception as e:
+    print(f'error: {e}')
+" 2>/dev/null) || true
             echo "UI checks passed: $PASS"
           fi
           if [ -f /tmp/backend.log ]; then
