@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GEMINI_API_KEY: dummy
+      PORT: 8000
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -53,17 +54,36 @@ jobs:
 
       - name: Start backend
         run: |
+          # ensure logs are captured
           nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 15); do
-            if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
-              echo "Backend up"
+          backend_pid=$!
+          echo "Started backend, PID=$backend_pid"
+
+          # give more time for startup (up to 60s)
+          status="000"
+          for i in $(seq 1 60); do
+            status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health || echo "000")
+            if [ "$status" = "200" ]; then
+              echo "Backend up (received HTTP 200)"
               break
             fi
+            echo "Waiting for backend... attempt $i (status=$status)"
             sleep 1
           done
 
+          # final check
+          if [ "$status" != "200" ]; then
+            echo "Backend failed to respond with HTTP 200 within 60s (status=$status)" >&2
+            echo "Printing backend log (up to last 1000 lines):"
+            tail -n 1000 /tmp/backend.log || true
+            exit 1
+          fi
+
       - name: Application verification
-        run: uv run python -m backend.verify --application
+        run: |
+          # ensure health is reachable before running verification
+          curl -s -f http://localhost:8000/api/health > /dev/null 2>&1 || (echo "Health check failed; showing backend log:" && tail -n 200 /tmp/backend.log && exit 1)
+          uv run python -m backend.verify --application
 
       - name: Upload verification report
         if: always()
@@ -71,6 +91,13 @@ jobs:
         with:
           name: release-verify
           path: /tmp/verify-report.json
+
+      - name: Upload backend log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-log
+          path: /tmp/backend.log
 
   publish:
     needs: verify
