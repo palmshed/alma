@@ -1,30 +1,10 @@
 ## Dependencies
 
-### Backend
+Backend: Flask, flask-cors, flask-limiter, google-generativeai, google-genai, gTTS, python-dotenv, redis (optional).
 
-| Package | Version | Purpose |
-|---|---|---|
-| Flask | 2.3.3 | Web framework |
-| flask-cors | 6.0.0 | CORS support |
-| flask-limiter | 3.5.1 | Rate limiting |
-| google-generativeai | ≥0.3.1 | Gemini API (text, thinking, web) |
-| google-genai | ≥0.1.0 | Gemini API (images) |
-| gTTS | 2.5.4 | Text-to-speech |
-| python-dotenv | 1.2.1 | Environment variables |
-| redis | latest | Optional caching |
+Frontend: React 18, react-markdown, remark-gfm, lucide-react, Tailwind CSS 4, Vite, TypeScript.
 
-### Frontend
-
-| Package | Version | Purpose |
-|---|---|---|
-| React | 18.3.1 | UI framework |
-| react-dom | 18.3.1 | DOM rendering |
-| react-markdown | 9.0.1 | Markdown rendering |
-| remark-gfm | 4.0.1 | GitHub Flavored Markdown |
-| lucide-react | 1.23.0 | Icons |
-| Tailwind CSS | 4.1.17 | Styling |
-| Vite | 8.0.14 | Build tool |
-| TypeScript | 4.9.5 | Type safety |
+See `pyproject.toml` and `frontend/package.json` for pinned versions.
 
 ---
 
