@@ -77,9 +77,9 @@ jobs:
             --title "Prepare v${{ steps.version.outputs.NEW_VERSION }}" \
             --body "## Release
 
-        Prepare v${{ steps.version.outputs.NEW_VERSION }}.
+            Prepare v${{ steps.version.outputs.NEW_VERSION }}.
 
-        Please review the version bump before merging." \
+            Please review the version bump before merging." \
             --label version-bump
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
