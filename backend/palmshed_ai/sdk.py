@@ -76,7 +76,13 @@ class GeminiAI:
         return result
 
     def generate_text_with_thinking(self, prompt: str) -> Dict[str, Any]:
-        """Generate text with thinking summary."""
+        """Generate text with thinking summary.
+
+        Returns every reasoning-related field the Gemini API provides.
+        The raw part structure is returned in ``parts`` for verification
+        and future-proofing.  The frontend should render ``thinking_summary``
+        and ``response``; the ``parts`` field is for diagnostics.
+        """
         if not prompt or len(prompt) > 5000:
             raise ValueError("Invalid prompt")
         try:
@@ -87,17 +93,34 @@ class GeminiAI:
             )
         except Exception as e:
             raise ValueError(f"Failed to generate text with thinking: {e}") from e
+
         main_response = response.text if hasattr(response, "text") else ""
-        thinking_summary = []
+        thinking_summary: list[str] = []
+        parts_raw: list[dict] = []
+
         if hasattr(response, "candidates") and response.candidates:
             candidate = response.candidates[0]
             if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
                 for part in candidate.content.parts:
-                    if hasattr(part, "thought") and part.thought:
-                        thinking_summary.append(
-                            part.text if hasattr(part, "text") else str(part.thought)
-                        )
-        return {"response": main_response, "thinking_summary": thinking_summary}
+                    is_thought = getattr(part, "thought", False)
+                    part_text = getattr(part, "text", None)
+                    part_signature = getattr(part, "thought_signature", None)
+
+                    parts_raw.append(
+                        {
+                            "thought": is_thought,
+                            "text": part_text,
+                            "thought_signature": part_signature,
+                        }
+                    )
+
+                    if is_thought and part_text:
+                        thinking_summary.append(part_text)
+
+        return {
+            "response": main_response,
+            "thinking_summary": thinking_summary,
+        }
 
     def generate_text_with_url_context(self, prompt: str) -> str:
         """Generate text with URL context."""

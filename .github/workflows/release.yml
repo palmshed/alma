@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: MIT
 ---
 # Publish Release
+#
 # Triggers when a version-bump PR is merged to main.
-# Tags the merged commit and creates a GitHub release.
+# Runs full verification, then tags and creates a GitHub release.
 
 name: Publish Release
 
@@ -16,7 +17,63 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    if: >-
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'version-bump')
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: dummy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Run tests
+        run: PYTHONPATH=backend uv run pytest backend/tests/ -W ignore::DeprecationWarning
+
+      - name: Platform verification
+        run: uv run python -m backend.verify --platform
+
+      - name: Start backend
+        run: |
+          nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 15); do
+            if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+              echo "Backend up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Application verification
+        run: uv run python -m backend.verify --application
+
+      - name: Upload verification report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-verify
+          path: /tmp/verify-report.json
+
   publish:
+    needs: verify
     if: >-
       github.event.pull_request.merged == true &&
       contains(github.event.pull_request.labels.*.name, 'version-bump')
@@ -52,16 +109,13 @@ jobs:
         if: steps.check.outputs.SKIP == 'false'
         id: notes
         run: |
-          # Find the previous version tag
           prev_tag=$(git tag -l 'v*' --sort=-version:refname | head -2 | tail -1)
           if [ -z "$prev_tag" ]; then
             range="HEAD"
           else
             range="${prev_tag}..HEAD"
           fi
-
           notes=$(git log --oneline --pretty=format:"- %s" "$range" | grep -v "chore: bump version" | head -20)
-          # Write to file to preserve newlines
           echo "$notes" > /tmp/release-notes.txt
 
       - name: Create release

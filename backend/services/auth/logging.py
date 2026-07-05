@@ -31,10 +31,12 @@ class AuthLogger:
         email: str,
         error: str,
         provider: str = "",
+        user_id: Optional[str] = None,
     ) -> None:
         entry = {
             "event": event,
             "email": email,
+            "user_id": user_id or "",
             "status": AuthStatus.FAILED.value,
             "provider": provider,
             "error": error,
