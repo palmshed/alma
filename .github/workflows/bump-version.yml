@@ -42,10 +42,10 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Configure Git author
-        run: |
-          git config user.name "palmshed-alma[bot]"
-          git config user.email "${{ secrets.RELEASE_APP_ID }}+palmshed-alma[bot]@users.noreply.github.com"
+- name: Configure Git author
+  run: |
+    git config user.name "palmshed-alma[bot]"
+    git config user.email "4219484+palmshed-alma[bot]@users.noreply.github.com"
 
       - name: Bump version
         id: version
