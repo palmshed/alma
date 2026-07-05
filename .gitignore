@@ -43,3 +43,7 @@ ENV/
 coverage.xml
 .env.local
 .env.prod
+
+# Verification artifacts
+verify-output/
+backend/verify-output/
