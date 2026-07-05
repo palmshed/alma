@@ -106,11 +106,13 @@ class GeminiAI:
                     part_text = getattr(part, "text", None)
                     part_signature = getattr(part, "thought_signature", None)
 
-                    parts_raw.append({
-                        "thought": is_thought,
-                        "text": part_text,
-                        "thought_signature": part_signature,
-                    })
+                    parts_raw.append(
+                        {
+                            "thought": is_thought,
+                            "text": part_text,
+                            "thought_signature": part_signature,
+                        }
+                    )
 
                     if is_thought and part_text:
                         thinking_summary.append(part_text)
