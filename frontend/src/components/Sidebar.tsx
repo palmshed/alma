@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ConversationEntry } from '../types';
 import { api } from '../services/api';
 
@@ -9,6 +9,19 @@ interface SidebarProps {
   onSelectConversation?: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
   activeConversationId?: string | null;
+}
+
+function highlightText(text: string, query: string) {
+  if (!query) return text;
+  const idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return text;
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark>{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  );
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -24,6 +37,22 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const deleteDialogRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredConversations = useMemo(() => {
+    if (!searchQuery) return conversations;
+    const q = searchQuery.toLowerCase();
+    return conversations.filter((c) => c.title.toLowerCase().includes(q));
+  }, [conversations, searchQuery]);
+
+  const showError = useCallback((msg: string) => {
+    setError(msg);
+    setTimeout(() => setError(null), 4000);
+  }, []);
 
   const fetchConversations = useCallback(async () => {
     setLoading(true);
@@ -44,6 +73,53 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     if (isOpen) fetchConversations();
   }, [isOpen, fetchConversations]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  useEffect(() => {
+    if (editingId && renameInputRef.current) {
+      renameInputRef.current.focus();
+    }
+  }, [editingId]);
+
+  useEffect(() => {
+    if (!confirmDeleteId || !deleteDialogRef.current) return;
+    const dialog = deleteDialogRef.current;
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (first) setTimeout(() => first.focus(), 0);
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setConfirmDeleteId(null);
+        return;
+      }
+      if (e.key === 'Tab') {
+        const active = document.activeElement;
+        if (e.shiftKey && active === first) {
+          e.preventDefault();
+          last?.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [confirmDeleteId]);
 
   const handleSelect = useCallback(
     (id: string) => {
@@ -69,23 +145,30 @@ const Sidebar: React.FC<SidebarProps> = ({
         setEditingId(null);
         return;
       }
+      const prevConv = conversations.find((c) => c.id === id);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c)),
+      );
       try {
         const conv = await api.getConversation(id);
         conv.title = trimmed;
+        conv.title_is_manual = true;
         await api.updateConversation(id, conv);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c)),
-        );
       } catch {
-        // ignore rename failure
+        if (prevConv) {
+          setConversations((prev) =>
+            prev.map((c) => (c.id === id ? prevConv : c)),
+          );
+        }
+        showError('Failed to rename conversation');
       }
       setEditingId(null);
     },
-    [editTitle],
+    [editTitle, conversations, showError],
   );
 
   const handleDelete = useCallback(
-    async (e: React.MouseEvent, id: string) => {
+    (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
       setConfirmDeleteId(id);
     },
@@ -94,17 +177,30 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleConfirmDelete = useCallback(async () => {
     if (!confirmDeleteId) return;
+    const deletedConv = conversations.find((c) => c.id === confirmDeleteId);
+    setConversations((prev) => prev.filter((c) => c.id !== confirmDeleteId));
     try {
       await api.deleteConversation(confirmDeleteId);
-      setConversations((prev) => prev.filter((c) => c.id !== confirmDeleteId));
     } catch {
-      // ignore delete failure
+      if (deletedConv) {
+        setConversations((prev) => {
+          const restored = [...prev, deletedConv];
+          restored.sort(
+            (a, b) =>
+              new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+          );
+          return restored;
+        });
+      }
+      showError('Failed to delete conversation');
+      setConfirmDeleteId(null);
+      return;
     }
     if (confirmDeleteId === activeConversationId) {
       onDeleteConversation?.(confirmDeleteId);
     }
     setConfirmDeleteId(null);
-  }, [confirmDeleteId, activeConversationId, onDeleteConversation]);
+  }, [confirmDeleteId, activeConversationId, onDeleteConversation, conversations, showError]);
 
   const handleCancelDelete = useCallback(() => {
     setConfirmDeleteId(null);
@@ -122,7 +218,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   return (
-    <aside className={`sidebar${isOpen ? ' sidebar--open' : ''}`}>
+    <aside
+      className={`sidebar${isOpen ? ' sidebar--open' : ''}`}
+      role="complementary"
+      aria-label="Conversation history"
+    >
       <div className="sidebar-header">
         <button
           className="btn btn--ghost sidebar-close"
@@ -147,27 +247,68 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="sidebar-section-label">Chats</div>
 
+        <div className="sidebar-search">
+          <input
+            ref={searchInputRef}
+            className="sidebar-search-input"
+            type="text"
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search conversations"
+          />
+          {searchQuery && (
+            <button
+              className="sidebar-search-clear"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+              aria-label="Clear search"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                <path d="M18 6 6 18"/>
+                <path d="m6 6 12 12"/>
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="sidebar-error" role="alert">{error}</div>
+        )}
+
         {loading && conversations.length === 0 && (
           <div className="sidebar-empty">Loading...</div>
         )}
 
-        {!loading && conversations.length === 0 && (
+        {!loading && conversations.length === 0 && !searchQuery && (
           <div className="sidebar-empty">No conversations yet</div>
         )}
 
-        <div className="sidebar-conversation-list">
-          {conversations.map((conv) => (
+        {!loading && conversations.length > 0 && searchQuery && filteredConversations.length === 0 && (
+          <div className="sidebar-empty">No conversations found.</div>
+        )}
+
+        <div className="sidebar-conversation-list" role="list">
+          {filteredConversations.map((conv) => (
             <div
               key={conv.id}
               className={`sidebar-conversation-item${conv.id === activeConversationId ? ' sidebar-conversation-item--active' : ''}`}
               onClick={() => handleSelect(conv.id)}
-              role="button"
+              role="listitem"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleSelect(conv.id); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelect(conv.id);
+                }
+              }}
             >
               <div className="sidebar-conversation-item-main">
                 {editingId === conv.id ? (
                   <input
+                    ref={renameInputRef}
                     className="sidebar-conversation-rename-input"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
@@ -178,11 +319,12 @@ const Sidebar: React.FC<SidebarProps> = ({
                     }}
                     onClick={(e) => e.stopPropagation()}
                     autoFocus
+                    aria-label="Rename conversation"
                   />
                 ) : (
                   <>
                     <span className="sidebar-conversation-title">
-                      {conv.title}
+                      {highlightText(conv.title, searchQuery)}
                     </span>
                     <span className="sidebar-conversation-date">
                       {formatDate(conv.updated_at)}
@@ -227,8 +369,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       {confirmDeleteId && (
         <>
           <div className="sidebar-overlay-inline" onClick={handleCancelDelete} />
-          <div className="sidebar-dialog" role="dialog" aria-modal="true">
-            <p className="sidebar-dialog-title">Delete conversation?</p>
+          <div className="sidebar-dialog" ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+            <p id="delete-dialog-title" className="sidebar-dialog-title">Delete conversation?</p>
             <p className="sidebar-dialog-description">
               This cannot be undone.
             </p>
