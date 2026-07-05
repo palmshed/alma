@@ -297,12 +297,16 @@ def classify_response(status: int, body: Any) -> str:
             return QUOTA
     # Flask wraps Gemini errors in HTTP 500 — check body for Gemini error codes
     if status == 500:
-        if isinstance(body, str) and ("API key" in body or "api_key" in body):
-            return "config"
-        if isinstance(body, str) and "PERMISSION_DENIED" in body:
-            return "config"
-        if isinstance(body, str) and ("quota" in body.lower() or "RESOURCE_EXHAUSTED" in body):
-            return QUOTA
+        err_msg = body
+        if isinstance(body, dict):
+            err_msg = str(body.get("error", ""))
+        if isinstance(err_msg, str):
+            if "API key" in err_msg or "api_key" in err_msg:
+                return "config"
+            if "PERMISSION_DENIED" in err_msg:
+                return "config"
+            if "quota" in err_msg.lower() or "RESOURCE_EXHAUSTED" in err_msg:
+                return QUOTA
     return INFRASTRUCTURE
 
 
