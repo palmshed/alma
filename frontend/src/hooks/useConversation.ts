@@ -55,9 +55,10 @@ export function useConversation(): UseConversationReturn {
     const msgs = conv.messages ?? [];
     const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
     const lastThinking = [...msgs].reverse().find((m) => m.thinking);
+    const lastImage = [...msgs].reverse().find((m) => m.image);
     setResponse(lastAssistant?.content ?? '');
     setThinking(lastThinking?.thinking ?? '');
-    setImageUrl('');
+    setImageUrl(lastImage?.image ?? '');
     setAudioUrl('');
     setIsLoading(false);
     setConversationStarted(msgs.length > 0);

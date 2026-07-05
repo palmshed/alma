@@ -36,5 +36,14 @@ export interface ConversationData {
   created_at: string;
   updated_at: string;
   messages: MessageData[];
+  title_is_manual?: boolean;
+  metadata?: Record<string, unknown> | null;
+}
+
+export interface CreateConversationPayload {
+  title?: string;
+  mode: string;
+  messages: MessageData[];
+  title_is_manual?: boolean;
   metadata?: Record<string, unknown> | null;
 }

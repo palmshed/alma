@@ -1,4 +1,4 @@
-import type { ApiThinkingResult, ConversationEntry, ConversationData } from '../types';
+import type { ApiThinkingResult, ConversationEntry, ConversationData, CreateConversationPayload } from '../types';
 
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
@@ -105,7 +105,7 @@ export const api = {
     return apiGet<ConversationData>(`/api/conversations/${id}`);
   },
 
-  createConversation(data: ConversationData): Promise<ConversationData> {
+  createConversation(data: CreateConversationPayload): Promise<ConversationData> {
     return request<ConversationData>('/api/conversations', data);
   },
 
