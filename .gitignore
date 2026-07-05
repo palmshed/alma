@@ -47,3 +47,4 @@ coverage.xml
 # Verification artifacts
 verify-output/
 backend/verify-output/
+verify-history/
