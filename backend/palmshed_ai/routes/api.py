@@ -257,80 +257,8 @@ def research_topic() -> Union[Response, Tuple[Response, int]]:
 
 @api_bp.route("/api/health", methods=["GET"])
 def health_check():
-    """Health endpoint including mail provider status."""
-    from services.mail.config import MailConfig
-    from services.mail.service import MailService
+    """Health endpoint using PlatformManager."""
+    from services import platform
 
-    config = MailConfig.from_env()
-    mail_status = {"provider": config.provider, "from_email": config.from_email}
-
-    valid, errors = config.is_valid()
-    mail_status["config_valid"] = valid
-    if errors:
-        mail_status["config_errors"] = errors
-
-    try:
-        svc = MailService(config=config)
-        health = svc.health()
-        mail_status["provider"] = health.provider
-        mail_status["queue_running"] = health.queue_running
-        mail_status["queue_depth"] = health.queue_depth
-        mail_status["templates_valid"] = health.templates_valid
-        mail_status["template_count"] = health.template_count
-    except Exception as exc:
-        mail_status["error"] = str(exc)
-        logging.warning("Mail service health check failed: %s", exc)
-
-    auth_status = {"provider": "unknown"}
-    try:
-        from services.auth.config import AuthConfig
-        from services.auth.service import AuthService
-
-        auth_config = AuthConfig.from_env()
-        auth_status["provider"] = auth_config.provider
-        valid, errors = auth_config.is_valid()
-        auth_status["config_valid"] = valid
-        if errors:
-            auth_status["config_errors"] = errors
-        svc = AuthService(config=auth_config)
-        health = svc.health()
-        auth_status["provider"] = health.provider
-        auth_status["config_valid"] = health.config_valid
-        if health.config_errors:
-            auth_status["config_errors"] = health.config_errors
-    except Exception as exc:
-        auth_status["error"] = str(exc)
-        logging.warning("Auth service health check failed: %s", exc)
-
-    storage_status = {"provider": "unknown"}
-    try:
-        from services.storage.config import StorageConfig
-        from services.storage.service import StorageService
-
-        storage_config = StorageConfig.from_env()
-        storage_status["provider"] = storage_config.provider
-        storage_status["bucket"] = storage_config.bucket
-        valid, errors = storage_config.is_valid()
-        storage_status["config_valid"] = valid
-        if errors:
-            storage_status["config_errors"] = errors
-        svc = StorageService(config=storage_config)
-        health = svc.health()
-        storage_status["provider"] = health.provider
-        storage_status["config_valid"] = health.config_valid
-        storage_status["bucket"] = health.bucket
-        storage_status["healthy"] = health.healthy
-        if health.config_errors:
-            storage_status["config_errors"] = health.config_errors
-    except Exception as exc:
-        storage_status["error"] = str(exc)
-        logging.warning("Storage service health check failed: %s", exc)
-
-    return jsonify(
-        {
-            "status": "ok",
-            "mail": mail_status,
-            "auth": auth_status,
-            "storage": storage_status,
-        }
-    )
+    h = platform.health()
+    return jsonify(h.to_dict())
