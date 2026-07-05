@@ -1,23 +1,21 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# CI Workflow
-# Runs tests on every push and PR to main.
-# On main push, also prepares a version bump PR.
+# CI — Lint, format, unit tests, build.
+#
+# Runs on every push and PR to main.
+# This is the gate for code quality — fast feedback.
 
 name: CI
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  schedule:
-    - cron: '0 6 * * 1'  # Every Monday at 06:00 UTC
 
 jobs:
   test:
@@ -27,23 +25,46 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - name: Run tests
-        uses: ./.github/actions/test
+          python-version: "3.12"
 
-  release:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-      - name: Prepare version bump
-        uses: ./.github/actions/release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          node-version: "22"
+
+      - name: Build React frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Run linting
+        run: uv run ruff check .
+
+      - name: Run formatting check
+        run: uv run black --check .
+
+      - name: Run unit tests with coverage
+        run: >-
+          PYTHONPATH=backend uv run pytest backend/tests/
+          --cov=palmshed_ai --cov-report=xml
+          -W ignore::DeprecationWarning
+
+      - name: Run integration test
+        run: >-
+          PYTHONPATH=backend uv run pytest backend/tests/integration/test_smoke.py
+
+      - name: Validate vercel.json
+        run: >-
+          python -m json.tool deploy/vercel/vercel.json > /dev/null
+          && echo "vercel.json is valid"

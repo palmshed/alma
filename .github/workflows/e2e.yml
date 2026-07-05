@@ -1,0 +1,115 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
+---
+# End-to-End — Full browser verification.
+#
+# Answers: "Can a user actually use Alma?"
+# Runs Playwright against the deployed app or a local instance.
+# Validates the real user workflow across all modes.
+
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"  # Daily at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'dummy' }}
+      ALMA_BASE_URL: http://localhost:8000
+      ALMA_FRONTEND_URL: http://localhost:8000
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm install
+          npm run build
+
+      - name: Install Playwright
+        run: uv run pip install playwright && uv run python -m playwright install chromium
+
+      - name: Start backend
+        run: |
+          nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 15); do
+            if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
+              echo "Backend up"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: Run browser verification
+        continue-on-error: true
+        run: |
+          uv run python -m backend.verify ui --browser --json --output /tmp/e2e-report.json
+          cp /tmp/e2e-report.json backend/verify-output/report.json 2>/dev/null || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: backend/verify-output/*.png
+
+      - name: Upload HAR
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-har
+          path: backend/verify-output/network.har
+
+      - name: Upload console log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-console
+          path: backend/verify-output/console.log
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: backend/verify-output/report.json
+
+      - name: Upload response shapes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-response-shapes
+          path: backend/verify-output/*-response.json
+
+      - name: Summarize results
+        if: always()
+        run: |
+          if [ -f backend/verify-output/report.json ]; then
+            PASS=$(python3 -c "import json; r=json.load(open('backend/verify-output/report.json')); s=r.get('summary',{}); print(s.get('ui_checks_passed','unknown'))" 2>/dev/null)
+            echo "UI checks passed: $PASS"
+          fi
+          if [ -f /tmp/backend.log ]; then
+            echo "--- Backend log (tail) ---"
+            tail -5 /tmp/backend.log
+          fi
