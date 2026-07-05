@@ -1,0 +1,92 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
+---
+# Bump Version
+#
+# Manual workflow to bump the VERSION file, create a branch,
+# and open a version-bump PR — all attributed to the GitHub App.
+# The Publish Release workflow takes over once the PR is merged.
+
+name: Bump Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: Version bump type
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull_requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate app token
+        id: app-token
+        uses: tibdex/github-app-token@v2
+        with:
+          app_id: ${{ secrets.RELEASE_APP_ID }}
+          private_key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure Git author
+        run: |
+          git config user.name "palmshed-alma[bot]"
+          git config user.email "${{ secrets.RELEASE_APP_ID }}+palmshed-alma[bot]@users.noreply.github.com"
+
+      - name: Bump version
+        id: version
+        run: |
+          current=$(cat VERSION)
+          IFS='.' read -r major minor patch <<< "$current"
+          case "${{ github.event.inputs.bump_type }}" in
+            major) major=$((major+1)); minor=0; patch=0 ;;
+            minor) minor=$((minor+1)); patch=0 ;;
+            patch) patch=$((patch+1)) ;;
+          esac
+          new_version="${major}.${minor}.${patch}"
+          echo "$new_version" > VERSION
+          echo "NEW_VERSION=$new_version" >> "$GITHUB_OUTPUT"
+
+      - name: Create branch and push
+        run: |
+          branch="automated/version-bump"
+          git checkout -b "$branch"
+          git add VERSION
+          git commit -m "chore: bump version to v${{ steps.version.outputs.NEW_VERSION }}"
+          git push origin "$branch"
+
+      - name: Create pull request
+        run: |
+          gh pr create \
+            --base main \
+            --head automated/version-bump \
+            --title "Prepare v${{ steps.version.outputs.NEW_VERSION }}" \
+            --body "## Release
+
+        Prepare v${{ steps.version.outputs.NEW_VERSION }}.
+
+        Please review the version bump before merging." \
+            --label version-bump
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+
+      - name: Summary
+        run: |
+          echo "## Version bump created" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **New version:** v${{ steps.version.outputs.NEW_VERSION }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Branch:** \`automated/version-bump\`" >> "$GITHUB_STEP_SUMMARY"
