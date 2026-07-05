@@ -100,32 +100,10 @@ config = MailConfig(provider="smtp", max_recipients=10)
 svc = MailService(config=config)
 ```
 
-### Versioning policy
+### Versioning
 
-Breaking changes require deliberation. The following constitute a
-breaking API change:
-
-- Removing or renaming a public symbol (`MailService`, `MailTemplate`, etc.)
-- Changing the signature of `MailService.send()`
-- Changing the shape of `MailResult` or `MailConfig` fields
-- Changing the `MailProvider` ABC (adding required methods)
-- Removing a registered `MailTemplate` enum member
-
-The following are **not** breaking:
-
-- Adding new enum members to `MailTemplate`
-- Adding optional fields to `MailConfig`
-- Adding new methods to `MailProvider` with default implementations
-- Adding new providers via `ProviderRegistry`
-- Adding new templates or template definitions
-- Internal refactoring of `queue.py`, `metrics.py`, `logging.py`
-- Adding new environment variables
-
-Deprecation policy:
-
-- Deprecate a feature for one minor cycle before removal
-- Log a deprecation warning when the old path is used
-- Remove only in a major version bump
+See [docs/versioning.md](../../../docs/versioning.md) for the complete
+policy. Public API is defined by `__init__.py` exports.
 
 ## Choosing a provider
 

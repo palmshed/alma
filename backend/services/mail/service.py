@@ -160,7 +160,7 @@ class MailService:
             elapsed = time.monotonic() - start
             message.status = result.status
             self.metrics.record_duration(elapsed)
-            self.logger.log_result(result)
+            self.logger.log_result(result, message=message)
             if result.status == MailStatus.FAILED:
                 self.metrics.record_failed()
                 raise MailError(result.error or "send failed")
@@ -179,5 +179,6 @@ class MailService:
                 status=MailStatus.FAILED,
                 retry_count=message.retry_count,
                 error=str(exc),
+                message=message,
             )
             raise MailError(str(exc)) from exc

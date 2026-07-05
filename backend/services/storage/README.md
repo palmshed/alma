@@ -65,3 +65,8 @@ Uploads, downloads, checksums, deletes, and reports latency for each step.
 4. Set `STORAGE_PROVIDER=gcs`
 
 No application code changes needed.
+
+## Versioning
+
+See [docs/versioning.md](../../../docs/versioning.md) for the complete
+policy. Public API is defined by `__init__.py` exports.

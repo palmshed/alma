@@ -44,3 +44,8 @@ python -m services.notifications.verify --to user@example.com
 1. Create `channels/sms.py`
 2. Implement `NotificationChannel` ABC
 3. Register in `channels/__init__.py`
+
+## Versioning
+
+See [docs/versioning.md](../../../docs/versioning.md) for the complete
+policy. Public API is defined by `__init__.py` exports.

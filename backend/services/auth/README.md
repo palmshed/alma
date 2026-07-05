@@ -109,11 +109,8 @@ export AUTH_PROVIDER=jwt
 
 ## Versioning
 
-This module follows the same versioning policy as the mail service:
-
-- Minor changes (new providers, new fields) — backward compatible
-- Breaking changes (removing methods, changing signatures) — new major version
-- Deprecated items are marked and supported for one minor version cycle
+See [docs/versioning.md](../../../docs/versioning.md) for the complete
+policy. Public API is defined by `__init__.py` exports.
 
 ## Adding a Provider
 
