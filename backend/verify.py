@@ -525,6 +525,71 @@ def check_images(config: Dict[str, str]) -> Dict[str, Any]:
     return result
 
 
+def check_persistence() -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "name": "persistence",
+        "label": "Persistence",
+        "group": "platform",
+        "status": "fail",
+    }
+    t0 = time.time()
+    try:
+        import uuid
+        from services import platform
+        from palmshed_ai.conversations import Conversation, Message, ConversationStore
+
+        store = ConversationStore(storage=platform.storage)
+
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="Verify conversation",
+            mode="chat",
+            created_at="2026-07-05T12:00:00Z",
+            updated_at="2026-07-05T12:00:00Z",
+            messages=[
+                Message(
+                    id=str(uuid.uuid4()),
+                    role="user",
+                    timestamp="2026-07-05T12:00:00Z",
+                    content="Hello from verify",
+                ),
+            ],
+        )
+
+        created = store.create(conv)
+        if created.id != conv.id:
+            result["error"] = "create: conversation id mismatch"
+            return result
+
+        store2 = ConversationStore(storage=platform.storage)
+        loaded = store2.load(conv.id)
+        if loaded is None:
+            result["error"] = "load: conversation not found after save"
+            return result
+        if loaded.title != "Verify conversation":
+            result["error"] = f"load: title mismatch: {loaded.title}"
+            return result
+        if len(loaded.messages) != 1:
+            result["error"] = f"load: expected 1 message, got {len(loaded.messages)}"
+            return result
+        if loaded.messages[0].content != "Hello from verify":
+            result["error"] = f"load: message content mismatch: {loaded.messages[0].content}"
+            return result
+
+        store.delete(conv.id)
+
+        elapsed = round(time.time() - t0, 1)
+        result["status"] = "pass"
+        result["latency"] = elapsed
+        result["details"] = {"cycles": "create → save → reload → delete"}
+
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 1)
+        result["latency"] = elapsed
+        result["error"] = str(exc)
+    return result
+
+
 # ── Check registry ───────────────────────────────────────────────────
 
 PLATFORM_CHECKS: Dict[str, Any] = {
@@ -532,6 +597,7 @@ PLATFORM_CHECKS: Dict[str, Any] = {
     "auth": check_auth,
     "storage": check_storage,
     "notifications": check_notifications,
+    "persistence": check_persistence,
 }
 
 APPLICATION_CHECKS: Dict[str, Any] = {
