@@ -48,7 +48,9 @@ jobs:
           npm run build
 
       - name: Install Playwright
-        run: uv run pip install playwright && uv run python -m playwright install chromium
+        run: |
+          uv pip install playwright
+          uv run python -m playwright install chromium
 
       - name: Start backend
         run: |
