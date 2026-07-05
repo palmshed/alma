@@ -895,6 +895,8 @@ def check_sidebar_search() -> UICheck:
         missing.append("title highlighting")
     if not has_clear_btn:
         missing.append("clear button")
+    if not has_cmd_k:
+        missing.append("Cmd+K shortcut")
     if not has_empty_state:
         missing.append("no results state")
     if not has_case_insensitive:
@@ -1536,7 +1538,7 @@ def _run_conversation_search(
                 any(t in (conv_items.nth(i).text_content() or "") for t in titles)
                 for i in range(conv_items.count())
             )
-            if conv_items.count() >= len(titles):
+            if all_visible:
                 results.append(
                     UICheck("search_clear", "Search — clear restores full list", "pass")
                 )
