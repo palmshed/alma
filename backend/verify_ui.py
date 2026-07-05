@@ -1973,7 +1973,8 @@ def _capture_metrics(page: "Any", start_time: float) -> Dict[str, float]:
     """Capture browser performance metrics."""
     metrics: Dict[str, float] = {}
     try:
-        timing = page.evaluate("""() => {
+        timing = page.evaluate(
+            """() => {
             const p = window.performance;
             const t = p.timing;
             return {
@@ -1981,7 +1982,8 @@ def _capture_metrics(page: "Any", start_time: float) -> Dict[str, float]:
                 loadEvent: t.loadEventEnd - t.navigationStart,
                 domInteractive: t.domInteractive - t.navigationStart,
             };
-        }""")
+        }"""
+        )
         metrics["dom_content_loaded_ms"] = round(timing.get("domContentLoaded", 0), 1)
         metrics["load_event_ms"] = round(timing.get("loadEvent", 0), 1)
         metrics["dom_interactive_ms"] = round(timing.get("domInteractive", 0), 1)
