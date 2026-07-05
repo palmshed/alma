@@ -132,16 +132,7 @@ jobs:
             echo "UI checks passed: $PASS"
           fi
           if [ -f backend/verify-output/fidelity-report.json ]; then
-            python3 << 'PYEOF'
-import json
-data = json.load(open('backend/verify-output/fidelity-report.json'))
-passed = sum(1 for c in data if c.get('status') == 'pass')
-failed = sum(1 for c in data if c.get('status') == 'fail')
-print(f'Fidelity checks: {passed} passed, {failed} failed')
-for c in data:
-    if c.get('status') == 'fail':
-        print(f'  FAIL: {c.get("label")} — {c.get("detail", "")}')
-PYEOF
+            python3 -c "import json; d=json.load(open('backend/verify-output/fidelity-report.json')); p=sum(1 for c in d if c.get('status')=='pass'); f=sum(1 for c in d if c.get('status')=='fail'); print(f'Fidelity checks: {p} passed, {f} failed'); [print(f'  FAIL: {c.get(\"label\")} \u2014 {c.get(\"detail\", \"\")}') for c in d if c.get('status')=='fail']"
           fi
           if [ -f /tmp/backend.log ]; then
             echo "--- Backend log (tail) ---"
