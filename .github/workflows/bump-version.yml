@@ -45,7 +45,7 @@ jobs:
       - name: Configure Git author
         run: |
           git config user.name "palmshed-alma[bot]"
-          git config user.email "4219484+palmshed-alma[bot]@users.noreply.github.com"
+          git config user.email "300001495+palmshed-alma[bot]@users.noreply.github.com"
 
       - name: Bump version
         id: version
