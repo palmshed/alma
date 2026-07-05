@@ -15,13 +15,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 __all__ = ["create_app", "GeminiAI", "main"]
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-
-# Configure the Gemini API with your API key
-genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
 
 
 def create_app():
