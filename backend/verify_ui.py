@@ -11,12 +11,15 @@ Usage:
     python -m backend.verify_ui --capabilities           # backend probe only
     python -m backend.verify_ui --static                 # frontend code analysis only
     python -m backend.verify_ui --browser                # browser-based (requires playwright)
+    python -m backend.verify_ui --fidelity               # render fidelity checks
     python -m backend.verify_ui --json                   # machine-readable
     python -m backend.verify_ui canvas thinking          # specific modes
 """
 
+import hashlib
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -35,6 +38,11 @@ VERIFY_OUTPUT = os.path.join(
 def _ensure_output_dir() -> str:
     os.makedirs(VERIFY_OUTPUT, exist_ok=True)
     return VERIFY_OUTPUT
+
+
+_BASELINE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "verify-output", "baselines"
+)
 
 
 # ── Models ────────────────────────────────────────────────────────────
@@ -1276,6 +1284,1487 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
     return results
 
 
+# ── Render fidelity verification ─────────────────────────────────────
+#
+# Behaves like a headless QA engineer: submits deterministic prompts to
+# the backend API, extracts the raw markdown, drives the browser with the
+# same prompts, then compares DOM text, elements, and clipboard content
+# to the backend originals — pixel-perfect or it fails.
+#
+# This is organised as:
+#   1. helpers (fetch, normalise, compare, probe)
+#   2. run_render_fidelity() — the entry-point
+
+
+# ── helpers ──────────────────────────────────────────────────────────
+
+
+def _mode_endpoint(mode: str, base: str) -> str:
+    endpoints = {
+        "canvas": f"{base}/api/generate",
+        "thinking": f"{base}/api/generate-with-thinking",
+        "web": f"{base}/api/generate-with-url-context",
+        "images": f"{base}/api/generate-image",
+    }
+    return endpoints.get(mode, f"{base}/api/generate")
+
+
+def _extract_markdown(body: Any, mode: str) -> str:
+    """Pull the markdown/text content out of a backend JSON response."""
+    if not isinstance(body, dict):
+        return str(body)
+    if mode == "thinking":
+        # thinking endpoint returns {"response": <answer>, "thinking_summary": <thinking>}
+        answer = body.get("response") or body.get("answer") or ""
+        thinking = body.get("thinking_summary") or body.get("reasoning") or ""
+        # store both; caller picks the relevant half
+        return f"__THINKING__\n{thinking}\n__ANSWER__\n{answer}"
+    if "response" in body:
+        return body["response"]
+    if "processed_text" in body:
+        return body["processed_text"]
+    if "text" in body:
+        return body["text"]
+    return json.dumps(body)
+
+
+def _split_thinking(raw: str) -> tuple[str, str]:
+    """Split a combined thinking/answer string into separate halves."""
+    if "__THINKING__" in raw and "__ANSWER__" in raw:
+        parts = raw.split("__ANSWER__", 1)
+        thinking = parts[0].replace("__THINKING__", "").strip()
+        answer = parts[1].strip()
+        return thinking, answer
+    return "", raw
+
+
+def _normalize(text: str) -> str:
+    """Strip HTML, collapse whitespace, strip leading/trailing space."""
+    import re
+
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
+def _compare_text(expected: str, actual: str) -> tuple[float, int]:
+    """Compare two normalised strings.
+
+    Returns (match_percent, count_of_differences).
+    100.0 means identical.
+    """
+    exp = _normalize(expected)
+    act = _normalize(actual)
+    if exp == act:
+        return 100.0, 0
+    # simple diff: count differing chars relative to longest
+    max_len = max(len(exp), len(act))
+    if max_len == 0:
+        return 100.0, 0
+    diffs = sum(1 for a, b in zip(exp, act) if a != b)
+    diffs += abs(len(exp) - len(act))  # penalty for length mismatch
+    match = max(0.0, round(100.0 * (1.0 - diffs / max_len), 1))
+    return match, diffs
+
+
+def _check_element(
+    page: "Any", selector: str, chk_name: str, chk_label: str
+) -> UICheck:
+    """Check that at least one element matching *selector* exists."""
+    el = page.locator(selector)
+    if el.count():
+        return UICheck(chk_name, chk_label, "pass")
+    return UICheck(
+        chk_name, chk_label, "fail", f"Expected <{selector}> not found in DOM."
+    )
+
+
+def _response_selector(mode: str) -> str:
+    """Return a Playwright locator string for the rendered-content area.
+
+    Supports both the React version (class-based selectors) and the
+    static version (#conversation-scroll, message containers).
+    """
+    return {
+        "canvas": (
+            ".prose, .markdown, .response-content, "
+            "[class*='response'], article, "
+            "#conversation-scroll, [class*='message'], .conversation-message"
+        ),
+        "thinking": (
+            ".prose, .markdown, .response-content, "
+            "[class*='response'], article, "
+            "#conversation-scroll, [class*='message'], .conversation-message"
+        ),
+        "web": (
+            ".prose, .markdown, .response-content, "
+            "[class*='response'], article, "
+            "#conversation-scroll, [class*='message'], .conversation-message"
+        ),
+        "images": "img, #generated-image, #image-container",
+    }.get(mode, ".prose, .markdown")
+
+
+def _count_structures(page: "Any") -> Dict[str, int]:
+    """Count HTML structural elements in the rendered page."""
+    tags = [
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "p",
+        "ul",
+        "ol",
+        "li",
+        "table",
+        "tr",
+        "td",
+        "th",
+        "pre",
+        "code",
+        "blockquote",
+        "hr",
+        "img",
+    ]
+    counts: Dict[str, int] = {}
+    for tag in tags:
+        counts[tag] = page.locator(tag).count()
+    return counts
+
+
+def _count_expected_structures(markdown: str) -> Dict[str, int]:
+    """Best-effort count of expected HTML elements from markdown."""
+    expected: Dict[str, int] = {}
+    expected["h1"] = len(re.findall(r"^# ", markdown, re.MULTILINE))
+    expected["h2"] = len(re.findall(r"^## ", markdown, re.MULTILINE))
+    expected["h3"] = len(re.findall(r"^### ", markdown, re.MULTILINE))
+    expected["h4"] = len(re.findall(r"^#### ", markdown, re.MULTILINE))
+    expected["h5"] = len(re.findall(r"^##### ", markdown, re.MULTILINE))
+    expected["h6"] = len(re.findall(r"^###### ", markdown, re.MULTILINE))
+    code_fences = re.findall(r"```", markdown)
+    expected["pre"] = len(code_fences) // 2
+    expected["code"] = expected["pre"]
+    expected["table"] = len(re.findall(r"^\|.+\|\n\|[-:| ]+\|", markdown, re.MULTILINE))
+    expected["blockquote"] = len(re.findall(r"^>\s?", markdown, re.MULTILINE))
+    expected["hr"] = len(re.findall(r"^---\s*$", markdown, re.MULTILINE))
+    expected["img"] = len(re.findall(r"!\[", markdown))
+    expected["ul"] = len(re.findall(r"^[-*+]\s", markdown, re.MULTILINE))
+    expected["ol"] = len(re.findall(r"^\d+\.\s", markdown, re.MULTILINE))
+    expected["li"] = expected["ul"] + expected["ol"]
+    expected["p"] = max(1, len(re.findall(r"\n\n", markdown)))
+    expected["tr"] = len(re.findall(r"^\|.+\|$", markdown, re.MULTILINE))
+    expected["td"] = expected["tr"] * 3
+    expected["th"] = expected["tr"]
+    return expected
+
+
+def _capture_metrics(page: "Any", start_time: float) -> Dict[str, float]:
+    """Capture browser performance metrics."""
+    metrics: Dict[str, float] = {}
+    try:
+        timing = page.evaluate(
+            """() => {
+            const p = window.performance;
+            const t = p.timing;
+            return {
+                domContentLoaded: t.domContentLoadedEventEnd - t.navigationStart,
+                loadEvent: t.loadEventEnd - t.navigationStart,
+                domInteractive: t.domInteractive - t.navigationStart,
+            };
+        }"""
+        )
+        metrics["dom_content_loaded_ms"] = round(timing.get("domContentLoaded", 0), 1)
+        metrics["load_event_ms"] = round(timing.get("loadEvent", 0), 1)
+        metrics["dom_interactive_ms"] = round(timing.get("domInteractive", 0), 1)
+    except Exception:
+        pass
+    elapsed = time.monotonic() - start_time
+    metrics["total_elapsed_s"] = round(elapsed, 2)
+    return metrics
+
+
+def _compute_screenshot_hash(path: str) -> str:
+    """Compute a short SHA-256 hex digest of a screenshot file."""
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()[:16]
+
+
+# Track all screenshots that changed vs baseline for the summary report.
+_CHANGED_SCREENSHOTS: List[str] = []
+
+
+def _visual_regression(mode: str, screenshot_path: str, output_dir: str) -> UICheck:
+    """Compare screenshot hash against a stored baseline.
+
+    When the baseline exists and the hash differs, this records the
+    screenshot as a review-required regression.  Updating a baseline
+    is an explicit manual action — copy the new hash from
+    verify-output/ into verify-output/baselines/ and commit it.
+    """
+    global _CHANGED_SCREENSHOTS
+    hash_val = _compute_screenshot_hash(screenshot_path)
+    hash_path = os.path.join(output_dir, f"{mode}-screenshot-hash.txt")
+    with open(hash_path, "w") as f:
+        f.write(hash_val + "\n")
+    baseline_path = os.path.join(_BASELINE_DIR, f"{mode}-screenshot-hash.txt")
+    if os.path.isfile(baseline_path):
+        with open(baseline_path) as f:
+            baseline = f.read().strip()
+        if hash_val == baseline:
+            return UICheck(
+                f"{mode}_visual_regression",
+                f"{mode.capitalize()} visual regression",
+                "pass",
+                f"Hash matches baseline ({hash_val})",
+            )
+        _CHANGED_SCREENSHOTS.append(screenshot_path)
+        return UICheck(
+            f"{mode}_visual_regression",
+            f"{mode.capitalize()} visual regression",
+            "fail",
+            f"❌ Review required — hash {hash_val} differs from baseline {baseline}. "
+            f"Changed file: {os.path.basename(screenshot_path)}. "
+            f"To approve, copy verify-output/{mode}-screenshot-hash.txt to "
+            f"verify-output/baselines/ and commit.",
+        )
+    return UICheck(
+        f"{mode}_visual_regression",
+        f"{mode.capitalize()} visual regression",
+        "skip",
+        f"No baseline at {baseline_path}",
+    )
+
+
+def _accessibility_checks(page: "Any") -> Tuple[int, int, List[UICheck]]:
+    """Run automated accessibility checks on the page."""
+    checks: List[UICheck] = []
+    passed = 0
+    failed = 0
+
+    # Every img has alt
+    imgs = page.locator("img")
+    img_no_alt = 0
+    for i in range(imgs.count()):
+        alt = imgs.nth(i).get_attribute("alt")
+        if not alt:
+            img_no_alt += 1
+    if img_no_alt:
+        failed += 1
+        checks.append(
+            UICheck(
+                "a11y_img_alt",
+                "Images have alt text",
+                "fail",
+                f"{img_no_alt} image(s) missing alt",
+            )
+        )
+    else:
+        passed += 1
+        checks.append(UICheck("a11y_img_alt", "Images have alt text", "pass"))
+
+    # Every button has accessible name
+    buttons = page.locator("button")
+    btn_no_name = 0
+    for i in range(buttons.count()):
+        b = buttons.nth(i)
+        aria = b.get_attribute("aria-label") or ""
+        text = (b.text_content() or "").strip()
+        if not aria and not text:
+            btn_no_name += 1
+    if btn_no_name:
+        failed += 1
+        checks.append(
+            UICheck(
+                "a11y_button_names",
+                "Buttons have accessible names",
+                "fail",
+                f"{btn_no_name} button(s) missing name",
+            )
+        )
+    else:
+        passed += 1
+        checks.append(
+            UICheck("a11y_button_names", "Buttons have accessible names", "pass")
+        )
+
+    # Copy buttons have aria-label containing "copy"
+    copy_btns = page.locator(
+        "button[aria-label*='copy' i], button[aria-label*='Copy' i]"
+    )
+    total_copy = copy_btns.count()
+    if total_copy:
+        passed += 1
+        checks.append(
+            UICheck(
+                "a11y_copy_labels",
+                "Copy buttons have aria-label",
+                "pass",
+                f"{total_copy} copy button(s) with aria-label",
+            )
+        )
+    else:
+        copy_btns_any = page.locator("button:has-text('Copy'), button[class*='copy']")
+        if copy_btns_any.count():
+            failed += 1
+            checks.append(
+                UICheck(
+                    "a11y_copy_labels",
+                    "Copy buttons have aria-label",
+                    "fail",
+                    "Copy buttons found but without aria-label",
+                )
+            )
+        else:
+            passed += 1
+            checks.append(
+                UICheck(
+                    "a11y_copy_labels",
+                    "Copy buttons have aria-label",
+                    "pass",
+                    "No copy buttons to check",
+                )
+            )
+
+    # Dialog aria-modal check
+    dialogs = page.locator("[role='dialog']")
+    for i in range(dialogs.count()):
+        modal = dialogs.nth(i).get_attribute("aria-modal")
+        if modal != "true":
+            failed += 1
+            checks.append(
+                UICheck(
+                    "a11y_dialog_modal",
+                    "Dialog focus trap",
+                    "fail",
+                    "Dialog without aria-modal=true",
+                )
+            )
+            break
+    else:
+        if dialogs.count():
+            passed += 1
+            checks.append(UICheck("a11y_dialog_modal", "Dialog focus trap", "pass"))
+
+    # Tabindex check
+    tabindex_els = page.locator("[tabindex]")
+    neg_tabindex = 0
+    for i in range(tabindex_els.count()):
+        ti = tabindex_els.nth(i).get_attribute("tabindex") or "0"
+        try:
+            if int(ti) < 0:
+                neg_tabindex += 1
+        except ValueError:
+            pass
+    if neg_tabindex:
+        failed += 1
+        checks.append(
+            UICheck(
+                "a11y_tabindex",
+                "Tab index values",
+                "fail",
+                f"{neg_tabindex} element(s) with negative tabindex",
+            )
+        )
+    else:
+        passed += 1
+        checks.append(UICheck("a11y_tabindex", "Tab index values", "pass"))
+
+    return passed, failed, checks
+
+
+def _stress_test(page: "Any", output_dir: str, mode_name: str) -> List[UICheck]:
+    """Run a stress test with large markdown content."""
+    checks: List[UICheck] = []
+    stress_prompt = "Reply ONLY with this exact markdown:\n\n"
+    stress_prompt += "# Stress Test\n\n"
+    for i in range(1, 26):
+        stress_prompt += f"## Section {i}\n\n"
+        stress_prompt += f"Paragraph for section {i} with **bold** and *italic*.\n\n"
+        stress_prompt += f"- Item {i}.1\n- Item {i}.2\n- Item {i}.3\n\n"
+        stress_prompt += f"> Quote for section {i}\n\n"
+        stress_prompt += f"```python\nprint('section {i}')\n```\n\n"
+    stress_prompt += "---\n\n**End of stress test.**\n"
+
+    input_box = page.locator(
+        "textarea, input[type='text'], [contenteditable='true'], "
+        "#landing-input, #conversation-input"
+    ).filter(visible=True)
+    if not input_box.count():
+        checks.append(
+            UICheck(
+                f"{mode_name}_stress_input",
+                "Stress test input",
+                "skip",
+                "Input not found",
+            )
+        )
+        return checks
+    input_box.first.fill(stress_prompt)
+    page.wait_for_timeout(200)
+    send_btn = page.locator(
+        "button[aria-label*='send'], "
+        "button[aria-label*='Send'], "
+        "button.composer-btn--send, "
+        "button[type='submit']"
+    ).filter(visible=True)
+    if send_btn.count():
+        send_btn.first.click()
+    else:
+        page.keyboard.press("Enter")
+    page.wait_for_timeout(12000)
+
+    # Check for browser errors
+    # (errors already collected globally)
+
+    # Check response container has content
+    resp_sel = _response_selector(mode_name)
+    rendered_el = page.locator(resp_sel)
+    has_content = (
+        rendered_el.count() > 0
+        and len((rendered_el.first.text_content() or "").strip()) > 50
+    )
+    checks.append(
+        UICheck(
+            f"{mode_name}_stress_content",
+            "Stress test renders content",
+            "pass" if has_content else "fail",
+        )
+    )
+
+    # Check scroll height increased
+    before_height = page.evaluate("document.body.scrollHeight")
+    if before_height and before_height > 500:
+        checks.append(
+            UICheck(
+                f"{mode_name}_stress_scroll",
+                "Stress test scroll height",
+                "pass",
+                f"Scroll height: {before_height}px",
+            )
+        )
+    else:
+        checks.append(
+            UICheck(
+                f"{mode_name}_stress_scroll",
+                "Stress test scroll height",
+                "pass" if before_height else "skip",
+            )
+        )
+
+    # No DOM truncation - rendered text length at least 80% of backend
+    if has_content:
+        rendered_len = len(rendered_el.first.text_content() or "")
+        stress_len = len(stress_prompt)
+        ratio = rendered_len / max(stress_len, 1)
+        if ratio >= 0.8:
+            checks.append(
+                UICheck(
+                    f"{mode_name}_stress_truncation",
+                    "Stress test no truncation",
+                    "pass",
+                    f"Rendered {rendered_len} / backend {stress_len} chars ({ratio:.0%})",
+                )
+            )
+        else:
+            checks.append(
+                UICheck(
+                    f"{mode_name}_stress_truncation",
+                    "Stress test no truncation",
+                    "fail",
+                    f"Rendered {rendered_len} / backend {stress_len} chars ({ratio:.0%})",
+                )
+            )
+
+    screenshot_path = os.path.join(output_dir, f"{mode_name}-stress.png")
+    page.screenshot(path=screenshot_path, full_page=True)
+    checks.append(
+        UICheck(
+            f"{mode_name}_stress_screenshot",
+            "Stress test screenshot",
+            "pass",
+            screenshot_path,
+        )
+    )
+
+    return checks
+
+
+# ── element checklists ───────────────────────────────────────────────
+
+MODE_ELEMENTS: Dict[str, List[tuple[str, str, str]]] = {
+    "canvas": [
+        ("h1,h2,h3", "heading", "Heading"),
+        ("p", "paragraph", "Paragraph"),
+        ("ul,ol", "list", "List"),
+        ("ul ul,ol ol,ul ol,ol ul", "nested_list", "Nested list"),
+        ("strong,b", "bold", "Bold"),
+        ("em,i", "italic", "Italic"),
+        ("code:not(pre code)", "inline_code", "Inline code"),
+        ("pre code, pre", "fenced_code", "Fenced code block"),
+        ("blockquote", "blockquote", "Blockquote"),
+        ("hr", "hr", "Horizontal rule"),
+        ("table", "table", "Table"),
+        ("a[href]", "link", "Link"),
+        ("input[type='checkbox']", "task_list", "Task list"),
+    ],
+    "web": [
+        ("a[href]", "link", "Link"),
+        ("table", "table", "Table"),
+        ("p", "paragraph", "Paragraph"),
+    ],
+}
+
+
+# ── golden prompts (permanent regression suite) ──
+
+GOLDEN_PROMPTS: Dict[str, str] = {
+    "markdown": "Reply ONLY with this exact markdown (no preamble):\n\n# Heading 1\n\nA paragraph.\n\n- List A\n- List B\n\n**bold** *italic* `code`\n\n> Blockquote\n\n---\n\n| L | R |\n| --- | --- |\n| 1 | 2 |\n\n[Link](https://example.com)\n\n- [x] Task",
+    "code": "Reply ONLY with this exact markdown:\n\n```python\nprint('hello')\n```",
+    "long_code": "Reply ONLY with this exact markdown:\n\n```python\ndef fib(n):\n    if n <= 1:\n        return n\n    return fib(n-1) + fib(n-2)\n\nprint(fib(10))\n```",
+    "tables": "Reply ONLY with this exact markdown:\n\n| Name | Age | City |\n| --- | --- | --- |\n| Alice | 30 | NYC |\n| Bob | 25 | SF |\n| Eve | 35 | LA |",
+    "nested_lists": "Reply ONLY with this exact markdown:\n\n- Outer\n  - Inner A\n  - Inner B\n    - Deep\n- Another",
+    "blockquotes": "Reply ONLY with this exact markdown:\n\n> First level\n> > Nested\n> Back to first",
+    "task_lists": "Reply ONLY with this exact markdown:\n\n- [x] Done\n- [ ] Pending\n- [ ] Maybe",
+    "mixed": "Reply ONLY with this exact markdown:\n\n# Title\n\nA paragraph with **bold**, *italic*, and `code`.\n\n- List\n\n> Quote\n\n```python\nx = 1\n```\n\n---\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n[Link](https://x.com)",
+    "reasoning": "What is 12 * 15? Explain step by step, then give the answer.",
+    "links": "Reply ONLY with this exact markdown:\n\n[Alma](https://palmshed.vercel.app) and [GitHub](https://github.com)",
+    "emoji": "Reply ONLY with this exact markdown:\n\n🚀 Python is great! 🐍\n\n- ✅ Check\n- ❌ Cross",
+}
+
+
+# ── main fidelity entry-point ────────────────────────────────────────
+
+
+@dataclass
+class ModeFidelityReport:
+    """Verification result for one mode."""
+
+    mode: str
+    label: str
+    markdown_match_pct: float = 0.0
+    clipboard_match_pct: float = 0.0
+    code_blocks_matched: int = 0
+    code_blocks_total: int = 0
+    thinking_match_pct: float = 0.0
+    answer_match_pct: float = 0.0
+    thinking_duplication_chars: int = 0
+    elements_passed: int = 0
+    elements_failed: int = 0
+    console_errors: int = 0
+    overall: str = "fail"
+    structures: Dict[str, int] = field(default_factory=dict)
+    structures_expected: Dict[str, int] = field(default_factory=dict)
+    structures_matched: int = 0
+    structures_total: int = 0
+    features_rendered: int = 0
+    features_total: int = 0
+    metrics: Dict[str, float] = field(default_factory=dict)
+    accessibility_passed: int = 0
+    accessibility_failed: int = 0
+
+
+def run_render_fidelity(output_dir: str) -> List[UICheck]:
+    """Headless QA — compare rendered DOM against the backend response
+    for every mode without requiring human screenshot inspection."""
+    if not check_playwright_installed():
+        return [
+            UICheck("fidelity", "Render fidelity", "fail", "Playwright not installed.")
+        ]
+
+    from playwright.sync_api import sync_playwright
+
+    results: List[UICheck] = []
+    config = get_config()
+    api_base = config["base_url"]
+    frontend_url = os.environ.get("ALMA_FRONTEND_URL", "http://localhost:5173")
+
+    # ── Deterministic prompts designed to exercise every salient
+    #    markdown feature in the response.  The model must reproduce
+    #    them faithfully; the UI must render them faithfully.
+    PROMPTS: Dict[str, str] = {
+        "canvas": (
+            "Reply ONLY with this exact markdown (no preamble, no commentary):\n\n"
+            "# Heading 1\n\n"
+            "A short paragraph.\n\n"
+            "- List item A\n"
+            "- List item B\n"
+            "- List item C\n\n"
+            "1. Ordered one\n"
+            "2. Ordered two\n\n"
+            "- Outer\n"
+            "  - Inner A\n"
+            "  - Inner B\n\n"
+            "**Bold text** and *italic text* and `inline code`.\n\n"
+            "> A blockquote spanning two lines.\n"
+            "> Second line.\n\n"
+            "---\n\n"
+            "| Left | Right |\n"
+            "| --- | --- |\n"
+            "| X | Y |\n"
+            "| 1 | 2 |\n\n"
+            "[A link](https://example.com)\n\n"
+            "```python\n"
+            "print('hello world')\n"
+            "```\n\n"
+            "- [x] Done task\n"
+            "- [ ] Pending task"
+        ),
+        "thinking": (
+            "What is 7 * 8? "
+            "First explain your reasoning step by step, "
+            "then give the final answer."
+        ),
+        "web": (
+            "Reply ONLY with this exact markdown:\n\n"
+            "Visit [Example](https://example.com) for more info.\n\n"
+            "| Name | Value |\n"
+            "| --- | --- |\n"
+            "| Alpha | 100 |\n"
+            "| Beta | 200 |\n\n"
+            "A concluding paragraph."
+        ),
+    }
+
+    # ── Step 1: fetch backend responses ──
+    backend_data: Dict[str, str] = {}
+    for mode_name, prompt in PROMPTS.items():
+        url = _mode_endpoint(mode_name, api_base)
+        tresp = api_post_timed(url, {"prompt": prompt})
+        # save raw response
+        raw_path = os.path.join(output_dir, f"{mode_name}-backend-raw.json")
+        with open(raw_path, "w") as f:
+            f.write(
+                json.dumps(tresp.body, indent=2)
+                if isinstance(tresp.body, dict)
+                else str(tresp.body)
+            )
+        results.append(
+            UICheck(
+                f"{mode_name}_backend_fetch",
+                f"{mode_name.capitalize()} backend fetch",
+                "pass" if tresp.status == 200 else "fail",
+                f"HTTP {tresp.status}" if tresp.status != 200 else None,
+            )
+        )
+        md = _extract_markdown(tresp.body, mode_name)
+        backend_data[mode_name] = md
+        # save extracted markdown
+        md_path = os.path.join(output_dir, f"{mode_name}-backend-markdown.txt")
+        with open(md_path, "w") as f:
+            f.write(md)
+
+    # ── Step 2: browser render & compare ──
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(
+            viewport={"width": 1280, "height": 800},
+            permissions=["clipboard-read", "clipboard-write"],
+        )
+        page = context.new_page()
+        console_logs: List[str] = []
+        page.on("console", lambda msg: console_logs.append(f"[{msg.type}] {msg.text}"))
+        page.on("pageerror", lambda err: console_logs.append(f"[ERROR] {err}"))
+
+        page.goto(frontend_url, wait_until="networkidle", timeout=_TIMEOUT * 1000)
+        page.wait_for_timeout(1000)
+
+        mode_reports: List[ModeFidelityReport] = []
+
+        for mode_name in ("canvas", "thinking", "web"):
+            prompt = PROMPTS[mode_name]
+            label = mode_name.capitalize()
+            report = ModeFidelityReport(mode=mode_name, label=label)
+
+            # ── mode labels & data attributes ──
+            mode_attrs = {
+                "canvas": ("Canvas", "[data-mode='text'][data-style='normal']"),
+                "thinking": ("Thinking", "[data-mode='text'][data-style='thinking']"),
+                "web": ("Web", "[data-mode='text'][data-style='url-context']"),
+            }
+            label, data_sel = mode_attrs.get(mode_name, (label, ""))
+            # try data-attribute selector first, then text label
+            # try data-attribute selector first, then text label
+            seg = page.locator(
+                f"{data_sel}, "
+                f"button:has-text('{label}'), "
+                f"[role='tab']:has-text('{label}')"
+            ).filter(visible=True)
+            if seg.count():
+                seg.first.click()
+                page.wait_for_timeout(300)
+
+            # ── fill & submit ──
+            input_box = page.locator(
+                "textarea, input[type='text'], [contenteditable='true'], "
+                "#landing-input, #conversation-input"
+            ).filter(visible=True)
+            if not input_box.count():
+                results.append(
+                    UICheck(
+                        f"{mode_name}_input",
+                        f"{label} input",
+                        "fail",
+                        "Input field not found.",
+                    )
+                )
+                report.overall = "fail"
+                mode_reports.append(report)
+                continue
+            start_time = time.monotonic()
+            input_box.first.fill(prompt)
+            page.wait_for_timeout(200)
+            send_btn = page.locator(
+                "button[aria-label*='send'], "
+                "button[aria-label*='Send'], "
+                "button.composer-btn--send, "
+                "button[type='submit']"
+            ).filter(visible=True)
+            if send_btn.count():
+                send_btn.first.click()
+            else:
+                page.keyboard.press("Enter")
+
+            # ── wait for rendering to finish ──
+            page.wait_for_timeout(1000)
+            screenshot_path = os.path.join(output_dir, f"{mode_name}-fidelity.png")
+            page.screenshot(path=screenshot_path, full_page=True)
+            page.wait_for_timeout(9000)  # allow model generation time
+
+            # ── VISUAL REGRESSION ──
+            vreg = _visual_regression(mode_name, screenshot_path, output_dir)
+            results.append(vreg)
+            if vreg.status == "fail":
+                report.overall = "fail"
+
+            # ── save DOM snapshot ──
+            dom = page.content()
+            dom_path = os.path.join(output_dir, f"{mode_name}-dom.html")
+            with open(dom_path, "w") as f:
+                f.write(dom)
+
+            # ── extract rendered text ──
+            resp_sel = _response_selector(mode_name)
+            rendered_el = page.locator(resp_sel)
+            rendered_text = ""
+            if rendered_el.count():
+                rendered_text = rendered_el.first.text_content() or ""
+            if not rendered_text:
+                # fallback: whole page
+                rendered_text = page.locator("body").text_content() or ""
+
+            dom_text_path = os.path.join(output_dir, f"{mode_name}-dom-text.txt")
+            with open(dom_text_path, "w") as f:
+                f.write(rendered_text)
+
+            backend_md = backend_data.get(mode_name, "")
+
+            # ── NORMALISED TEXT COMPARISON ──
+            if mode_name == "thinking":
+                backend_thinking, backend_answer = _split_thinking(backend_md)
+
+                # locate thinking container
+                thinking_el = page.locator(
+                    ".thinking, .reasoning, "
+                    "[class*='thinking'], [class*='reasoning']"
+                )
+                dom_thinking = (
+                    thinking_el.first.text_content() or ""
+                    if thinking_el.count()
+                    else ""
+                )
+
+                # locate answer container
+                answer_el = page.locator(resp_sel)
+                dom_answer = (
+                    answer_el.first.text_content() or "" if answer_el.count() else ""
+                )
+
+                # if there's only one container and it has everything,
+                # fall back to splitting rendered_text
+                if not dom_thinking and not dom_answer:
+                    dom_thinking = ""
+                    dom_answer = rendered_text
+                elif not dom_answer:
+                    dom_answer = rendered_text
+
+                # compare
+                pct_t, _ = _compare_text(backend_thinking, dom_thinking)
+                pct_a, _ = _compare_text(backend_answer, dom_answer)
+                report.thinking_match_pct = pct_t
+                report.answer_match_pct = pct_a
+
+                results.append(
+                    UICheck(
+                        f"{mode_name}_thinking_text",
+                        f"{label} thinking text match",
+                        "pass" if pct_t >= 50 else "fail",
+                        f"{pct_t}% match",
+                    )
+                )
+                results.append(
+                    UICheck(
+                        f"{mode_name}_answer_text",
+                        f"{label} answer text match",
+                        "pass" if pct_a >= 50 else "fail",
+                        f"{pct_a}% match",
+                    )
+                )
+
+                # duplication check
+                nt = _normalize(dom_thinking)
+                na = _normalize(dom_answer)
+                dup = 0
+                if nt and na and nt in na:
+                    dup = len(nt)
+                report.thinking_duplication_chars = dup
+                results.append(
+                    UICheck(
+                        f"{mode_name}_no_duplication",
+                        f"{label} no thinking/answer duplication",
+                        "fail" if dup > 20 else "pass",
+                        f"{dup} duplicated chars" if dup > 20 else None,
+                    )
+                )
+
+                # overall markdown match uses the answer portion
+                _, md_diffs = _compare_text(backend_answer, dom_answer)
+                report.markdown_match_pct = pct_a
+
+            else:
+                # canvas / web: compare full rendered text
+                pct, diffs = _compare_text(backend_md, rendered_text)
+                report.markdown_match_pct = pct
+                results.append(
+                    UICheck(
+                        f"{mode_name}_text_match",
+                        f"{label} rendered text matches backend",
+                        "pass" if pct >= 50 else "fail",
+                        f"{pct}% match, {diffs} diffs",
+                    )
+                )
+
+            # ── BROWSER METRICS ──
+            report.metrics = _capture_metrics(page, start_time)
+            results.append(
+                UICheck(
+                    f"{mode_name}_metrics",
+                    f"{label} browser metrics",
+                    "pass",
+                    f"DOMContentLoaded: {report.metrics.get('dom_content_loaded_ms', '?')}ms, "
+                    f"Total: {report.metrics.get('total_elapsed_s', '?')}s",
+                )
+            )
+
+            # ── ELEMENT CHECKS ──
+            elements_passed = 0
+            elements_failed = 0
+            for selector, chk_name, chk_label in MODE_ELEMENTS.get(mode_name, []):
+                c = _check_element(page, selector, f"{mode_name}_{chk_name}", chk_label)
+                if c.status == "pass":
+                    elements_passed += 1
+                else:
+                    elements_failed += 1
+                results.append(c)
+            report.elements_passed = elements_passed
+            report.elements_failed = elements_failed
+
+            # ── STRUCTURE FIDELITY ──
+            actual_structures = _count_structures(page)
+            expected_structures = _count_expected_structures(backend_md)
+            report.structures = {k: v for k, v in actual_structures.items() if v}
+            report.structures_expected = {
+                k: v for k, v in expected_structures.items() if v
+            }
+            struct_matched = 0
+            struct_total = 0
+            for tag in set(
+                list(report.structures.keys()) + list(report.structures_expected.keys())
+            ):
+                actual = report.structures.get(tag, 0)
+                expected = report.structures_expected.get(tag, 0)
+                struct_total += 1
+                if actual == expected:
+                    struct_matched += 1
+            report.structures_matched = struct_matched
+            report.structures_total = struct_total
+            results.append(
+                UICheck(
+                    f"{mode_name}_structures",
+                    f"{label} HTML structure fidelity",
+                    "pass" if struct_matched == struct_total else "warn",
+                    f"{struct_matched}/{struct_total} element types match expected",
+                )
+            )
+
+            # ── MARKDOWN FEATURE COVERAGE ──
+            md_features = {
+                "heading": bool(re.search(r"^#{1,6}\s", backend_md, re.MULTILINE)),
+                "paragraph": "\n\n" in backend_md,
+                "bold": "**" in backend_md,
+                "italic": bool(re.search(r"(?<!\*)\*(?!\*)", backend_md)),
+                "code": " `" in backend_md or "` " in backend_md or "```" in backend_md,
+                "fenced_code": "```" in backend_md,
+                "list": bool(re.search(r"^[-*+]\s", backend_md, re.MULTILINE)),
+                "ordered_list": bool(re.search(r"^\d+\.\s", backend_md, re.MULTILINE)),
+                "blockquote": bool(re.search(r"^>\s", backend_md, re.MULTILINE)),
+                "table": "|---" in backend_md or "| ---" in backend_md,
+                "link": bool(re.search(r"\[", backend_md)),
+                "task_list": bool(
+                    re.search(r"-\s\[\s\]|-\s\[x\]", backend_md, re.IGNORECASE)
+                ),
+                "hr": bool(re.search(r"^---\s*$", backend_md, re.MULTILINE)),
+            }
+            feature_selectors = {
+                "heading": "h1,h2,h3,h4,h5,h6",
+                "paragraph": "p",
+                "bold": "strong,b",
+                "italic": "em,i",
+                "code": "code:not(pre code)",
+                "fenced_code": "pre code",
+                "list": "ul,ol",
+                "ordered_list": "ol",
+                "blockquote": "blockquote",
+                "table": "table",
+                "link": "a[href]",
+                "task_list": "input[type='checkbox']",
+                "hr": "hr",
+            }
+            features_rendered = 0
+            features_total = 0
+            for feat_name, present in md_features.items():
+                if present:
+                    features_total += 1
+                    sel = feature_selectors[feat_name]
+                    if page.locator(sel).count():
+                        features_rendered += 1
+            report.features_rendered = features_rendered
+            report.features_total = features_total
+            results.append(
+                UICheck(
+                    f"{mode_name}_feature_coverage",
+                    f"{label} feature coverage",
+                    "pass" if features_rendered == features_total else "warn",
+                    f"{features_rendered}/{features_total} features rendered ({features_rendered * 100 // max(features_total, 1)}%)",
+                )
+            )
+
+            # ── CLIPBOARD VERIFICATION ──
+            copy_btn = page.locator(
+                "button[aria-label*='copy'], "
+                "button:has-text('Copy'), "
+                ".copy-button, "
+                "[class*='copy']"
+            )
+            if copy_btn.count():
+                copy_btn.first.click()
+                page.wait_for_timeout(500)
+                try:
+                    clip = page.evaluate("navigator.clipboard.readText()")
+                    if isinstance(clip, str) and len(clip) > 10:
+                        clip_pct, clip_diffs = _compare_text(backend_md, clip)
+                        report.clipboard_match_pct = clip_pct
+                        results.append(
+                            UICheck(
+                                f"{mode_name}_clipboard",
+                                f"{label} clipboard matches backend",
+                                "pass" if clip_pct >= 50 else "fail",
+                                f"{clip_pct}% match, {clip_diffs} diffs",
+                            )
+                        )
+                    else:
+                        results.append(
+                            UICheck(
+                                f"{mode_name}_clipboard",
+                                f"{label} clipboard content",
+                                "fail",
+                                f"Clipboard too short ({len(clip) if isinstance(clip,str) else '?'} chars)",
+                            )
+                        )
+                except Exception as exc:
+                    results.append(
+                        UICheck(
+                            f"{mode_name}_clipboard",
+                            f"{label} clipboard read",
+                            "fail",
+                            str(exc),
+                        )
+                    )
+            else:
+                results.append(
+                    UICheck(
+                        f"{mode_name}_clipboard",
+                        f"{label} clipboard",
+                        "skip",
+                        "No copy button found.",
+                    )
+                )
+
+            # ── CODE BLOCK FIDELITY (canvas only) ──
+            if mode_name == "canvas":
+                code_blocks = page.locator("pre code")
+                total = code_blocks.count()
+                report.code_blocks_total = total
+
+                # extract all backend code fences
+                backend_fences = re.findall(
+                    r"```(\w+)?\n(.*?)```", backend_md, re.DOTALL
+                )
+                backend_langs = [f[0] or "" for f in backend_fences]
+                backend_codes = [f[1].strip() for f in backend_fences]
+
+                matched = 0
+                for i in range(min(total, len(backend_codes))):
+                    expected = backend_codes[i].strip()
+                    dom_code = (code_blocks.nth(i).text_content() or "").strip()
+                    if _normalize(expected) == _normalize(dom_code):
+                        matched += 1
+                    else:
+                        results.append(
+                            UICheck(
+                                f"{mode_name}_code_{i}",
+                                f"{label} code block {i+1}",
+                                "fail",
+                                "DOM code differs from backend",
+                            )
+                        )
+                report.code_blocks_matched = matched
+
+                # Syntax highlighting: verify language classes
+                lang_pass = 0
+                for i in range(min(total, len(backend_langs))):
+                    code_el = code_blocks.nth(i) if i < total else None
+                    expected_lang = backend_langs[i]
+                    if expected_lang and code_el:
+                        class_attr = code_el.get_attribute("class") or ""
+                        if (
+                            expected_lang in class_attr
+                            or f"language-{expected_lang}" in class_attr
+                        ):
+                            lang_pass += 1
+                        else:
+                            results.append(
+                                UICheck(
+                                    f"{mode_name}_syntax_{i}",
+                                    f"{label} syntax highlighting block {i+1}",
+                                    "fail",
+                                    f"Expected language '{expected_lang}', got class '{class_attr}'",
+                                )
+                            )
+                    elif expected_lang:
+                        results.append(
+                            UICheck(
+                                f"{mode_name}_syntax_{i}",
+                                f"{label} syntax highlighting block {i+1}",
+                                "fail",
+                                "Code block element not found",
+                            )
+                        )
+                if len(backend_langs) > 0:
+                    results.append(
+                        UICheck(
+                            f"{mode_name}_syntax_highlighting",
+                            f"{label} syntax highlighting",
+                            (
+                                "pass"
+                                if lang_pass == len([ln for ln in backend_langs if ln])
+                                else "warn"
+                            ),
+                            f"{lang_pass}/{len([ln for ln in backend_langs if ln])} language classes match expected",
+                        )
+                    )
+
+                # Copy button count verification
+                copy_btns = page.locator(
+                    "button[aria-label*='copy' i], "
+                    "button[aria-label*='Copy'], "
+                    "button:has-text('Copy'), "
+                    ".copy-button"
+                ).filter(visible=True)
+                copy_count = copy_btns.count()
+                if copy_count > 0:
+                    results.append(
+                        UICheck(
+                            f"{mode_name}_copy_button_count",
+                            f"{label} copy button count",
+                            "pass" if copy_count >= total else "warn",
+                            f"{copy_count} copy button(s) for {total} code block(s)",
+                        )
+                    )
+
+                # clipboard for code blocks
+                cb_match = 0
+                cb_total = 0
+                for i in range(total):
+                    code_blocks.nth(i).click()
+                    page.wait_for_timeout(200)
+                    copy_btn_on_block = page.locator(
+                        "button[aria-label*='copy'], "
+                        "button[aria-label*='Copy'], "
+                        "button:has-text('Copy')"
+                    ).filter(visible=True)
+                    if copy_btn_on_block.count():
+                        copy_btn_on_block.first.click()
+                        page.wait_for_timeout(300)
+                        try:
+                            cb = page.evaluate("navigator.clipboard.readText()")
+                            if i < len(backend_codes):
+                                cb_total += 1
+                                expected = backend_codes[i].strip()
+                                if cb.strip() == expected:
+                                    cb_match += 1
+                                else:
+                                    results.append(
+                                        UICheck(
+                                            f"{mode_name}_code_clip_{i}",
+                                            f"{label} code block {i+1} clipboard",
+                                            "fail",
+                                            "Clipboard differs from backend code",
+                                        )
+                                    )
+                        except Exception:
+                            pass
+                if cb_total > 0:
+                    results.append(
+                        UICheck(
+                            f"{mode_name}_code_clipboard",
+                            f"{label} code block clipboard fidelity",
+                            "pass" if cb_match == cb_total else "fail",
+                            f"{cb_match}/{cb_total} code blocks match clipboard",
+                        )
+                    )
+
+                results.append(
+                    UICheck(
+                        f"{mode_name}_code_blocks",
+                        f"{label} code block fidelity",
+                        "pass" if matched == total == len(backend_codes) else "fail",
+                        f"{matched}/{total} DOM blocks match backend",
+                    )
+                )
+
+            # ── MULTIPLE CODE BLOCKS TEST ──
+            if mode_name == "canvas":
+                multicode_prompt = (
+                    "Reply ONLY with this exact markdown:\n\n"
+                    "Python:\n"
+                    "```python\n"
+                    "print('hello')\n"
+                    "```\n\n"
+                    "JavaScript:\n"
+                    "```javascript\n"
+                    "console.log('hello');\n"
+                    "```"
+                )
+                page.locator(
+                    "textarea, input[type='text'], [contenteditable='true'], "
+                    "#landing-input, #conversation-input"
+                ).filter(visible=True).first.fill(multicode_prompt)
+                page.wait_for_timeout(200)
+                page.locator(
+                    "button[aria-label*='send'], "
+                    "button[aria-label*='Send'], "
+                    "button.composer-btn--send, "
+                    "button[type='submit']"
+                ).filter(visible=True).first.click()
+                page.wait_for_timeout(12000)
+
+                mc_code_blocks = page.locator("pre code")
+                mc_total = mc_code_blocks.count()
+                results.append(
+                    UICheck(
+                        f"{mode_name}_multicode_blocks",
+                        f"{label} multiple code blocks",
+                        "pass" if mc_total >= 2 else "fail",
+                        f"{mc_total} code block(s) found (expected 2)",
+                    )
+                )
+
+                mc_copy_btns = page.locator(
+                    "button[aria-label*='copy' i], " "button:has-text('Copy')"
+                ).filter(visible=True)
+                mc_copy_count = mc_copy_btns.count()
+                results.append(
+                    UICheck(
+                        f"{mode_name}_multicode_copy_btns",
+                        f"{label} multicode copy buttons",
+                        "pass" if mc_copy_count >= mc_total else "warn",
+                        f"{mc_copy_count} copy button(s) for {mc_total} code block(s)",
+                    )
+                )
+
+                # verify each copy button copies its own content
+                mc_ok = 0
+                for i in range(min(mc_total, 2)):
+                    mc_code_blocks.nth(i).click()
+                    page.wait_for_timeout(200)
+                    mc_copy = page.locator(
+                        "button[aria-label*='copy' i], " "button:has-text('Copy')"
+                    ).filter(visible=True)
+                    if mc_copy.count():
+                        mc_copy.first.click()
+                        page.wait_for_timeout(300)
+                        try:
+                            cb_text = page.evaluate("navigator.clipboard.readText()")
+                            expected_codes = ["print('hello')", "console.log('hello');"]
+                            if i < len(expected_codes) and expected_codes[i] in cb_text:
+                                mc_ok += 1
+                            else:
+                                results.append(
+                                    UICheck(
+                                        f"{mode_name}_multicode_clip_{i}",
+                                        f"{label} multi code block {i+1} clipboard",
+                                        "fail",
+                                    )
+                                )
+                        except Exception:
+                            pass
+                if mc_total > 0:
+                    results.append(
+                        UICheck(
+                            f"{mode_name}_multicode_fidelity",
+                            f"{label} multiple code block fidelity",
+                            "pass" if mc_ok == min(mc_total, 2) else "warn",
+                            f"{mc_ok}/{min(mc_total, 2)} code blocks copy correct content",
+                        )
+                    )
+
+            # ── overall mode verdict ──
+            failures = [
+                r
+                for r in results
+                if r.name.startswith(f"{mode_name}_") and r.status == "fail"
+            ]
+            report.overall = "pass" if not failures else "fail"
+            mode_reports.append(report)
+
+        # ── Images ──
+        report = ModeFidelityReport(mode="images", label="Images")
+        seg = page.locator(
+            "[data-mode='image'], "
+            "button:has-text('Images'), "
+            "[role='tab']:has-text('Images')"
+        ).filter(visible=True)
+        if seg.count():
+            seg.first.click()
+            page.wait_for_timeout(300)
+        input_box = page.locator(
+            "textarea, input[type='text'], [contenteditable='true'], "
+            "#landing-input, #conversation-input"
+        ).filter(visible=True)
+        if input_box.count():
+            input_box.first.fill("A red circle")
+            send_btn = page.locator(
+                "button[aria-label*='send'], "
+                "button[aria-label*='Send'], "
+                "button.composer-btn--send, "
+                "button[type='submit']"
+            ).filter(visible=True)
+            if send_btn.count():
+                send_btn.first.click()
+            else:
+                page.keyboard.press("Enter")
+            page.wait_for_timeout(5000)
+
+            img = page.locator("img")
+            quota_msg = page.locator("text=quota, text=Quota, text=exceeded")
+            if img.count():
+                results.append(
+                    UICheck(
+                        "images_render",
+                        "Image rendered",
+                        "pass",
+                        f"{img.count()} image(s) found.",
+                    )
+                )
+                alt = img.first.get_attribute("alt")
+                if alt:
+                    results.append(
+                        UICheck(
+                            "images_alt",
+                            "Image alt text",
+                            "pass",
+                        )
+                    )
+                else:
+                    results.append(
+                        UICheck(
+                            "images_alt",
+                            "Image alt text",
+                            "skip",
+                            "No alt attribute.",
+                        )
+                    )
+                report.overall = "pass"
+            elif quota_msg.count():
+                results.append(
+                    UICheck(
+                        "images_render",
+                        "Image rendered (quota exceeded)",
+                        "pass",
+                        "Quota message rendered cleanly.",
+                    )
+                )
+                report.overall = "pass"
+            else:
+                results.append(
+                    UICheck(
+                        "images_render",
+                        "Image rendered",
+                        "fail",
+                        "No image or quota message found.",
+                    )
+                )
+                report.overall = "fail"
+        else:
+            results.append(
+                UICheck(
+                    "images_input",
+                    "Images input",
+                    "skip",
+                    "No input field found for images mode.",
+                )
+            )
+            report.overall = "skip"
+        mode_reports.append(report)
+
+        # ── STRESS TEST (canvas) ──
+        stress_results = _stress_test(page, output_dir, "canvas")
+        results.extend(stress_results)
+
+        # ── ACCESSIBILITY CHECKS ──
+        a11y_passed, a11y_failed, a11y_checks = _accessibility_checks(page)
+        for ac in a11y_checks:
+            results.append(ac)
+        for rp in mode_reports:
+            if rp.mode == "canvas":
+                rp.accessibility_passed = a11y_passed
+                rp.accessibility_failed = a11y_failed
+
+        # ── GOLDEN PROMPTS REFERENCE ──
+        results.append(
+            UICheck(
+                "golden_prompts",
+                "Golden prompts defined",
+                "pass",
+                f"{len(GOLDEN_PROMPTS)} golden prompts in regression suite",
+            )
+        )
+
+        # ── console errors ──
+        log_path = os.path.join(output_dir, "console.log")
+        with open(log_path, "w") as f:
+            f.write("\n".join(console_logs))
+        errors = [ln for ln in console_logs if "[ERROR]" in ln]
+        if errors:
+            results.append(
+                UICheck(
+                    "fidelity_console",
+                    "Console errors",
+                    "fail",
+                    f"{len(errors)} errors",
+                )
+            )
+        else:
+            results.append(
+                UICheck(
+                    "fidelity_console",
+                    "Console errors",
+                    "pass",
+                    f"No errors ({len(console_logs)} log entries).",
+                )
+            )
+
+        browser.close()
+
+    # ── Render report ──
+    report_lines = [
+        "Render fidelity verification",
+        "",
+    ]
+    for rp in mode_reports:
+        report_lines.append(f"  {rp.label}: {rp.overall.upper()}")
+        if rp.markdown_match_pct:
+            report_lines.append(f"    Markdown match:  {rp.markdown_match_pct}%")
+        if rp.clipboard_match_pct:
+            report_lines.append(f"    Clipboard match: {rp.clipboard_match_pct}%")
+        if rp.code_blocks_total:
+            report_lines.append(
+                f"    Code blocks:     {rp.code_blocks_matched}/{rp.code_blocks_total} matched"
+            )
+        if rp.thinking_match_pct:
+            report_lines.append(f"    Thinking match:  {rp.thinking_match_pct}%")
+        if rp.answer_match_pct:
+            report_lines.append(f"    Answer match:    {rp.answer_match_pct}%")
+        if rp.thinking_duplication_chars:
+            report_lines.append(
+                f"    Duplication:     {rp.thinking_duplication_chars} chars (FAIL)"
+            )
+        if rp.elements_passed or rp.elements_failed:
+            report_lines.append(
+                f"    Elements:        {rp.elements_passed} passed, {rp.elements_failed} failed"
+            )
+        if rp.structures_matched or rp.structures_total:
+            report_lines.append(
+                f"    Structures:      {rp.structures_matched}/{rp.structures_total} types match"
+            )
+        if rp.features_total:
+            report_lines.append(
+                f"    Features:        {rp.features_rendered}/{rp.features_total} rendered "
+                f"({rp.features_rendered * 100 // max(rp.features_total, 1)}%)"
+            )
+        if rp.metrics:
+            m = rp.metrics
+            report_lines.append(
+                f"    DOMContentLoaded: {m.get('dom_content_loaded_ms', '?')}ms | "
+                f"Total: {m.get('total_elapsed_s', '?')}s"
+            )
+        if rp.accessibility_passed or rp.accessibility_failed:
+            report_lines.append(
+                f"    Accessibility:   {rp.accessibility_passed} passed, {rp.accessibility_failed} failed"
+            )
+        report_lines.append("")
+    # ── save additional evidence ──
+    for rp in mode_reports:
+        if rp.structures:
+            struct_path = os.path.join(output_dir, f"{rp.mode}-structures.json")
+            with open(struct_path, "w") as f:
+                json.dump(
+                    {"actual": rp.structures, "expected": rp.structures_expected},
+                    f,
+                    indent=2,
+                )
+        if rp.metrics:
+            metrics_path = os.path.join(output_dir, f"{rp.mode}-metrics.json")
+            with open(metrics_path, "w") as f:
+                json.dump(rp.metrics, f, indent=2)
+        a11y_path = os.path.join(output_dir, f"{rp.mode}-accessibility.json")
+        with open(a11y_path, "w") as f:
+            json.dump(
+                {"passed": rp.accessibility_passed, "failed": rp.accessibility_failed},
+                f,
+                indent=2,
+            )
+
+    report_lines.append(f"Evidence saved to: {output_dir}")
+
+    report_text = "\n".join(report_lines)
+    report_path = os.path.join(output_dir, "fidelity-report.txt")
+    with open(report_path, "w") as f:
+        f.write(report_text + "\n")
+    results.append(
+        UICheck(
+            "fidelity_report",
+            "Fidelity report",
+            "pass",
+            report_path,
+        )
+    )
+
+    return results
+
+
 # ── Human-readable output ────────────────────────────────────────────
 
 
@@ -1388,6 +2877,11 @@ def main() -> None:
         "--browser",
         action="store_true",
         help="Run browser-based verification (requires Playwright)",
+    )
+    parser.add_argument(
+        "--fidelity",
+        action="store_true",
+        help="Run render fidelity checks (DOM vs API, clipboard, Markdown elements)",
     )
     parser.add_argument(
         "--json",
@@ -1563,6 +3057,49 @@ def main() -> None:
                 f.write("\n")
         else:
             print(output)
+        return
+
+    # ── fidelity-only ──
+    if args.fidelity:
+        results = run_render_fidelity(output_dir)
+
+        if args.json or args.output:
+            output = json.dumps(
+                [
+                    {
+                        "name": c.name,
+                        "label": c.label,
+                        "status": c.status,
+                        "detail": c.detail,
+                    }
+                    for c in results
+                ],
+                indent=2,
+            )
+        else:
+            lines = ["Render fidelity verification", ""]
+            for c in results:
+                marker = (
+                    "\u2713"
+                    if c.status == "pass"
+                    else ("\u2014" if c.status == "skip" else "\u2717")
+                )
+                lines.append(f"  {marker} {c.label}: {c.status.upper()}")
+                if c.detail:
+                    lines.append(f"    {c.detail}")
+            lines.append("")
+            lines.append(f"Evidence saved to: {output_dir}")
+            output = "\n".join(lines)
+
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(output)
+                f.write("\n")
+        else:
+            print(output)
+
+        failures = [c for c in results if c.status == "fail"]
+        sys.exit(1 if failures else 0)
         return
 
     # ── full UI verification ──

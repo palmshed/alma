@@ -284,3 +284,29 @@ Avoid names that unnecessarily encode historical branding or temporary implement
 Choose the option that makes the repository easier to understand for a new contributor.
 
 Code should read like an outline of the application rather than a collection of implementation details.
+
+---
+
+## Verification Policy
+
+`alma verify` is stable developer tooling. Treat it as frozen — do not add new checks unless a real production regression exposes a gap.
+
+Before every merge, run:
+```
+alma verify
+```
+
+Fix any regressions before shipping.
+
+When fixing a production bug, ask:
+- Can the existing verifier detect this?
+  - If yes, fix the bug and move on.
+  - If no, add one focused verification for that specific regression so it cannot silently regress.
+
+This keeps the verifier lean and grounded in real failures rather than hypothetical ones. The ideal is that developers trust `alma verify` and rarely think about it — it just catches regressions automatically.
+
+---
+
+## Product-First
+
+Platform infrastructure is locked at v0.1.0. Do not build new platform services unless a product feature requires it. The overwhelming majority of pull requests should be features users can see, starting with conversation history (persist, rename, delete, pin, reopen, sidebar integration).

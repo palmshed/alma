@@ -69,6 +69,12 @@ jobs:
           uv run python -m backend.verify ui --browser --json --output /tmp/e2e-report.json
           cp /tmp/e2e-report.json backend/verify-output/report.json 2>/dev/null || true
 
+      - name: Run render fidelity checks
+        continue-on-error: true
+        run: |
+          uv run python -m backend.verify ui --fidelity --json --output /tmp/e2e-fidelity.json
+          cp /tmp/e2e-fidelity.json backend/verify-output/fidelity-report.json 2>/dev/null || true
+
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
@@ -89,6 +95,20 @@ jobs:
         with:
           name: e2e-console
           path: backend/verify-output/console.log
+
+      - name: Upload DOM snapshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-dom
+          path: backend/verify-output/*-dom.html
+
+      - name: Upload fidelity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-fidelity
+          path: backend/verify-output/fidelity-report.json
 
       - name: Upload report
         if: always()
@@ -111,7 +131,37 @@ jobs:
             python3 -c "import json; r=json.load(open('backend/verify-output/report.json')); s=r.get('summary',{}); print('UI checks passed:', s.get('ui_checks_passed','unknown'))" 2>/dev/null || true
             echo "UI checks passed: $PASS"
           fi
+          if [ -f backend/verify-output/fidelity-report.json ]; then
+            python3 << 'PYEOF'
+import json
+data = json.load(open('backend/verify-output/fidelity-report.json'))
+passed = sum(1 for c in data if c.get('status') == 'pass')
+failed = sum(1 for c in data if c.get('status') == 'fail')
+print(f'Fidelity checks: {passed} passed, {failed} failed')
+for c in data:
+    if c.get('status') == 'fail':
+        print(f'  FAIL: {c.get("label")} — {c.get("detail", "")}')
+PYEOF
+          fi
           if [ -f /tmp/backend.log ]; then
             echo "--- Backend log (tail) ---"
             tail -5 /tmp/backend.log
           fi
+
+      - name: Archive verification history
+        if: success()
+        run: |
+          VERSION=$(uv run python -c "from backend.palmshed_ai import __version__; print(__version__)" 2>/dev/null || echo "0.0.0")
+          ARCHIVE_DIR="verify-history/v${VERSION}"
+          mkdir -p "$ARCHIVE_DIR"
+          if [ -d backend/verify-output ]; then
+            cp -r backend/verify-output/* "$ARCHIVE_DIR/" 2>/dev/null || true
+          fi
+          echo "Archived E2E results to $ARCHIVE_DIR ($(ls "$ARCHIVE_DIR" | wc -l) files)"
+
+      - name: Upload verification history
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verify-history
+          path: verify-history/
