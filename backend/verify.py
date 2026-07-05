@@ -283,6 +283,26 @@ def classify_response(status: int, body: Any) -> str:
         provider_status = body.get("provider_status", "")
         if provider_status == "quota_exceeded":
             return QUOTA
+    # Gemini API key or quota issues should not count as infrastructure failures
+    if status in (400, 403, 429):
+        if isinstance(body, str):
+            msg = body
+        elif isinstance(body, dict):
+            msg = str(body.get("error", ""))
+        else:
+            msg = ""
+        if "API key" in msg or "api_key" in msg:
+            return "config"
+        if "PERMISSION_DENIED" in msg or "quota" in msg:
+            return QUOTA
+    # Flask wraps Gemini errors in HTTP 500 — check body for Gemini error codes
+    if status == 500:
+        if isinstance(body, str) and ("API key" in body or "api_key" in body):
+            return "config"
+        if isinstance(body, str) and "PERMISSION_DENIED" in body:
+            return "config"
+        if isinstance(body, str) and ("quota" in body.lower() or "RESOURCE_EXHAUSTED" in body):
+            return QUOTA
     return INFRASTRUCTURE
 
 
@@ -773,8 +793,9 @@ def main() -> None:
     else:
         print(output)
 
-    overall = results.get("platform_pass", True) and results.get(
-        "infrastructure_pass", True
+    overall = (
+        results.get("platform_pass", True)
+        and results.get("infrastructure_pass", True)
     )
     sys.exit(0 if overall else 1)
 
