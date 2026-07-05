@@ -873,8 +873,15 @@ def check_sidebar_search() -> UICheck:
     has_search_input = "sidebar-search" in code
     has_highlight = "highlightText" in code or "<mark>" in code
     has_clear_btn = "search-clear" in code
-    has_cmd_k = "metaKey" in code and "key === 'k'" in code or "ctrlKey" in code and ".key === 'k'" in code
-    has_empty_state = "No conversations found" in code or "no conversations found" in code.lower()
+    has_cmd_k = (
+        "metaKey" in code
+        and "key === 'k'" in code
+        or "ctrlKey" in code
+        and ".key === 'k'" in code
+    )
+    has_empty_state = (
+        "No conversations found" in code or "no conversations found" in code.lower()
+    )
     has_case_insensitive = ".toLowerCase()" in code
 
     missing = []
@@ -1111,7 +1118,9 @@ def check_playwright_installed() -> bool:
         return False
 
 
-def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "Any") -> List[UICheck]:
+def _run_conversation_switching(
+    page: "Any", output_dir: str, screenshot_fn: "Any"
+) -> List[UICheck]:
     """E2E verification of conversation creation, switching, and state preservation.
 
     Creates two conversations with distinct content, switches between them,
@@ -1126,7 +1135,14 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
             "button[aria-label*='menu'], .header-menu-btn, button:has(svg)"
         )
         if not menu_btn.count():
-            return [UICheck("conv_sidebar", "Conversation sidebar", "skip", "Menu button not found.")]
+            return [
+                UICheck(
+                    "conv_sidebar",
+                    "Conversation sidebar",
+                    "skip",
+                    "Menu button not found.",
+                )
+            ]
 
         menu_btn.first.click()
         page.wait_for_timeout(500)
@@ -1150,7 +1166,9 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
                 return False
             inp.first.fill(text)
             page.wait_for_timeout(200)
-            send_btn = page.locator("button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])")
+            send_btn = page.locator(
+                "button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])"
+            )
             if send_btn.count():
                 send_btn.first.click()
             else:
@@ -1161,7 +1179,9 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         # Helper: select a conversation from the sidebar list by title text
         def _select_conversation(title_substr: str) -> bool:
             page.wait_for_timeout(300)
-            conv_item = page.locator(f".sidebar-conversation-item:has-text('{title_substr}')")
+            conv_item = page.locator(
+                f".sidebar-conversation-item:has-text('{title_substr}')"
+            )
             if not conv_item.count():
                 return False
             conv_item.first.click()
@@ -1171,11 +1191,20 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         # ── Conversation A — Thinking mode ──
         # Start fresh if first run (sidebar is already open)
         if not _new_chat_from_sidebar():
-            results.append(UICheck("conv_a_new", "Conversation A — new chat", "skip", "Could not create conversation A."))
+            results.append(
+                UICheck(
+                    "conv_a_new",
+                    "Conversation A — new chat",
+                    "skip",
+                    "Could not create conversation A.",
+                )
+            )
             return results
 
         # Select thinking mode
-        thinking_seg = page.locator("button:has-text('Thinking'), [role='tab']:has-text('Thinking')")
+        thinking_seg = page.locator(
+            "button:has-text('Thinking'), [role='tab']:has-text('Thinking')"
+        )
         if thinking_seg.count():
             thinking_seg.first.click()
             page.wait_for_timeout(200)
@@ -1183,7 +1212,14 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         _send_prompt("What is 2+2?")
         screenshot_fn("conv-a-thinking")
         conv_labels.append("Conv A — What is 2+2?")
-        results.append(UICheck("conv_a_create", "Conversation A — create", "pass", "Created conversation A with thinking mode."))
+        results.append(
+            UICheck(
+                "conv_a_create",
+                "Conversation A — create",
+                "pass",
+                "Created conversation A with thinking mode.",
+            )
+        )
 
         # ── Conversation B — Canvas mode, image via description ──
         page.wait_for_timeout(500)
@@ -1193,15 +1229,26 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         page.wait_for_timeout(500)
 
         if not _new_chat_from_sidebar():
-            results.append(UICheck("conv_b_new", "Conversation B — new chat", "pass", "New conversation button works (dialog confirmed)."))
+            results.append(
+                UICheck(
+                    "conv_b_new",
+                    "Conversation B — new chat",
+                    "pass",
+                    "New conversation button works (dialog confirmed).",
+                )
+            )
             # Accept new chat dialog if shown
-            confirm_btn = page.locator("button:has-text('New conversation'):not(:has-text('+'))")
+            confirm_btn = page.locator(
+                "button:has-text('New conversation'):not(:has-text('+'))"
+            )
             if confirm_btn.count():
                 confirm_btn.first.click()
                 page.wait_for_timeout(500)
 
         # Select canvas mode (default)
-        canvas_seg = page.locator("button:has-text('Canvas'), [role='tab']:has-text('Canvas')")
+        canvas_seg = page.locator(
+            "button:has-text('Canvas'), [role='tab']:has-text('Canvas')"
+        )
         if canvas_seg.count():
             canvas_seg.first.click()
             page.wait_for_timeout(200)
@@ -1210,7 +1257,14 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         page.wait_for_timeout(2000)
         screenshot_fn("conv-b-canvas")
         conv_labels.append("Conv B — Say hello in French")
-        results.append(UICheck("conv_b_create", "Conversation B — create", "pass", "Created conversation B with canvas mode."))
+        results.append(
+            UICheck(
+                "conv_b_create",
+                "Conversation B — create",
+                "pass",
+                "Created conversation B with canvas mode.",
+            )
+        )
 
         # ── Switch back to Conversation A ──
         page.wait_for_timeout(500)
@@ -1218,16 +1272,37 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         page.wait_for_timeout(500)
 
         if not _select_conversation("2+2"):
-            results.append(UICheck("conv_switch_a", "Switch to conversation A", "fail", "Could not select conversation A from sidebar."))
+            results.append(
+                UICheck(
+                    "conv_switch_a",
+                    "Switch to conversation A",
+                    "fail",
+                    "Could not select conversation A from sidebar.",
+                )
+            )
         else:
             page.wait_for_timeout(500)
             screenshot_fn("conv-switch-a")
             # Verify A's content is visible (check for "4" or similar response)
             body_text = page.locator("body").inner_text()
             if "4" in body_text or "four" in body_text.lower():
-                results.append(UICheck("conv_switch_a", "Switch to conversation A", "pass", "Conversation A restored with thinking response."))
+                results.append(
+                    UICheck(
+                        "conv_switch_a",
+                        "Switch to conversation A",
+                        "pass",
+                        "Conversation A restored with thinking response.",
+                    )
+                )
             else:
-                results.append(UICheck("conv_switch_a", "Switch to conversation A", "pass", "Conversation A selected (content verified visually)."))
+                results.append(
+                    UICheck(
+                        "conv_switch_a",
+                        "Switch to conversation A",
+                        "pass",
+                        "Conversation A selected (content verified visually).",
+                    )
+                )
 
         # ── Switch to Conversation B ──
         page.wait_for_timeout(500)
@@ -1235,15 +1310,36 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         page.wait_for_timeout(500)
 
         if not _select_conversation("French"):
-            results.append(UICheck("conv_switch_b", "Switch to conversation B", "fail", "Could not select conversation B from sidebar."))
+            results.append(
+                UICheck(
+                    "conv_switch_b",
+                    "Switch to conversation B",
+                    "fail",
+                    "Could not select conversation B from sidebar.",
+                )
+            )
         else:
             page.wait_for_timeout(500)
             screenshot_fn("conv-switch-b")
             body_text = page.locator("body").inner_text()
             if "Bonjour" in body_text or "hello" in body_text.lower():
-                results.append(UICheck("conv_switch_b", "Switch to conversation B", "pass", "Conversation B restored with canvas response."))
+                results.append(
+                    UICheck(
+                        "conv_switch_b",
+                        "Switch to conversation B",
+                        "pass",
+                        "Conversation B restored with canvas response.",
+                    )
+                )
             else:
-                results.append(UICheck("conv_switch_b", "Switch to conversation B", "pass", "Conversation B selected (content verified visually)."))
+                results.append(
+                    UICheck(
+                        "conv_switch_b",
+                        "Switch to conversation B",
+                        "pass",
+                        "Conversation B selected (content verified visually).",
+                    )
+                )
 
         # ── Switch back to A again for final state ──
         page.wait_for_timeout(500)
@@ -1252,9 +1348,23 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
         if _select_conversation("2+2"):
             page.wait_for_timeout(500)
             screenshot_fn("conv-switch-a-final")
-            results.append(UICheck("conv_switch_a_final", "Switch back to A", "pass", "Thinking state preserved after round-trip."))
+            results.append(
+                UICheck(
+                    "conv_switch_a_final",
+                    "Switch back to A",
+                    "pass",
+                    "Thinking state preserved after round-trip.",
+                )
+            )
         else:
-            results.append(UICheck("conv_switch_a_final", "Switch back to A", "skip", "Could not select A for final check."))
+            results.append(
+                UICheck(
+                    "conv_switch_a_final",
+                    "Switch back to A",
+                    "skip",
+                    "Could not select A for final check.",
+                )
+            )
 
     except Exception as exc:
         results.append(UICheck("conv_e2e_error", "Conversation E2E", "fail", str(exc)))
@@ -1262,7 +1372,9 @@ def _run_conversation_switching(page: "Any", output_dir: str, screenshot_fn: "An
     return results
 
 
-def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any") -> List[UICheck]:
+def _run_conversation_search(
+    page: "Any", output_dir: str, screenshot_fn: "Any"
+) -> List[UICheck]:
     """E2E verification of conversation search in the sidebar.
 
     Creates 3 conversations with distinct titles, then searches and
@@ -1288,7 +1400,9 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
             return False
         inp.first.fill(text)
         page.wait_for_timeout(200)
-        send_btn = page.locator("button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])")
+        send_btn = page.locator(
+            "button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])"
+        )
         if send_btn.count():
             send_btn.first.click()
         else:
@@ -1298,9 +1412,18 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
 
     try:
         # Open sidebar
-        menu_btn = page.locator("button[aria-label*='menu'], .header-menu-btn, button:has(svg)")
+        menu_btn = page.locator(
+            "button[aria-label*='menu'], .header-menu-btn, button:has(svg)"
+        )
         if not menu_btn.count():
-            return [UICheck("search_sidebar", "Search — sidebar", "skip", "Menu button not found.")]
+            return [
+                UICheck(
+                    "search_sidebar",
+                    "Search — sidebar",
+                    "skip",
+                    "Menu button not found.",
+                )
+            ]
 
         menu_btn.first.click()
         page.wait_for_timeout(500)
@@ -1308,15 +1431,26 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
         # Create 3 conversations
         for i, title in enumerate(titles):
             if not _new_chat_from_sidebar():
-                results.append(UICheck(f"search_conv_{i}_new", f"Search — create {title}", "skip", "Could not create new chat."))
+                results.append(
+                    UICheck(
+                        f"search_conv_{i}_new",
+                        f"Search — create {title}",
+                        "skip",
+                        "Could not create new chat.",
+                    )
+                )
                 continue
-            confirm_btn = page.locator("button:has-text('New conversation'):not(:has-text('+'))")
+            confirm_btn = page.locator(
+                "button:has-text('New conversation'):not(:has-text('+'))"
+            )
             if confirm_btn.count():
                 confirm_btn.first.click()
                 page.wait_for_timeout(300)
             _send_prompt(f"Tell me about {title.lower()}")
             page.wait_for_timeout(1000)
-            results.append(UICheck(f"search_conv_{i}_create", f"Search — create {title}", "pass"))
+            results.append(
+                UICheck(f"search_conv_{i}_create", f"Search — create {title}", "pass")
+            )
             menu_btn.first.click()
             page.wait_for_timeout(500)
 
@@ -1328,7 +1462,14 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
         # Verify search input exists
         search_input = page.locator("input[aria-label*='search']")
         if not search_input.count():
-            results.append(UICheck("search_input", "Search — input exists", "fail", "Search input not found."))
+            results.append(
+                UICheck(
+                    "search_input",
+                    "Search — input exists",
+                    "fail",
+                    "Search input not found.",
+                )
+            )
             return results
         results.append(UICheck("search_input", "Search — input exists", "pass"))
 
@@ -1353,14 +1494,37 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
                 cooking_visible = True
 
         if python_visible and not javascript_visible and not cooking_visible:
-            results.append(UICheck("search_filter", "Search — filters correctly", "pass", "Only 'Python tutorial' shown."))
+            results.append(
+                UICheck(
+                    "search_filter",
+                    "Search — filters correctly",
+                    "pass",
+                    "Only 'Python tutorial' shown.",
+                )
+            )
         elif not python_visible and visible_count == 0:
-            results.append(UICheck("search_filter", "Search — filters correctly", "fail", "No conversations visible after search."))
+            results.append(
+                UICheck(
+                    "search_filter",
+                    "Search — filters correctly",
+                    "fail",
+                    "No conversations visible after search.",
+                )
+            )
         else:
-            results.append(UICheck("search_filter", "Search — filters correctly", "pass", f"Search narrowed results ({visible_count} visible)."))
+            results.append(
+                UICheck(
+                    "search_filter",
+                    "Search — filters correctly",
+                    "pass",
+                    f"Search narrowed results ({visible_count} visible).",
+                )
+            )
 
         # Clear search
-        clear_btn = page.locator("button[aria-label*='clear' i], button[aria-label*='Clear'], .sidebar-search-clear")
+        clear_btn = page.locator(
+            "button[aria-label*='clear' i], button[aria-label*='Clear'], .sidebar-search-clear"
+        )
         if clear_btn.count():
             clear_btn.first.click()
             page.wait_for_timeout(300)
@@ -1373,19 +1537,42 @@ def _run_conversation_search(page: "Any", output_dir: str, screenshot_fn: "Any")
                 for i in range(conv_items.count())
             )
             if conv_items.count() >= len(titles):
-                results.append(UICheck("search_clear", "Search — clear restores full list", "pass"))
+                results.append(
+                    UICheck("search_clear", "Search — clear restores full list", "pass")
+                )
             else:
-                results.append(UICheck("search_clear", "Search — clear restores full list", "pass",
-                    f"{conv_items.count()} items visible (expected {len(titles)})."))
+                results.append(
+                    UICheck(
+                        "search_clear",
+                        "Search — clear restores full list",
+                        "pass",
+                        f"{conv_items.count()} items visible (expected {len(titles)}).",
+                    )
+                )
         else:
-            results.append(UICheck("search_clear", "Search — clear button", "skip", "Clear button not found."))
+            results.append(
+                UICheck(
+                    "search_clear",
+                    "Search — clear button",
+                    "skip",
+                    "Clear button not found.",
+                )
+            )
 
         # Cmd+K focus check
         page.keyboard.press("Meta+k")
         page.wait_for_timeout(200)
-        focused = page.evaluate("document.activeElement === document.querySelector('input[aria-label*=\"search\"]')")
-        results.append(UICheck("search_cmd_k", "Search — Cmd+K focuses input", "pass" if focused else "skip",
-            None if focused else "Could not verify Cmd+K focus."))
+        focused = page.evaluate(
+            "document.activeElement === document.querySelector('input[aria-label*=\"search\"]')"
+        )
+        results.append(
+            UICheck(
+                "search_cmd_k",
+                "Search — Cmd+K focuses input",
+                "pass" if focused else "skip",
+                None if focused else "Could not verify Cmd+K focus.",
+            )
+        )
 
     except Exception as exc:
         results.append(UICheck("search_e2e_error", "Search — E2E", "fail", str(exc)))
@@ -1554,7 +1741,9 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
                     )
 
             # ── Conversation switching ──
-            conv_switch_results = _run_conversation_switching(page, output_dir, screenshot)
+            conv_switch_results = _run_conversation_switching(
+                page, output_dir, screenshot
+            )
             results.extend(conv_switch_results)
 
             # ── Conversation search ──
@@ -1782,8 +1971,7 @@ def _capture_metrics(page: "Any", start_time: float) -> Dict[str, float]:
     """Capture browser performance metrics."""
     metrics: Dict[str, float] = {}
     try:
-        timing = page.evaluate(
-            """() => {
+        timing = page.evaluate("""() => {
             const p = window.performance;
             const t = p.timing;
             return {
@@ -1791,8 +1979,7 @@ def _capture_metrics(page: "Any", start_time: float) -> Dict[str, float]:
                 loadEvent: t.loadEventEnd - t.navigationStart,
                 domInteractive: t.domInteractive - t.navigationStart,
             };
-        }"""
-        )
+        }""")
         metrics["dom_content_loaded_ms"] = round(timing.get("domContentLoaded", 0), 1)
         metrics["load_event_ms"] = round(timing.get("loadEvent", 0), 1)
         metrics["dom_interactive_ms"] = round(timing.get("domInteractive", 0), 1)

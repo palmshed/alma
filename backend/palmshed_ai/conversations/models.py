@@ -9,11 +9,27 @@ from typing import Any
 
 SCHEMA_VERSION = 1
 
-_KNOWN_MESSAGE_KEYS = {"id", "role", "timestamp", "content",
-                       "thinking", "image", "attachments", "metadata"}
-_KNOWN_CONVERSATION_KEYS = {"id", "title", "mode", "schema_version",
-                             "created_at", "updated_at", "messages",
-                             "metadata", "title_is_manual"}
+_KNOWN_MESSAGE_KEYS = {
+    "id",
+    "role",
+    "timestamp",
+    "content",
+    "thinking",
+    "image",
+    "attachments",
+    "metadata",
+}
+_KNOWN_CONVERSATION_KEYS = {
+    "id",
+    "title",
+    "mode",
+    "schema_version",
+    "created_at",
+    "updated_at",
+    "messages",
+    "metadata",
+    "title_is_manual",
+}
 
 
 @dataclass
