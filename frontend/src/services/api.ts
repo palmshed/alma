@@ -1,4 +1,4 @@
-import type { ApiThinkingResult } from '../types';
+import type { ApiThinkingResult, ConversationEntry, ConversationData } from '../types';
 
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
@@ -14,6 +14,36 @@ async function request<T>(path: string, body: unknown): Promise<T> {
     throw new Error(msg);
   }
   return res.json();
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`);
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))).error || res.statusText;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))).error || res.statusText;
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+async function apiDelete(path: string): Promise<void> {
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))).error || res.statusText;
+    throw new Error(msg);
+  }
 }
 
 export const api = {
@@ -63,5 +93,27 @@ export const api = {
       throw new Error(msg);
     }
     return res.blob();
+  },
+
+  // ── Conversations ──
+
+  listConversations(): Promise<ConversationEntry[]> {
+    return apiGet<ConversationEntry[]>('/api/conversations');
+  },
+
+  getConversation(id: string): Promise<ConversationData> {
+    return apiGet<ConversationData>(`/api/conversations/${id}`);
+  },
+
+  createConversation(data: ConversationData): Promise<ConversationData> {
+    return request<ConversationData>('/api/conversations', data);
+  },
+
+  updateConversation(id: string, data: ConversationData): Promise<ConversationData> {
+    return apiPut<ConversationData>(`/api/conversations/${id}`, data);
+  },
+
+  async deleteConversation(id: string): Promise<void> {
+    return apiDelete(`/api/conversations/${id}`);
   },
 };

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import SegmentedControl from './components/SegmentedControl';
@@ -15,6 +15,8 @@ import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, SUGGESTIONS } from './utils';
+import { api } from './services/api';
+import { ConversationData, MessageData } from './types';
 
 function App() {
   const [mode, setMode] = useState('canvas');
@@ -29,14 +31,18 @@ function App() {
     submit,
     setAudioUrl,
     clear: conversationClear,
+    loadConversation,
   } = useConversation();
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const lastPromptRef = useRef<string>('');
+  const activeConversationRef = useRef<ConversationData | null>(null);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -54,6 +60,7 @@ function App() {
   }, [theme]);
 
   const handleSubmit = useCallback((text: string) => {
+    lastPromptRef.current = text;
     submit(text, mode);
   }, [submit, mode]);
 
@@ -71,6 +78,8 @@ function App() {
   const handleConfirmNewChat = useCallback(() => {
     conversationClear();
     composerClear();
+    setActiveConversationId(undefined);
+    activeConversationRef.current = null;
     setShowNewChatDialog(false);
   }, [conversationClear, composerClear]);
 
@@ -88,6 +97,37 @@ function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [handleNewChat]);
+
+  const activeConv = useMemo(() => activeConversationId, [activeConversationId]);
+
+  useEffect(() => {
+    if (!response && !thinking) return;
+    const prompt = lastPromptRef.current;
+    if (!prompt) return;
+
+    lastPromptRef.current = '';
+
+    const existing = activeConversationRef.current?.messages ?? [];
+    const newMessages: MessageData[] = [
+      ...existing,
+      { role: 'user', content: prompt, timestamp: new Date().toISOString() },
+      { role: 'assistant', content: response || '', thinking: thinking || undefined, timestamp: new Date().toISOString() },
+    ];
+    const nextTitle = existing.length === 0
+      ? (response || prompt).slice(0, 60)
+      : undefined;
+
+    if (activeConv) {
+      api.updateConversation(activeConv, { messages: newMessages, ...(nextTitle ? { title: nextTitle } : {}) }).catch(() => {});
+    } else {
+      api.createConversation({ title: nextTitle ?? 'New conversation', messages: newMessages })
+        .then((conv) => {
+          setActiveConversationId(conv.id);
+          activeConversationRef.current = conv;
+        })
+        .catch(() => {});
+    }
+  }, [response, thinking, activeConv]);
 
   useEffect(() => {
     if (!showNewChatDialog) {
@@ -215,6 +255,18 @@ function App() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
+        onSelectConversation={(id) => {
+          api.getConversation(id).then((conv) => {
+            activeConversationRef.current = conv;
+            setActiveConversationId(id);
+            loadConversation(conv);
+          }).catch(() => {});
+        }}
+        onDeleteConversation={() => {
+          setActiveConversationId(undefined);
+          activeConversationRef.current = null;
+        }}
+        activeConversationId={activeConversationId}
       />
 
       {showNewChatDialog && (
