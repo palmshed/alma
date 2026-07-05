@@ -253,7 +253,7 @@ SPDX-License-Identifier: MIT
     </div>
 
     <!-- Sidebar Menu -->
-    <div class="sidebar-menu" id="sidebar-menu">
+    <div class="sidebar-menu" id="sidebar-menu" role="complementary" aria-label="Conversation history">
         <div class="sidebar-header">
             <button class="btn btn--ghost close-menu" id="close-menu" aria-label="Close menu">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
@@ -266,11 +266,22 @@ SPDX-License-Identifier: MIT
             <div class="sidebar-product-label">Alma</div>
             <button class="btn btn--ghost sidebar-new-chat" id="sidebar-new-chat" type="button">+ New conversation</button>
             <div class="sidebar-section-label">Chats</div>
-            <div class="sidebar-conversation-list" id="conversation-list"></div>
+            <div class="sidebar-search">
+                <input class="sidebar-search-input" id="sidebar-search-input" type="text" placeholder="Search conversations..." aria-label="Search conversations">
+                <button class="sidebar-search-clear" id="sidebar-search-clear" style="display:none" aria-label="Clear search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-error" id="sidebar-error" style="display:none" role="alert"></div>
+            <div class="sidebar-conversation-list" id="conversation-list" role="list"></div>
             <div class="sidebar-empty" id="sidebar-empty" style="display:none">No conversations yet</div>
+            <div class="sidebar-empty" id="sidebar-search-empty" style="display:none">No conversations found.</div>
         </div>
-        <div class="sidebar-delete-dialog" id="sidebar-delete-dialog" style="display:none">
-            <p class="sidebar-dialog-title">Delete conversation?</p>
+        <div class="sidebar-delete-dialog" id="sidebar-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="sidebar-delete-dialog-title" style="display:none">
+            <p id="sidebar-delete-dialog-title" class="sidebar-dialog-title">Delete conversation?</p>
             <p class="sidebar-dialog-description">This cannot be undone.</p>
             <div class="sidebar-dialog-actions">
                 <button class="btn sidebar-dialog-btn" id="sidebar-delete-cancel" type="button">Cancel</button>

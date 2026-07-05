@@ -96,6 +96,14 @@ function showError(msg) {
   scroll.innerHTML = `<div class="response-container"><em>Error: ${msg}</em></div>`;
 }
 
+function showSidebarError(msg) {
+  var el = document.getElementById('sidebar-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = '';
+  setTimeout(function () { el.style.display = 'none'; }, 4000);
+}
+
 /* ── API Calls ── */
 
 function handleSubmit() {
@@ -232,7 +240,7 @@ function hideNewChatDialog() {
 function confirmNewChat() {
   hideNewChatDialog();
   clearResults();
-  activeConversationId = null;
+  setActiveConversationId(null);
   activeConversationData = null;
   switchToLanding();
   const input = document.getElementById('landing-input');
@@ -250,6 +258,15 @@ var sidebarConversations = [];
 var sidebarEditingId = null;
 var sidebarEditTitle = '';
 var sidebarConfirmDeleteId = null;
+var sidebarSearchQuery = '';
+
+function setActiveConversationId(id) {
+  activeConversationId = id;
+  try {
+    if (id) { localStorage.setItem('alma_active_conversation', id); }
+    else { localStorage.removeItem('alma_active_conversation'); }
+  } catch (e) {}
+}
 
 function formatDate(iso) {
   var d = new Date(iso);
@@ -278,21 +295,48 @@ function fetchConversations() {
     });
 }
 
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+function highlightText(text, query) {
+  if (!query) return escapeHtml(text);
+  var idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return escapeHtml(text);
+  return escapeHtml(text.slice(0, idx)) + '<mark>' + escapeHtml(text.slice(idx, idx + query.length)) + '</mark>' + escapeHtml(text.slice(idx + query.length));
+}
+
 function renderConversationList() {
   var list = document.getElementById('conversation-list');
   var empty = document.getElementById('sidebar-empty');
+  var searchEmpty = document.getElementById('sidebar-search-empty');
   if (!list) return;
 
   list.innerHTML = '';
 
-  if (sidebarConversations.length === 0) {
-    if (empty) empty.style.display = '';
+  var filtered = sidebarConversations;
+  if (sidebarSearchQuery) {
+    var q = sidebarSearchQuery.toLowerCase();
+    filtered = sidebarConversations.filter(function (c) { return c.title.toLowerCase().indexOf(q) !== -1; });
+  }
+
+  if (filtered.length === 0) {
+    if (sidebarSearchQuery) {
+      if (searchEmpty) searchEmpty.style.display = '';
+      if (empty) empty.style.display = 'none';
+    } else {
+      if (empty) empty.style.display = sidebarConversations.length === 0 ? '' : 'none';
+      if (searchEmpty) searchEmpty.style.display = 'none';
+    }
     return;
   }
 
   if (empty) empty.style.display = 'none';
+  if (searchEmpty) searchEmpty.style.display = 'none';
 
-  var sorted = sidebarConversations.slice().sort(function (a, b) {
+  var sorted = filtered.slice().sort(function (a, b) {
     return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
   });
 
@@ -308,6 +352,7 @@ function renderConversationList() {
     if (sidebarEditingId === conv.id) {
       var input = document.createElement('input');
       input.className = 'sidebar-conversation-rename-input';
+      input.setAttribute('aria-label', 'Rename conversation');
       input.value = sidebarEditTitle || conv.title;
       input.addEventListener('blur', function () { finishRename(conv.id); });
       input.addEventListener('keydown', function (e) {
@@ -320,7 +365,7 @@ function renderConversationList() {
     } else {
       var title = document.createElement('span');
       title.className = 'sidebar-conversation-title';
-      title.textContent = conv.title;
+      title.innerHTML = highlightText(conv.title, sidebarSearchQuery);
       main.appendChild(title);
 
       var date = document.createElement('span');
@@ -362,6 +407,12 @@ function renderConversationList() {
     item.appendChild(actions);
 
     item.addEventListener('click', function () { selectConversation(conv.id); });
+    item.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectConversation(conv.id);
+      }
+    });
 
     list.appendChild(item);
   });
@@ -374,14 +425,16 @@ function selectConversation(id) {
       return r.json();
     })
     .then(function (conv) {
-      activeConversationId = id;
+      setActiveConversationId(id);
       activeConversationData = conv;
       var msgs = conv.messages || [];
       var lastAssistant = null;
       var lastThinking = null;
+      var lastImage = null;
       for (var i = msgs.length - 1; i >= 0; i--) {
         if (msgs[i].role === 'assistant' && !lastAssistant) lastAssistant = msgs[i];
         if (msgs[i].thinking && !lastThinking) lastThinking = msgs[i];
+        if (msgs[i].image && !lastImage) lastImage = msgs[i];
       }
       var scroll = document.getElementById('conversation-scroll');
       var html = '';
@@ -390,6 +443,9 @@ function selectConversation(id) {
           html += '<div class="user-message">' + m.content + '</div>';
         } else if (m.role === 'assistant') {
           if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
+          if (m.image) {
+            html += '<div class="image-container" style="display:block"><img src="' + m.image + '" class="generated-image" style="display:block;max-width:100%;border-radius:8px"/></div>';
+          }
           html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
         }
       });
@@ -398,6 +454,20 @@ function selectConversation(id) {
         var btn = document.getElementById('tts-button');
         btn.style.display = '';
         btn.setAttribute('data-text', lastAssistant.content);
+      }
+      /* Restore conversation mode */
+      if (conv.mode) {
+        var modeMap = { canvas: 'text_normal', thinking: 'text_thinking', web: 'text_url-context', images: 'image_normal' };
+        var targetStyle = modeMap[conv.mode];
+        if (targetStyle) {
+          var parts = targetStyle.split('_');
+          document.querySelectorAll('.segmented-control-btn').forEach(function (b) {
+            var match = b.dataset.mode === parts[0] && b.dataset.style === parts[1];
+            b.classList.toggle('active', match);
+            b.setAttribute('aria-checked', match ? 'true' : 'false');
+          });
+          updateSuggestionsVisibility();
+        }
       }
       switchToConversation();
       renderConversationList();
@@ -414,10 +484,22 @@ function finishRename(id) {
     renderConversationList();
     return;
   }
+  /* Optimistic update */
+  var prevConv = null;
+  for (var i = 0; i < sidebarConversations.length; i++) {
+    if (sidebarConversations[i].id === id) {
+      prevConv = sidebarConversations[i];
+      sidebarConversations[i] = Object.assign({}, sidebarConversations[i], { title: trimmed });
+      break;
+    }
+  }
+  renderConversationList();
+
   fetch('/api/conversations/' + encodeURIComponent(id))
     .then(function (r) { return r.json(); })
     .then(function (conv) {
       conv.title = trimmed;
+      conv.title_is_manual = true;
       return fetch('/api/conversations/' + encodeURIComponent(id), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -426,30 +508,75 @@ function finishRename(id) {
     })
     .then(function () {
       sidebarEditingId = null;
-      fetchConversations();
     })
     .catch(function () {
-      sidebarEditingId = null;
-      renderConversationList();
+      /* Rollback */
+      if (prevConv) {
+        for (var i = 0; i < sidebarConversations.length; i++) {
+          if (sidebarConversations[i].id === id) {
+            sidebarConversations[i] = prevConv;
+            break;
+          }
+        }
+      }
+      showSidebarError('Failed to rename conversation');
     });
+  sidebarEditingId = null;
 }
 
 function confirmDeleteConversation() {
   var id = sidebarConfirmDeleteId;
   if (!id) return;
+  /* Optimistic remove */
+  var deletedConv = null;
+  for (var i = 0; i < sidebarConversations.length; i++) {
+    if (sidebarConversations[i].id === id) {
+      deletedConv = sidebarConversations[i];
+      sidebarConversations.splice(i, 1);
+      break;
+    }
+  }
+  sidebarConfirmDeleteId = null;
+  document.getElementById('sidebar-delete-dialog').style.display = 'none';
+  renderConversationList();
+
   fetch('/api/conversations/' + encodeURIComponent(id), { method: 'DELETE' })
     .then(function () {
+      /* Re-fetch to sync */
+      return fetch('/api/conversations');
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (list) {
+      sidebarConversations = list || [];
+      /* Auto-select next most recent if deleted was active */
       if (id === activeConversationId) {
-        activeConversationId = null;
-        activeConversationData = null;
+        var sorted = sidebarConversations.slice().sort(function (a, b) {
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
+        if (sorted.length > 0) {
+          selectConversation(sorted[0].id);
+        } else {
+          setActiveConversationId(null);
+          activeConversationData = null;
+          clearResults();
+          switchToLanding();
+          var landingInput = document.getElementById('landing-input');
+          if (landingInput) landingInput.focus();
+        }
+      } else {
+        renderConversationList();
       }
-      sidebarConfirmDeleteId = null;
-      document.getElementById('sidebar-delete-dialog').style.display = 'none';
-      fetchConversations();
     })
     .catch(function () {
-      sidebarConfirmDeleteId = null;
-      document.getElementById('sidebar-delete-dialog').style.display = 'none';
+      /* Rollback */
+      if (deletedConv) {
+        sidebarConversations.push(deletedConv);
+        sidebarConversations.sort(function (a, b) {
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
+      }
+      showSidebarError('Failed to delete conversation');
+      renderConversationList();
     });
 }
 
@@ -465,9 +592,11 @@ function saveConversation(prompt, responseText, thinkingText) {
     { role: 'assistant', content: responseText || '', thinking: thinkingText || undefined, timestamp: new Date().toISOString() },
   ]);
   var nextTitle = existing.length === 0 ? (responseText || prompt).slice(0, 60) : undefined;
+  var currentMode = getActiveMode();
+  var mode = currentMode.style === 'thinking' ? 'thinking' : currentMode.style === 'url-context' ? 'web' : currentMode.mode === 'image' ? 'images' : 'canvas';
 
   if (activeConversationId) {
-    var payload = { messages: newMessages };
+    var payload = { messages: newMessages, mode: mode };
     if (nextTitle) payload.title = nextTitle;
     fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
       method: 'PUT',
@@ -482,11 +611,11 @@ function saveConversation(prompt, responseText, thinkingText) {
     fetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: nextTitle || 'New conversation', messages: newMessages }),
+      body: JSON.stringify({ title: nextTitle || 'New conversation', messages: newMessages, mode: mode }),
     })
       .then(function (r) { return r.json(); })
       .then(function (conv) {
-        activeConversationId = conv.id;
+        setActiveConversationId(conv.id);
         activeConversationData = conv;
         fetchConversations();
       })
@@ -655,6 +784,11 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.style.overflow = '';
     sidebarEditingId = null;
     sidebarConfirmDeleteId = null;
+    sidebarSearchQuery = '';
+    var si = document.getElementById('sidebar-search-input');
+    if (si) { si.value = ''; }
+    var sc = document.getElementById('sidebar-search-clear');
+    if (sc) { sc.style.display = 'none'; }
     document.getElementById('sidebar-delete-dialog').style.display = 'none';
     renderConversationList();
   }
@@ -666,8 +800,39 @@ document.addEventListener('DOMContentLoaded', function () {
   /* Delete dialog buttons */
   document.getElementById('sidebar-delete-confirm').addEventListener('click', confirmDeleteConversation);
   document.getElementById('sidebar-delete-cancel').addEventListener('click', cancelDeleteConversation);
+
+  /* Search */
+  var searchInput = document.getElementById('sidebar-search-input');
+  var searchClear = document.getElementById('sidebar-search-clear');
+  if (searchInput) {
+    searchInput.addEventListener('input', function () {
+      sidebarSearchQuery = searchInput.value;
+      if (sidebarSearchQuery) {
+        searchClear.style.display = '';
+      } else {
+        searchClear.style.display = 'none';
+      }
+      renderConversationList();
+    });
+  }
+  if (searchClear) {
+    searchClear.addEventListener('click', function () {
+      sidebarSearchQuery = '';
+      searchInput.value = '';
+      searchClear.style.display = 'none';
+      renderConversationList();
+      searchInput.focus();
+    });
+  }
+
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape' && sidebar && sidebar.classList.contains('open')) closeMenu();
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      if (searchInput && sidebar && sidebar.classList.contains('open')) {
+        searchInput.focus();
+      }
+    }
   });
 
   /* TTS */
@@ -727,4 +892,60 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* Pre-fetch conversations for sidebar */
   setTimeout(fetchConversations, 500);
+
+  /* Restore active conversation on reload */
+  var storedId = null;
+  try { storedId = localStorage.getItem('alma_active_conversation'); } catch (e) {}
+  if (storedId) {
+    fetch('/api/conversations/' + encodeURIComponent(storedId))
+      .then(function (r) {
+        if (!r.ok) throw new Error('Not found');
+        return r.json();
+      })
+      .then(function (conv) {
+        setActiveConversationId(storedId);
+        activeConversationData = conv;
+        var modeMap = { canvas: 'text_normal', thinking: 'text_thinking', web: 'text_url-context', images: 'image_normal' };
+        if (conv.mode) {
+          var targetStyle = modeMap[conv.mode];
+          if (targetStyle) {
+            var parts = targetStyle.split('_');
+            document.querySelectorAll('.segmented-control-btn').forEach(function (b) {
+              var match = b.dataset.mode === parts[0] && b.dataset.style === parts[1];
+              b.classList.toggle('active', match);
+              b.setAttribute('aria-checked', match ? 'true' : 'false');
+            });
+            updateSuggestionsVisibility();
+          }
+        }
+        selectConversation(storedId);
+      })
+      .catch(function () {
+        try { localStorage.removeItem('alma_active_conversation'); } catch (e) {}
+      });
+  }
+
+  /* Delete dialog focus trap */
+  document.addEventListener('keydown', function (e) {
+    var dialog = document.getElementById('sidebar-delete-dialog');
+    if (!dialog || dialog.style.display === 'none') return;
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      cancelDeleteConversation();
+      return;
+    }
+    if (e.key === 'Tab') {
+      var focusable = dialog.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      if (!focusable.length) return;
+      var first = focusable[0];
+      var last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
 });
