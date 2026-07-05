@@ -7,6 +7,8 @@ from services.auth.config import AuthConfig
 from services.auth.service import AuthService
 from services.mail.config import MailConfig
 from services.mail.service import MailService
+from services.notifications.config import NotificationConfig
+from services.notifications.service import NotificationService
 from services.storage.config import StorageConfig
 from services.storage.service import StorageService
 
@@ -32,6 +34,7 @@ class PlatformManager:
         self._mail: Optional[MailService] = None
         self._auth: Optional[AuthService] = None
         self._storage: Optional[StorageService] = None
+        self._notifications: Optional[NotificationService] = None
 
     @property
     def mail(self) -> MailService:
@@ -54,6 +57,16 @@ class PlatformManager:
             self._storage = StorageService(config=config)
         return self._storage
 
+    @property
+    def notifications(self) -> NotificationService:
+        if self._notifications is None:
+            config = NotificationConfig.from_env()
+            self._notifications = NotificationService(
+                config=config,
+                mail_service=self.mail,
+            )
+        return self._notifications
+
     def health(self) -> PlatformHealth:
         health = PlatformHealth()
 
@@ -61,6 +74,7 @@ class PlatformManager:
             ("mail", self._try("mail", lambda: self.mail)),
             ("auth", self._try("auth", lambda: self.auth)),
             ("storage", self._try("storage", lambda: self.storage)),
+            ("notifications", self._try("notifications", lambda: self.notifications)),
         ]:
             if svc is not None:
                 try:
@@ -115,6 +129,12 @@ class PlatformManager:
                 "config_valid": h.config_valid,
                 "bucket": h.bucket,
                 "healthy": h.healthy,
+            }
+        if name == "notifications":
+            h = svc.health()
+            return {
+                "enabled": h.enabled,
+                "channels": h.channels,
             }
         return {}
 
