@@ -20,8 +20,8 @@ Application
 │
 ├── Platform Services
 │   ├── Mail
-│   ├── Auth (future)
-│   ├── Storage (future)
+│   ├── Auth
+│   ├── Storage
 │   └── Notifications (future)
 │
 └── Infrastructure
@@ -68,8 +68,8 @@ independently of any single application.
 Examples:
 
 - Mail
-- Authentication (future)
-- Storage (future)
+- Authentication
+- Storage
 - Notifications (future)
 
 Platform services:
@@ -155,6 +155,8 @@ Current records:
 
 - `0001-platform-services.md` — introducing the Platform Services layer
 - `0002-mail-service.md` — mail as a reusable platform capability
+- `0003-auth-service.md` — auth as a reusable platform capability
+- `0003-storage-service.md` — storage as a reusable platform capability
 
 ---
 

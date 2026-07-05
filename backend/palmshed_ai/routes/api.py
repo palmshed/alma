@@ -302,4 +302,35 @@ def health_check():
         auth_status["error"] = str(exc)
         logging.warning("Auth service health check failed: %s", exc)
 
-    return jsonify({"status": "ok", "mail": mail_status, "auth": auth_status})
+    storage_status = {"provider": "unknown"}
+    try:
+        from services.storage.config import StorageConfig
+        from services.storage.service import StorageService
+
+        storage_config = StorageConfig.from_env()
+        storage_status["provider"] = storage_config.provider
+        storage_status["bucket"] = storage_config.bucket
+        valid, errors = storage_config.is_valid()
+        storage_status["config_valid"] = valid
+        if errors:
+            storage_status["config_errors"] = errors
+        svc = StorageService(config=storage_config)
+        health = svc.health()
+        storage_status["provider"] = health.provider
+        storage_status["config_valid"] = health.config_valid
+        storage_status["bucket"] = health.bucket
+        storage_status["healthy"] = health.healthy
+        if health.config_errors:
+            storage_status["config_errors"] = health.config_errors
+    except Exception as exc:
+        storage_status["error"] = str(exc)
+        logging.warning("Storage service health check failed: %s", exc)
+
+    return jsonify(
+        {
+            "status": "ok",
+            "mail": mail_status,
+            "auth": auth_status,
+            "storage": storage_status,
+        }
+    )
