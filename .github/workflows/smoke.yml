@@ -24,7 +24,7 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     env:
-      GEMINI_API_KEY: dummy
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       ALMA_BASE_URL: http://localhost:8000
     steps:
       - name: Checkout
