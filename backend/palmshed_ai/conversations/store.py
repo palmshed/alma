@@ -123,7 +123,11 @@ class ConversationStore:
             _, raw = self._storage.download(INDEX_FILE)
             return json.loads(raw.decode("utf-8"))
         except (StorageError, json.JSONDecodeError):
-            return {"version": INDEX_VERSION, "updated_at": _now_utc(), "conversations": {}}
+            return {
+                "version": INDEX_VERSION,
+                "updated_at": _now_utc(),
+                "conversations": {},
+            }
 
     def _write_index(self, index: dict[str, Any]) -> None:
         index["updated_at"] = _now_utc()
@@ -136,7 +140,9 @@ class ConversationStore:
     def _update_index(self, conversation: Conversation) -> None:
         index = self._load_index()
         index.setdefault("conversations", {})
-        index["conversations"][conversation.id] = IndexEntry.from_conversation(conversation).to_dict()
+        index["conversations"][conversation.id] = IndexEntry.from_conversation(
+            conversation
+        ).to_dict()
         self._write_index(index)
 
     def _remove_from_index(self, conversation_id: str) -> None:
@@ -176,6 +182,5 @@ class ConversationStore:
     def index_entries(self) -> list[IndexEntry]:
         index = self._load_index()
         return [
-            IndexEntry.from_dict(e)
-            for e in index.get("conversations", {}).values()
+            IndexEntry.from_dict(e) for e in index.get("conversations", {}).values()
         ]

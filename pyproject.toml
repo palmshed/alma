@@ -3,7 +3,7 @@
 
 [project]
 name = "palmshed-ai"
-version = "0.1.0"
+version = "0.2.0"
 license = "MIT"
 requires-python = ">=3.9"
 dependencies = [
@@ -11,7 +11,6 @@ dependencies = [
     "flask-cors==6.0.0",
     "flask-limiter==3.5.1",
     "python-dotenv==1.2.1",
-    "google-generativeai>=0.3.1",
     "gtts==2.5.4",
     "google-genai>=0.1.0",
     "redis",
@@ -54,9 +53,7 @@ include = ["palmshed_ai*", "services*", "backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
-filterwarnings = [
-    "ignore::DeprecationWarning:google.*",
-]
+filterwarnings = []
 
 [tool.uv]
 package = true

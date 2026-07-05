@@ -5,7 +5,12 @@ import uuid
 
 from services.storage import StorageService, StorageConfig
 
-from palmshed_ai.conversations import Conversation, Message, ConversationStore, SCHEMA_VERSION
+from palmshed_ai.conversations import (
+    Conversation,
+    Message,
+    ConversationStore,
+    SCHEMA_VERSION,
+)
 
 
 def _make_conversation(overrides=None) -> Conversation:
@@ -277,7 +282,9 @@ class TestConversationStoreCorruption:
         store, storage = _make_store()
         conv = _make_conversation()
         store.create(conv)
-        storage.upload("conversations/index.json", b"corrupt", content_type="application/json")
+        storage.upload(
+            "conversations/index.json", b"corrupt", content_type="application/json"
+        )
         store2 = ConversationStore(storage=storage)
         entries = store2.index_entries()
         assert entries == []

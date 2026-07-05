@@ -573,7 +573,9 @@ def check_persistence() -> Dict[str, Any]:
             result["error"] = f"load: expected 1 message, got {len(loaded.messages)}"
             return result
         if loaded.messages[0].content != "Hello from verify":
-            result["error"] = f"load: message content mismatch: {loaded.messages[0].content}"
+            result["error"] = (
+                f"load: message content mismatch: {loaded.messages[0].content}"
+            )
             return result
 
         store.delete(conv.id)

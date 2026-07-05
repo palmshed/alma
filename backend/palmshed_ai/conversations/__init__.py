@@ -4,4 +4,10 @@
 from .models import Conversation, Message, SCHEMA_VERSION
 from .store import ConversationStore, IndexEntry
 
-__all__ = ["Conversation", "Message", "SCHEMA_VERSION", "ConversationStore", "IndexEntry"]
+__all__ = [
+    "Conversation",
+    "Message",
+    "SCHEMA_VERSION",
+    "ConversationStore",
+    "IndexEntry",
+]
