@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { api } from '../services/api';
 import { getEndpoint } from '../utils';
+import type { ConversationData } from '../types';
 
 interface UseConversationReturn {
   response: string;
@@ -12,6 +13,7 @@ interface UseConversationReturn {
   submit: (text: string, mode: string) => Promise<void>;
   setAudioUrl: (url: string) => void;
   clear: () => void;
+  loadConversation: (conv: ConversationData) => void;
 }
 
 export function useConversation(): UseConversationReturn {
@@ -49,6 +51,19 @@ export function useConversation(): UseConversationReturn {
     }
   }, [isLoading]);
 
+  const loadConversation = useCallback((conv: ConversationData) => {
+    const msgs = conv.messages ?? [];
+    const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
+    const lastThinking = [...msgs].reverse().find((m) => m.thinking);
+    const lastImage = [...msgs].reverse().find((m) => m.image);
+    setResponse(lastAssistant?.content ?? '');
+    setThinking(lastThinking?.thinking ?? '');
+    setImageUrl(lastImage?.image ?? '');
+    setAudioUrl('');
+    setIsLoading(false);
+    setConversationStarted(msgs.length > 0);
+  }, []);
+
   const clear = useCallback(() => {
     setResponse('');
     setThinking('');
@@ -68,5 +83,6 @@ export function useConversation(): UseConversationReturn {
     submit,
     setAudioUrl,
     clear,
+    loadConversation,
   };
 }

@@ -50,17 +50,21 @@ class TestMessageSerialization:
         assert restored.attachments is None
 
     def test_round_trip_all_fields(self):
-        msg = _make_message({
-            "thinking": "I think...",
-            "image": "data:image/png;base64,abc123",
-            "attachments": [{"filename": "test.pdf", "mime": "application/pdf"}],
-            "metadata": {"source": "web"},
-        })
+        msg = _make_message(
+            {
+                "thinking": "I think...",
+                "image": "data:image/png;base64,abc123",
+                "attachments": [{"filename": "test.pdf", "mime": "application/pdf"}],
+                "metadata": {"source": "web"},
+            }
+        )
         d = msg.to_dict()
         restored = Message.from_dict(d)
         assert restored.thinking == "I think..."
         assert restored.image == "data:image/png;base64,abc123"
-        assert restored.attachments == [{"filename": "test.pdf", "mime": "application/pdf"}]
+        assert restored.attachments == [
+            {"filename": "test.pdf", "mime": "application/pdf"}
+        ]
         assert restored.metadata == {"source": "web"}
 
     def test_unknown_fields_preserved(self):
@@ -76,10 +80,12 @@ class TestMessageSerialization:
         assert d["future_field"] == "something new"
 
     def test_json_round_trip(self):
-        msg = _make_message({
-            "thinking": "hmm",
-            "metadata": {"key": "val"},
-        })
+        msg = _make_message(
+            {
+                "thinking": "hmm",
+                "metadata": {"key": "val"},
+            }
+        )
         raw_json = json.dumps(msg.to_dict())
         restored = Message.from_dict(json.loads(raw_json))
         assert restored.content == msg.content
@@ -141,9 +147,12 @@ class TestConversationSerialization:
         assert d["color"] == "blue"
 
     def test_json_round_trip(self):
-        conv = _make_conversation(message_count=2, overrides={
-            "metadata": {"tags": ["test"]},
-        })
+        conv = _make_conversation(
+            message_count=2,
+            overrides={
+                "metadata": {"tags": ["test"]},
+            },
+        )
         conv.messages[0].thinking = "reasoning..."
         conv.messages[1].role = "assistant"
         conv.messages[1].content = "Response here"

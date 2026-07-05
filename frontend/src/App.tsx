@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import SegmentedControl from './components/SegmentedControl';
@@ -15,9 +15,25 @@ import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, SUGGESTIONS } from './utils';
+import { api } from './services/api';
+import { ConversationData, MessageData } from './types';
+
+const STORAGE_ACTIVE_CONV = 'alma_active_conversation';
+
+function getStorage(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function setStorage(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* noop */ }
+}
+function removeStorage(key: string): void {
+  try { localStorage.removeItem(key); } catch { /* noop */ }
+}
 
 function App() {
   const [mode, setMode] = useState('canvas');
+  const initialStored = getStorage(STORAGE_ACTIVE_CONV);
+  const [restoring, setRestoring] = useState(!!initialStored);
   const { input, setInput, clear: composerClear } = useComposer();
   const {
     response,
@@ -29,14 +45,19 @@ function App() {
     submit,
     setAudioUrl,
     clear: conversationClear,
+    loadConversation,
   } = useConversation();
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
+  const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const lastPromptRef = useRef<string>('');
+  const activeConversationRef = useRef<ConversationData | null>(null);
+  const restoredRef = useRef(false);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -47,6 +68,34 @@ function App() {
     return () => document.removeEventListener('keydown', handler);
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const storedId = getStorage(STORAGE_ACTIVE_CONV);
+    if (!storedId) return;
+    let cancelled = false;
+    api.getConversation(storedId).then((conv) => {
+      if (cancelled) return;
+      activeConversationRef.current = conv;
+      setActiveConversationId(storedId);
+      loadConversation(conv);
+      if (conv.mode) setMode(conv.mode);
+    }).catch(() => {
+      if (!cancelled) removeStorage(STORAGE_ACTIVE_CONV);
+    }).finally(() => {
+      if (!cancelled) setRestoring(false);
+    });
+    return () => { cancelled = true; };
+  }, [loadConversation]);
+
+  useEffect(() => {
+    if (activeConversationId) {
+      setStorage(STORAGE_ACTIVE_CONV, activeConversationId);
+    } else {
+      removeStorage(STORAGE_ACTIVE_CONV);
+    }
+  }, [activeConversationId]);
+
   const handleThemeToggle = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
@@ -54,6 +103,7 @@ function App() {
   }, [theme]);
 
   const handleSubmit = useCallback((text: string) => {
+    lastPromptRef.current = text;
     submit(text, mode);
   }, [submit, mode]);
 
@@ -71,6 +121,8 @@ function App() {
   const handleConfirmNewChat = useCallback(() => {
     conversationClear();
     composerClear();
+    setActiveConversationId(undefined);
+    activeConversationRef.current = null;
     setShowNewChatDialog(false);
   }, [conversationClear, composerClear]);
 
@@ -88,6 +140,38 @@ function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [handleNewChat]);
+
+  const activeConv = useMemo(() => activeConversationId, [activeConversationId]);
+
+  useEffect(() => {
+    if (!response && !thinking) return;
+    const prompt = lastPromptRef.current;
+    if (!prompt) return;
+
+    lastPromptRef.current = '';
+
+    const existing = activeConversationRef.current?.messages ?? [];
+    const newMessages: MessageData[] = [
+      ...existing,
+      { role: 'user', content: prompt, timestamp: new Date().toISOString() },
+      { role: 'assistant', content: response || '', thinking: thinking || undefined, timestamp: new Date().toISOString() },
+    ];
+    const nextTitle = existing.length === 0
+      ? (response || prompt).slice(0, 60)
+      : undefined;
+
+    const payload = { messages: newMessages, mode: mode, ...(nextTitle ? { title: nextTitle } : {}) };
+    if (activeConv) {
+      api.updateConversation(activeConv, payload).catch(() => {});
+    } else {
+      api.createConversation(payload)
+        .then((conv) => {
+          setActiveConversationId(conv.id);
+          activeConversationRef.current = conv;
+        })
+        .catch(() => {});
+    }
+  }, [response, thinking, activeConv, mode]);
 
   useEffect(() => {
     if (!showNewChatDialog) {
@@ -145,6 +229,14 @@ function App() {
       autoFocus
     />
   );
+
+  if (restoring) {
+    return (
+      <div className="app-container">
+        <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={false} onNewChat={handleNewChat} />
+      </div>
+    );
+  }
 
   return (
     <div className="app-container">
@@ -215,6 +307,36 @@ function App() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
+        onSelectConversation={(id) => {
+          api.getConversation(id).then((conv) => {
+            activeConversationRef.current = conv;
+            setActiveConversationId(id);
+            loadConversation(conv);
+            if (conv.mode) setMode(conv.mode);
+          }).catch(() => {});
+        }}
+        onDeleteConversation={async () => {
+          try {
+            const list = await api.listConversations();
+            const sorted = list.sort(
+              (a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+            );
+            if (sorted.length > 0) {
+              const next = sorted[0];
+              const conv = await api.getConversation(next.id);
+              activeConversationRef.current = conv;
+              setActiveConversationId(next.id);
+              loadConversation(conv);
+              if (conv.mode) setMode(conv.mode);
+              return;
+            }
+          } catch {}
+          setActiveConversationId(undefined);
+          activeConversationRef.current = null;
+          conversationClear();
+          composerClear();
+        }}
+        activeConversationId={activeConversationId}
       />
 
       {showNewChatDialog && (

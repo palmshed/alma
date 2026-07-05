@@ -1,10 +1,14 @@
 # Release Checklist
 
-- [ ] Version updated (`VERSION`, `__init__.py`, `pyproject.toml`)
+- [ ] Version updated (`__init__.py`)
+- [ ] `alma verify` passed locally
 - [ ] CI passed
-- [ ] Smoke passed (`alma verify --platform --application`)
-- [ ] E2E passed (`alma verify ui --browser` against deployed app)
-- [ ] `alma verify` passed locally (platform + application + UI)
-- [ ] Production deployment healthy (`/api/health`)
-- [ ] Release artifacts archived (CI retains screenshots, HAR, console, report)
+- [ ] Smoke passed
+- [ ] E2E passed
+- [ ] One manual production smoke test
+- [ ] CHANGELOG updated
+- [ ] README screenshots updated if UI changed
+- [ ] Merged to `main`
+- [ ] Tagged (`v0.x.0`)
 - [ ] GitHub Release published with changelog
+- [ ] Production deployment healthy (`/api/health`)
