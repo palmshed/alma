@@ -49,6 +49,12 @@ def create_app():
     )
     limiter.init_app(app)
 
+    # App-wide anonymous identity via HttpOnly cookie
+    from .identity import ensure_client_id, set_client_cookie
+
+    app.before_request(ensure_client_id)
+    app.after_request(set_client_cookie)
+
     # Register blueprints
     from .routes.api import api_bp
     from .routes.conversations import conversations_bp

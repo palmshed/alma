@@ -388,9 +388,9 @@ class TestNotificationArchitectureBoundaries:
                     filepath = os.path.join(root, f)
                     with open(filepath) as fh:
                         content = fh.read()
-                    assert (
-                        "palmshed_ai" not in content
-                    ), f"Application import found in {filepath}"
+                    assert "palmshed_ai" not in content, (
+                        f"Application import found in {filepath}"
+                    )
 
     def test_config_is_single_env_source(self):
         config = NotificationConfig.from_env()

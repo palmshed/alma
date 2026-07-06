@@ -28,48 +28,11 @@ function getActiveMode() {
   };
 }
 
-/* ── TTS ── */
-
-function handleTTS() {
-  const btn = document.getElementById('tts-button');
-  const text = btn.getAttribute('data-text');
-  const audio = document.getElementById('audio-player');
-  if (!text || !text.trim()) return;
-
-  btn.disabled = true;
-  btn.textContent = 'Generating...';
-
-  fetch('/api/text-to-speech', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('TTS failed');
-      return r.blob();
-    })
-    .then((blob) => {
-      audio.src = URL.createObjectURL(blob);
-      audio.style.display = 'block';
-      audio.play();
-    })
-    .catch((e) => console.error('TTS:', e))
-    .finally(() => {
-      btn.disabled = false;
-      btn.textContent = 'Listen';
-    });
-}
-
 /* ── Results ── */
 
 function clearResults() {
   const scroll = document.getElementById('conversation-scroll');
   scroll.innerHTML = '';
-  document.getElementById('tts-button').style.display = 'none';
-  const audio = document.getElementById('audio-player');
-  audio.style.display = 'none';
-  audio.pause();
-  audio.src = '';
   document.getElementById('image-container').style.display = 'none';
 }
 
@@ -92,8 +55,14 @@ function hideLoading() {
 }
 
 function showError(msg) {
-  const scroll = document.getElementById('conversation-scroll');
-  scroll.innerHTML = `<div class="response-container"><em>Error: ${msg}</em></div>`;
+  var scroll = document.getElementById('conversation-scroll');
+  var loading = scroll.querySelector('.loading-dots');
+  if (loading) {
+    var container = loading.closest('.response-container');
+    container.innerHTML = '<em>Error: ' + msg + '</em>';
+  } else {
+    scroll.innerHTML = '<div class="response-container"><em>Error: ' + msg + '</em></div>';
+  }
 }
 
 function showSidebarError(msg) {
@@ -110,29 +79,85 @@ function handleSubmit() {
   const input = getActiveInput();
   const prompt = input.value.trim();
   if (!prompt) return;
+  /* Clear input immediately */
+  input.value = '';
+  var convInput = document.getElementById('conversation-input');
+  if (convInput) convInput.value = '';
+  var submitBtn = document.getElementById('submit-button');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.remove('has-text'); }
+  var convSubmit = document.getElementById('conversation-submit');
+  if (convSubmit) { convSubmit.disabled = true; convSubmit.classList.remove('has-text'); }
+  var clearBtn = document.getElementById('clear-button');
+  if (clearBtn) clearBtn.style.display = 'none';
+  /* Reset textarea height */
+  input.style.height = 'auto';
+  if (convInput) convInput.style.height = 'auto';
+
   const { mode, style } = getActiveMode();
+  var modeStr = style === 'thinking' ? 'thinking' : style === 'url-context' ? 'web' : mode === 'image' ? 'images' : 'canvas';
 
   lastPrompt = prompt;
   switchToConversation();
 
-  const scroll = document.getElementById('conversation-scroll');
-  scroll.innerHTML = `
-    <div class="response-container">
-      <div class="loading-dots" role="status" aria-label="Generating">
-        <span class="loading-dots-label">Generating</span>
-        <div class="loading-dots-track" style="gap:5px">
-          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span>
-          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span>
-          <span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span>
-        </div>
-      </div>
-    </div>`;
+  clearResults();
 
-  if (mode === 'image') {
-    handleImageGen(prompt);
+  /* Show loading immediately */
+  var scroll = document.getElementById('conversation-scroll');
+  scroll.innerHTML = '<div class="response-container"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>';
+
+  var createPromise;
+  if (activeConversationId) {
+    /* Existing conversation — add user message now */
+    var payload = cloneConversation(activeConversationData);
+    payload.messages.push({ role: 'user', content: prompt, timestamp: new Date().toISOString() });
+    payload.metadata = payload.metadata || {};
+    payload.metadata.status = 'pending';
+    createPromise = fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Failed to save message');
+      return r.json();
+    }).then(function (conv) {
+      activeConversationData = conv;
+      fetchConversations();
+    });
   } else {
-    handleTextGen(prompt, style);
+    /* New conversation — create with user message */
+    var title = prompt.slice(0, 60);
+    createPromise = fetch('/api/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: title,
+        mode: modeStr,
+        messages: [{ role: 'user', content: prompt, timestamp: new Date().toISOString() }],
+        metadata: { status: 'pending' },
+      }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Failed to create conversation');
+      return r.json();
+    }).then(function (conv) {
+      setActiveConversationId(conv.id);
+      activeConversationData = conv;
+      fetchConversations();
+    });
   }
+
+  createPromise.then(function () {
+    renderConversation();
+    /* Append loading indicator */
+    var scroll = document.getElementById('conversation-scroll');
+    scroll.insertAdjacentHTML('beforeend', '<div class="response-container"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
+    if (mode === 'image') {
+      handleImageGen(prompt);
+    } else {
+      handleTextGen(prompt, style);
+    }
+  }).catch(function (e) {
+    showError(e.message);
+  });
 }
 
 function handleTextGen(prompt, style) {
@@ -141,35 +166,36 @@ function handleTextGen(prompt, style) {
     : style === 'url-context' ? '/api/generate-with-url-context'
     : '/api/generate';
 
+  /* Include full conversation history for context */
+  var messages = activeConversationData ? activeConversationData.messages : null;
+
   fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt: prompt, messages: messages }),
   })
     .then((r) => {
       if (!r.ok) throw new Error('Request failed');
       return r.json();
     })
     .then((data) => {
-      const scroll = document.getElementById('conversation-scroll');
-      let html = '';
-      var thinkingText = '';
-      if (data.thinking_summary) {
-        thinkingText = data.thinking_summary.join('\n');
-        html += `<div class="thinking-container">${thinkingText}</div>`;
-      }
-      html += `<div class="response-container">${marked.parse(data.response || '')}</div>`;
-      scroll.innerHTML = html;
-
-      if (data.response && data.response.trim()) {
-        const btn = document.getElementById('tts-button');
-        btn.style.display = 'block';
-        btn.setAttribute('data-text', data.response);
-      }
-
-      saveConversation(lastPrompt, data.response || '', thinkingText);
+      var thinkingText = data.thinking_summary ? data.thinking_summary.join('\n') : '';
+      /* Optimistically update local state */
+      activeConversationData.messages.push({
+        role: 'assistant',
+        content: data.response || '',
+        thinking: thinkingText || undefined,
+        timestamp: new Date().toISOString(),
+      });
+      activeConversationData.metadata = activeConversationData.metadata || {};
+      activeConversationData.metadata.status = 'complete';
+      renderConversation();
+      persistConversation();
     })
-    .catch((e) => { showError(e.message); });
+    .catch((e) => {
+      showError(e.message);
+      setConversationFailed();
+    });
 }
 
 function handleImageGen(prompt) {
@@ -190,11 +216,21 @@ function handleImageGen(prompt) {
       document.getElementById('download-image').style.display = 'inline-block';
       document.getElementById('fullscreen-image').style.display = 'inline-block';
       document.getElementById('image-container').style.display = 'block';
-      document.getElementById('conversation-scroll').innerHTML = '';
 
-      saveConversation(lastPrompt, '[Image generated]', '');
+      activeConversationData.messages.push({
+        role: 'assistant',
+        content: '[Image generated]',
+        timestamp: new Date().toISOString(),
+      });
+      activeConversationData.metadata = activeConversationData.metadata || {};
+      activeConversationData.metadata.status = 'complete';
+      renderConversation();
+      persistConversation();
     })
-    .catch((e) => { showError(e.message); });
+    .catch((e) => {
+      showError(e.message);
+      setConversationFailed();
+    });
 }
 
 /* ── Layout Transitions ── */
@@ -427,34 +463,7 @@ function selectConversation(id) {
     .then(function (conv) {
       setActiveConversationId(id);
       activeConversationData = conv;
-      var msgs = conv.messages || [];
-      var lastAssistant = null;
-      var lastThinking = null;
-      var lastImage = null;
-      for (var i = msgs.length - 1; i >= 0; i--) {
-        if (msgs[i].role === 'assistant' && !lastAssistant) lastAssistant = msgs[i];
-        if (msgs[i].thinking && !lastThinking) lastThinking = msgs[i];
-        if (msgs[i].image && !lastImage) lastImage = msgs[i];
-      }
-      var scroll = document.getElementById('conversation-scroll');
-      var html = '';
-      msgs.forEach(function (m) {
-        if (m.role === 'user') {
-          html += '<div class="user-message">' + m.content + '</div>';
-        } else if (m.role === 'assistant') {
-          if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
-          if (m.image) {
-            html += '<div class="image-container" style="display:block"><img src="' + m.image + '" class="generated-image" style="display:block;max-width:100%;border-radius:8px"/></div>';
-          }
-          html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
-        }
-      });
-      scroll.innerHTML = html;
-      if (lastAssistant && lastAssistant.content) {
-        var btn = document.getElementById('tts-button');
-        btn.style.display = '';
-        btn.setAttribute('data-text', lastAssistant.content);
-      }
+      renderConversation();
       /* Restore conversation mode */
       if (conv.mode) {
         var modeMap = { canvas: 'text_normal', thinking: 'text_thinking', web: 'text_url-context', images: 'image_normal' };
@@ -585,42 +594,120 @@ function cancelDeleteConversation() {
   document.getElementById('sidebar-delete-dialog').style.display = 'none';
 }
 
-function saveConversation(prompt, responseText, thinkingText) {
-  var existing = (activeConversationData && activeConversationData.messages) || [];
-  var newMessages = existing.concat([
-    { role: 'user', content: prompt, timestamp: new Date().toISOString() },
-    { role: 'assistant', content: responseText || '', thinking: thinkingText || undefined, timestamp: new Date().toISOString() },
-  ]);
-  var nextTitle = existing.length === 0 ? (responseText || prompt).slice(0, 60) : undefined;
-  var currentMode = getActiveMode();
-  var mode = currentMode.style === 'thinking' ? 'thinking' : currentMode.style === 'url-context' ? 'web' : currentMode.mode === 'image' ? 'images' : 'canvas';
+function cloneConversation(conv) {
+  return JSON.parse(JSON.stringify(conv));
+}
 
-  if (activeConversationId) {
-    var payload = { messages: newMessages, mode: mode };
-    if (nextTitle) payload.title = nextTitle;
-    fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+function persistConversation() {
+  if (!activeConversationId || !activeConversationData) return;
+  var payload = JSON.parse(JSON.stringify(activeConversationData));
+  fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+    .then(function (r) {
+      if (!r.ok) throw new Error('Failed to save');
+      return r.json();
     })
-      .then(function () {
-        fetchConversations();
-      })
-      .catch(function () {});
-  } else {
-    fetch('/api/conversations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: nextTitle || 'New conversation', messages: newMessages, mode: mode }),
+    .then(function (conv) {
+      activeConversationData = conv;
+      fetchConversations();
     })
-      .then(function (r) { return r.json(); })
-      .then(function (conv) {
-        setActiveConversationId(conv.id);
-        activeConversationData = conv;
-        fetchConversations();
-      })
-      .catch(function () {});
+    .catch(function () {});
+}
+
+function renderConversation() {
+  var scroll = document.getElementById('conversation-scroll');
+  if (!activeConversationData || !activeConversationData.messages) {
+    scroll.innerHTML = '';
+    return;
   }
+  var msgs = activeConversationData.messages;
+  var html = '';
+  msgs.forEach(function (m) {
+    if (m.role === 'user') {
+      html += '<div class="user-message">' + escapeHtml(m.content) + '</div>';
+    } else if (m.role === 'assistant') {
+      if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
+      html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
+    }
+  });
+  scroll.innerHTML = html;
+
+  /* Attach inline TTS to last assistant message */
+  var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+  if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content && lastMsg.content.trim()) {
+    var lastResponse = scroll.querySelector('.response-container:last-child');
+    if (lastResponse) {
+      var actionsDiv = document.createElement('div');
+      actionsDiv.className = 'response-actions';
+
+      var ttsBtn = document.createElement('button');
+      ttsBtn.className = 'btn btn--ghost message-tts-btn';
+      ttsBtn.textContent = 'Listen';
+      ttsBtn.setAttribute('data-text', lastMsg.content);
+
+      var audioEl = document.createElement('audio');
+      audioEl.className = 'audio-player';
+      audioEl.controls = true;
+      audioEl.preload = 'none';
+      audioEl.style.display = 'none';
+
+      ttsBtn.addEventListener('click', function () {
+        var btn = this;
+        var audio = btn.parentNode.querySelector('.audio-player');
+        var text = btn.getAttribute('data-text');
+        if (!text || !text.trim()) return;
+        btn.disabled = true;
+        btn.textContent = 'Generating...';
+        fetch('/api/text-to-speech', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: text }),
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error('TTS failed');
+            return r.blob();
+          })
+          .then(function (blob) {
+            audio.src = URL.createObjectURL(blob);
+            audio.style.display = 'block';
+            audio.play();
+          })
+          .catch(function (e) { console.error('TTS:', e); })
+          .finally(function () {
+            btn.disabled = false;
+            btn.textContent = 'Listen';
+          });
+      });
+
+      actionsDiv.appendChild(ttsBtn);
+      actionsDiv.appendChild(audioEl);
+      lastResponse.appendChild(actionsDiv);
+    }
+  }
+}
+
+function setConversationFailed() {
+  if (!activeConversationId || !activeConversationData) return;
+  var conv = cloneConversation(activeConversationData);
+  conv.metadata = conv.metadata || {};
+  conv.metadata.status = 'failed';
+  fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(conv),
+  })
+    .then(function (r) {
+      if (!r.ok) return;
+      return r.json();
+    })
+    .then(function (conv) {
+      activeConversationData = conv;
+      fetchConversations();
+    })
+    .catch(function () {});
 }
 
 /* ── Suggestions ── */
@@ -834,10 +921,6 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     }
   });
-
-  /* TTS */
-  const ttsBtn = document.getElementById('tts-button');
-  if (ttsBtn) ttsBtn.addEventListener('click', handleTTS);
 
   /* New conversation */
   const newChatBtn = document.getElementById('new-chat-btn');

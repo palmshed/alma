@@ -6,7 +6,7 @@
       "use": "@vercel/static"
     },
     {
-      "src": "deploy/vercel/api/index.py",
+      "src": "api/index.py",
       "use": "@vercel/python"
     }
   ],
@@ -16,24 +16,8 @@
       "dest": "/web/index.html"
     },
     {
-      "src": "/api/generate",
-      "dest": "/deploy/vercel/api/index.py?method=generate"
-    },
-    {
-      "src": "/api/generate-with-thinking",
-      "dest": "/deploy/vercel/api/index.py?method=generate_with_thinking"
-    },
-    {
-      "src": "/api/generate-with-url-context",
-      "dest": "/deploy/vercel/api/index.py?method=generate_with_url_context"
-    },
-    {
-      "src": "/api/text-to-speech",
-      "dest": "/deploy/vercel/api/index.py?method=text_to_speech"
-    },
-    {
-      "src": "/api/generate-image",
-      "dest": "/deploy/vercel/api/index.py?method=generate_image"
+      "src": "/api/(.*)",
+      "dest": "api/index.py"
     },
     {
       "src": "/(.*)",

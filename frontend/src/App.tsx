@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import SegmentedControl from './components/SegmentedControl';
@@ -8,7 +8,7 @@ import ResponseContainer from './components/ResponseContainer';
 import ThinkingContainer from './components/ThinkingContainer';
 import ImageContainer from './components/ImageContainer';
 import TTSButton from './components/TTSButton';
-import AudioPlayer from './components/AudioPlayer';
+import UserMessage from './components/UserMessage';
 import Sidebar from './components/Sidebar';
 import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
@@ -16,7 +16,7 @@ import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, SUGGESTIONS } from './utils';
 import { api } from './services/api';
-import { ConversationData, MessageData } from './types';
+import { ConversationData } from './types';
 
 const STORAGE_ACTIVE_CONV = 'alma_active_conversation';
 
@@ -36,16 +36,8 @@ function App() {
   const [restoring, setRestoring] = useState(!!initialStored);
   const { input, setInput, clear: composerClear } = useComposer();
   const {
-    response,
-    thinking,
-    imageUrl,
-    audioUrl,
-    isLoading,
-    conversationStarted,
-    submit,
-    setAudioUrl,
-    clear: conversationClear,
-    loadConversation,
+    messages, isLoading, conversationStarted, error,
+    submit, clear: conversationClear, loadConversation, reconcileMessages,
   } = useConversation();
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
@@ -58,6 +50,8 @@ function App() {
   const lastPromptRef = useRef<string>('');
   const activeConversationRef = useRef<ConversationData | null>(null);
   const restoredRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const reconcilingRef = useRef(false);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -88,6 +82,46 @@ function App() {
     return () => { cancelled = true; };
   }, [loadConversation]);
 
+  /* Persist messages when assistant responds */
+  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const last = messages[messages.length - 1];
+    if (last.role !== 'assistant') return;
+
+    /* Skip if this render came from reconciling after a persist */
+    if (reconcilingRef.current) {
+      reconcilingRef.current = false;
+      return;
+    }
+
+    const conv = activeConversationRef.current;
+    if (!conv) return;
+
+    clearTimeout(persistTimeoutRef.current);
+    persistTimeoutRef.current = setTimeout(() => {
+      conv.messages = messages;
+      conv.metadata = { ...(conv.metadata || {}), status: 'complete' };
+      api.updateConversation(conv.id, JSON.parse(JSON.stringify(conv)))
+        .then((updated) => {
+          activeConversationRef.current = updated;
+          reconcilingRef.current = true;
+          reconcileMessages(updated.messages);
+        })
+        .catch(() => {});
+    }, 100);
+  }, [messages, reconcileMessages]);
+
+  /* Persist failure status */
+  useEffect(() => {
+    if (!error || !activeConversationId) return;
+    const conv = activeConversationRef.current;
+    if (!conv) return;
+    conv.metadata = { ...(conv.metadata || {}), status: 'failed' };
+    api.updateConversation(activeConversationId, JSON.parse(JSON.stringify(conv)))
+      .catch(() => {});
+  }, [error, activeConversationId]);
+
   useEffect(() => {
     if (activeConversationId) {
       setStorage(STORAGE_ACTIVE_CONV, activeConversationId);
@@ -96,27 +130,56 @@ function App() {
     }
   }, [activeConversationId]);
 
+  /* Scroll to bottom on new messages */
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isLoading]);
+
   const handleThemeToggle = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
   }, [theme]);
 
-  const handleSubmit = useCallback((text: string) => {
+  const handleSubmit = useCallback(async (text: string) => {
+    composerClear();
     lastPromptRef.current = text;
-    submit(text, mode);
-  }, [submit, mode]);
+    try {
+      if (activeConversationId) {
+        const payload = JSON.parse(JSON.stringify(activeConversationRef.current));
+        payload.messages.push({ role: 'user', content: text, timestamp: new Date().toISOString() });
+        payload.metadata = { ...(payload.metadata || {}), status: 'pending' };
+        const updated = await api.updateConversation(activeConversationId, payload);
+        activeConversationRef.current = updated;
+      } else {
+        const payload = {
+          title: text.slice(0, 60),
+          mode,
+          messages: [{ role: 'user', content: text, timestamp: new Date().toISOString() }],
+          metadata: { status: 'pending' },
+        };
+        const conv = await api.createConversation(payload);
+        setActiveConversationId(conv.id);
+        activeConversationRef.current = conv;
+      }
+    } catch {
+      /* Continue anyway — the user's message will be in local state */
+    }
+    submit(text, mode, messages);
+  }, [submit, mode, activeConversationId, composerClear, messages]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
-    const hasMessages = !!(response || thinking || imageUrl || audioUrl);
+    const hasMessages = messages.length > 0;
     if (hasMessages) {
       setShowNewChatDialog(true);
     } else {
       conversationClear();
       composerClear();
     }
-  }, [response, thinking, imageUrl, audioUrl, isLoading, conversationClear, composerClear]);
+  }, [messages, isLoading, conversationClear, composerClear]);
 
   const handleConfirmNewChat = useCallback(() => {
     conversationClear();
@@ -140,38 +203,6 @@ function App() {
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [handleNewChat]);
-
-  const activeConv = useMemo(() => activeConversationId, [activeConversationId]);
-
-  useEffect(() => {
-    if (!response && !thinking) return;
-    const prompt = lastPromptRef.current;
-    if (!prompt) return;
-
-    lastPromptRef.current = '';
-
-    const existing = activeConversationRef.current?.messages ?? [];
-    const newMessages: MessageData[] = [
-      ...existing,
-      { role: 'user', content: prompt, timestamp: new Date().toISOString() },
-      { role: 'assistant', content: response || '', thinking: thinking || undefined, timestamp: new Date().toISOString() },
-    ];
-    const nextTitle = existing.length === 0
-      ? (response || prompt).slice(0, 60)
-      : undefined;
-
-    const payload = { messages: newMessages, mode: mode, ...(nextTitle ? { title: nextTitle } : {}) };
-    if (activeConv) {
-      api.updateConversation(activeConv, payload).catch(() => {});
-    } else {
-      api.createConversation(payload)
-        .then((conv) => {
-          setActiveConversationId(conv.id);
-          activeConversationRef.current = conv;
-        })
-        .catch(() => {});
-    }
-  }, [response, thinking, activeConv, mode]);
 
   useEffect(() => {
     if (!showNewChatDialog) {
@@ -275,18 +306,38 @@ function App() {
         />
       ) : (
         <ConversationLayout
+          scrollRef={scrollRef}
           messages={
             <>
+              {messages.map((msg, i) => {
+                if (msg.role === 'user') {
+                  return <UserMessage key={i} content={msg.content} />;
+                }
+                if (msg.role === 'assistant') {
+                  return (
+                    <React.Fragment key={i}>
+                      {msg.thinking && <ThinkingContainer content={msg.thinking} />}
+                      {msg.image ? (
+                        <ImageContainer imageUrl={msg.image} />
+                      ) : (
+                        <ResponseContainer content={msg.content} />
+                      )}
+                      {msg.content && <TTSButton text={msg.content} />}
+                    </React.Fragment>
+                  );
+                }
+                return null;
+              })}
               {isLoading && (
                 <div className="conversation-loading">
                   <LoadingDots label="Generating" />
                 </div>
               )}
-              {thinking && <ThinkingContainer content={thinking} />}
-              {response && <ResponseContainer content={response} />}
-              {imageUrl && <ImageContainer imageUrl={imageUrl} />}
-              {response && <TTSButton text={response} onAudio={setAudioUrl} />}
-              {audioUrl && <AudioPlayer src={audioUrl} />}
+              {error && !isLoading && (
+                <div className="response-container">
+                  <em>Error: {error}</em>
+                </div>
+              )}
             </>
           }
           composer={

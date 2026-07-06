@@ -156,8 +156,15 @@ class StorageService:
         valid, errors = self.config.is_valid()
         try:
             test_name = f"__health_check_{uuid.uuid4().hex[:8]}"
-            self.provider.upload(test_name, b"health")
-            self.provider.delete(test_name)
+            upload_result = self.provider.upload(test_name, b"health")
+            if upload_result.status != StorageStatus.UPLOADED:
+                raise RuntimeError(upload_result.error or "upload failed")
+            delete_result = self.provider.delete(test_name)
+            if delete_result.status not in (
+                StorageStatus.DELETED,
+                StorageStatus.NOT_FOUND,
+            ):
+                raise RuntimeError(delete_result.error or "delete failed")
             healthy = True
         except Exception:
             healthy = False

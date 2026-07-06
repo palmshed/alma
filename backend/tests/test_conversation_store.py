@@ -40,10 +40,21 @@ def _make_conversation(overrides=None) -> Conversation:
     return Conversation(**data)
 
 
+TEST_OWNER = "test-owner"
+
+
+def _conv_path(conv_id: str) -> str:
+    return f"conversations/{TEST_OWNER}/{conv_id}.json"
+
+
+def _index_path() -> str:
+    return f"conversations/{TEST_OWNER}/index.json"
+
+
 def _make_store() -> tuple[ConversationStore, StorageService]:
     config = StorageConfig(provider="mock", bucket="alma-test")
     storage = StorageService(config=config)
-    store = ConversationStore(storage=storage)
+    store = ConversationStore(storage=storage, owner_id=TEST_OWNER)
     return store, storage
 
 
@@ -199,8 +210,7 @@ class TestConversationStoreDelete:
         conv = _make_conversation()
         store.create(conv)
         store.delete(conv.id)
-        path = f"conversations/{conv.id}.json"
-        assert storage.exists(path) is False
+        assert storage.exists(_conv_path(conv.id)) is False
 
 
 class TestConversationStoreOverwrite:
@@ -243,7 +253,7 @@ class TestConversationStoreRestore:
         convs = [_make_conversation() for _ in range(3)]
         for c in convs:
             store.create(c)
-        store2 = ConversationStore(storage=storage)
+        store2 = ConversationStore(storage=storage, owner_id=TEST_OWNER)
         loaded = store2.load_all()
         assert len(loaded) == 3
 
@@ -253,9 +263,10 @@ class TestConversationStoreCorruption:
         store, storage = _make_store()
         conv = _make_conversation()
         store.create(conv)
-        path = f"conversations/{conv.id}.json"
-        storage.upload(path, b"not valid json", content_type="application/json")
-        store2 = ConversationStore(storage=storage)
+        storage.upload(
+            _conv_path(conv.id), b"not valid json", content_type="application/json"
+        )
+        store2 = ConversationStore(storage=storage, owner_id=TEST_OWNER)
         loaded = store2.load(conv.id)
         assert loaded is None
 
@@ -265,9 +276,10 @@ class TestConversationStoreCorruption:
         c2 = _make_conversation()
         store.create(c1)
         store.create(c2)
-        path = f"conversations/{c1.id}.json"
-        storage.upload(path, b"not valid json", content_type="application/json")
-        store2 = ConversationStore(storage=storage)
+        storage.upload(
+            _conv_path(c1.id), b"not valid json", content_type="application/json"
+        )
+        store2 = ConversationStore(storage=storage, owner_id=TEST_OWNER)
         loaded = store2.load_all()
         ids = [c.id for c in loaded]
         assert c1.id not in ids
@@ -282,12 +294,11 @@ class TestConversationStoreCorruption:
         store, storage = _make_store()
         conv = _make_conversation()
         store.create(conv)
-        storage.upload(
-            "conversations/index.json", b"corrupt", content_type="application/json"
-        )
-        store2 = ConversationStore(storage=storage)
+        storage.upload(_index_path(), b"corrupt", content_type="application/json")
+        store2 = ConversationStore(storage=storage, owner_id=TEST_OWNER)
         entries = store2.index_entries()
-        assert entries == []
+        assert len(entries) == 1
+        assert entries[0].id == conv.id
 
     def test_missing_index_creates_empty(self):
         store, storage = _make_store()
@@ -300,8 +311,7 @@ class TestConversationStoreAtomicity:
         store, storage = _make_store()
         conv = _make_conversation()
         store.create(conv)
-        path = f"conversations/{conv.id}.json"
-        storage.upload(path, b"garbage", content_type="application/json")
+        storage.upload(_conv_path(conv.id), b"garbage", content_type="application/json")
         c2 = _make_conversation()
         store.create(c2)
         assert store.exists(c2.id)
@@ -370,3 +380,133 @@ class TestConversationStoreIndex:
         entry_ids = {e.id for e in entries}
         expected_ids = {c.id for c in convs}
         assert entry_ids == expected_ids
+
+
+class TestConversationFirstMessageFlow:
+    """Verifies the conversation-first pattern: user message persisted before AI response."""
+
+    def test_standalone_user_message_survives_round_trip(self):
+        store, _storage = _make_store()
+        msg = Message(
+            id=str(uuid.uuid4()),
+            role="user",
+            timestamp="2026-07-06T12:00:00Z",
+            content="Hello, is this thing on?",
+        )
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="Hello, is this thing on?",
+            mode="chat",
+            created_at="2026-07-06T12:00:00Z",
+            updated_at="2026-07-06T12:00:00Z",
+            messages=[msg],
+            metadata={"status": "pending"},
+        )
+        store.create(conv)
+        loaded = store.load(conv.id)
+        assert loaded is not None
+        assert len(loaded.messages) == 1
+        assert loaded.messages[0].role == "user"
+        assert loaded.messages[0].content == "Hello, is this thing on?"
+        assert loaded.metadata == {"status": "pending"}
+
+    def test_flow_pending_to_complete(self):
+        store, _storage = _make_store()
+        msg = Message(
+            id=str(uuid.uuid4()),
+            role="user",
+            timestamp="2026-07-06T12:00:00Z",
+            content="What is AI?",
+        )
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="What is AI?",
+            mode="chat",
+            created_at="2026-07-06T12:00:00Z",
+            updated_at="2026-07-06T12:00:00Z",
+            messages=[msg],
+            metadata={"status": "pending"},
+        )
+        store.create(conv)
+        assert store.exists(conv.id)
+        entries = store.index_entries()
+        ids = [e.id for e in entries]
+        assert conv.id in ids
+        assistant_msg = Message(
+            id=str(uuid.uuid4()),
+            role="assistant",
+            timestamp="2026-07-06T12:00:01Z",
+            content="AI stands for artificial intelligence.",
+        )
+        conv.messages.append(assistant_msg)
+        conv.metadata["status"] = "complete"
+        store.save(conv)
+        loaded = store.load(conv.id)
+        assert loaded is not None
+        assert len(loaded.messages) == 2
+        assert loaded.messages[0].role == "user"
+        assert loaded.messages[1].role == "assistant"
+        assert loaded.metadata == {"status": "complete"}
+
+    def test_flow_pending_to_failed_then_retry(self):
+        store, _storage = _make_store()
+        msg = Message(
+            id=str(uuid.uuid4()),
+            role="user",
+            timestamp="2026-07-06T12:00:00Z",
+            content="Hello alone",
+        )
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="Hello alone",
+            mode="chat",
+            created_at="2026-07-06T12:00:00Z",
+            updated_at="2026-07-06T12:00:00Z",
+            messages=[msg],
+            metadata={"status": "pending"},
+        )
+        store.create(conv)
+        conv.metadata["status"] = "failed"
+        store.save(conv)
+        loaded = store.load(conv.id)
+        assert loaded is not None
+        assert len(loaded.messages) == 1
+        assert loaded.messages[0].content == "Hello alone"
+        assert loaded.metadata == {"status": "failed"}
+        assistant_msg = Message(
+            id=str(uuid.uuid4()),
+            role="assistant",
+            timestamp="2026-07-06T12:00:02Z",
+            content="Hello back!",
+        )
+        conv.messages.append(assistant_msg)
+        conv.metadata["status"] = "complete"
+        store.save(conv)
+        loaded = store.load(conv.id)
+        assert loaded is not None
+        assert len(loaded.messages) == 2
+        assert loaded.metadata == {"status": "complete"}
+
+    def test_conversation_in_index_after_pending_create(self):
+        store, _storage = _make_store()
+        msg = Message(
+            id=str(uuid.uuid4()),
+            role="user",
+            timestamp="2026-07-06T12:00:00Z",
+            content="User message before AI",
+        )
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="User message before AI",
+            mode="chat",
+            created_at="2026-07-06T12:00:00Z",
+            updated_at="2026-07-06T12:00:00Z",
+            messages=[msg],
+            metadata={"status": "pending"},
+        )
+        store.create(conv)
+        entries = store.index_entries()
+        assert any(e.id == conv.id for e in entries)
+        matching = [e for e in entries if e.id == conv.id]
+        assert len(matching) == 1
+        assert matching[0].title == "User message before AI"

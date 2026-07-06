@@ -2575,8 +2575,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
 
                 # locate thinking container
                 thinking_el = page.locator(
-                    ".thinking, .reasoning, "
-                    "[class*='thinking'], [class*='reasoning']"
+                    ".thinking, .reasoning, [class*='thinking'], [class*='reasoning']"
                 )
                 dom_thinking = (
                     thinking_el.first.text_content() or ""
@@ -2788,7 +2787,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                                 f"{mode_name}_clipboard",
                                 f"{label} clipboard content",
                                 "fail",
-                                f"Clipboard too short ({len(clip) if isinstance(clip,str) else '?'} chars)",
+                                f"Clipboard too short ({len(clip) if isinstance(clip, str) else '?'} chars)",
                             )
                         )
                 except Exception as exc:
@@ -2833,7 +2832,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                         results.append(
                             UICheck(
                                 f"{mode_name}_code_{i}",
-                                f"{label} code block {i+1}",
+                                f"{label} code block {i + 1}",
                                 "fail",
                                 "DOM code differs from backend",
                             )
@@ -2856,7 +2855,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                             results.append(
                                 UICheck(
                                     f"{mode_name}_syntax_{i}",
-                                    f"{label} syntax highlighting block {i+1}",
+                                    f"{label} syntax highlighting block {i + 1}",
                                     "fail",
                                     f"Expected language '{expected_lang}', got class '{class_attr}'",
                                 )
@@ -2865,7 +2864,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                         results.append(
                             UICheck(
                                 f"{mode_name}_syntax_{i}",
-                                f"{label} syntax highlighting block {i+1}",
+                                f"{label} syntax highlighting block {i + 1}",
                                 "fail",
                                 "Code block element not found",
                             )
@@ -2927,7 +2926,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                                     results.append(
                                         UICheck(
                                             f"{mode_name}_code_clip_{i}",
-                                            f"{label} code block {i+1} clipboard",
+                                            f"{label} code block {i + 1} clipboard",
                                             "fail",
                                             "Clipboard differs from backend code",
                                         )
@@ -2991,7 +2990,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                 )
 
                 mc_copy_btns = page.locator(
-                    "button[aria-label*='copy' i], " "button:has-text('Copy')"
+                    "button[aria-label*='copy' i], button:has-text('Copy')"
                 ).filter(visible=True)
                 mc_copy_count = mc_copy_btns.count()
                 results.append(
@@ -3009,7 +3008,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                     mc_code_blocks.nth(i).click()
                     page.wait_for_timeout(200)
                     mc_copy = page.locator(
-                        "button[aria-label*='copy' i], " "button:has-text('Copy')"
+                        "button[aria-label*='copy' i], button:has-text('Copy')"
                     ).filter(visible=True)
                     if mc_copy.count():
                         mc_copy.first.click()
@@ -3023,7 +3022,7 @@ def run_render_fidelity(output_dir: str) -> List[UICheck]:
                                 results.append(
                                     UICheck(
                                         f"{mode_name}_multicode_clip_{i}",
-                                        f"{label} multi code block {i+1} clipboard",
+                                        f"{label} multi code block {i + 1} clipboard",
                                         "fail",
                                     )
                                 )

@@ -21,10 +21,18 @@ def create_static_app():
     )
     CORS(app)  # Enable CORS for API calls
 
-    # Register API blueprint for backend functionality
+    # App-wide anonymous identity via HttpOnly cookie
+    from palmshed_ai.identity import ensure_client_id, set_client_cookie
+
+    app.before_request(ensure_client_id)
+    app.after_request(set_client_cookie)
+
+    # Register API blueprints for backend functionality
     from palmshed_ai.routes.api import api_bp
+    from palmshed_ai.routes.conversations import conversations_bp
 
     app.register_blueprint(api_bp)
+    app.register_blueprint(conversations_bp)
 
     # Override the index route to serve static interface
     @app.route("/")

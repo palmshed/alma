@@ -3,10 +3,10 @@ import { api } from '../services/api';
 
 interface TTSButtonProps {
   text: string;
-  onAudio: (url: string) => void;
 }
 
-const TTSButton: React.FC<TTSButtonProps> = ({ text, onAudio }) => {
+const TTSButton: React.FC<TTSButtonProps> = ({ text }) => {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleTTS = async () => {
@@ -14,9 +14,9 @@ const TTSButton: React.FC<TTSButtonProps> = ({ text, onAudio }) => {
     setIsLoading(true);
     try {
       const blob = await api.textToSpeech(text);
-      const url = URL.createObjectURL(blob);
-      onAudio(url);
+      setAudioUrl(URL.createObjectURL(blob));
     } catch {
+      console.error('TTS failed');
     } finally {
       setIsLoading(false);
     }
@@ -25,13 +25,20 @@ const TTSButton: React.FC<TTSButtonProps> = ({ text, onAudio }) => {
   if (!text.trim()) return null;
 
   return (
-    <button
-      onClick={handleTTS}
-      disabled={isLoading}
-      className={`button button-secondary ${isLoading ? 'loading' : ''}`}
-    >
-      {isLoading ? 'Generating...' : 'Listen'}
-    </button>
+    <div className="response-actions">
+      <button
+        onClick={handleTTS}
+        disabled={isLoading}
+        className={`btn btn--ghost message-tts-btn ${isLoading ? 'loading' : ''}`}
+      >
+        {isLoading ? 'Generating...' : 'Listen'}
+      </button>
+      {audioUrl && (
+        <audio controls className="audio-player" style={{ display: 'block' }}>
+          <source src={audioUrl} type="audio/mp3" />
+        </audio>
+      )}
+    </div>
   );
 };
 

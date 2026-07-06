@@ -2,16 +2,22 @@
 # SPDX-License-Identifier: MIT
 
 import uuid
+from datetime import datetime, timezone
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, g, request, jsonify
 from services import platform
 from palmshed_ai.conversations import ConversationStore, Conversation
+
+
+def _now_utc() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
 
 conversations_bp = Blueprint("conversations", __name__)
 
 
 def _get_store() -> ConversationStore:
-    return ConversationStore(storage=platform.storage)
+    return ConversationStore(storage=platform.storage, owner_id=g.client_id)
 
 
 def _ensure_message_ids(messages: list[dict]) -> None:
@@ -50,6 +56,11 @@ def create_conversation():
         data["id"] = str(uuid.uuid4())
 
     _ensure_message_ids(data.get("messages", []))
+
+    if "created_at" not in data:
+        data["created_at"] = _now_utc()
+    if "updated_at" not in data:
+        data["updated_at"] = _now_utc()
 
     try:
         conv = Conversation.from_dict(data)
