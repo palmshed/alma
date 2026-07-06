@@ -750,14 +750,14 @@ class TestArchitecture:
         for name in ProviderRegistry.available():
             cls = ProviderRegistry.get(name)
             assert cls is not None, f"Provider '{name}' not found in registry"
-            assert issubclass(
-                cls, MailProvider
-            ), f"Provider '{name}' ({cls.__name__}) does not extend MailProvider"
+            assert issubclass(cls, MailProvider), (
+                f"Provider '{name}' ({cls.__name__}) does not extend MailProvider"
+            )
 
     def test_templates_have_html_and_txt(self):
         """Every template must have both HTML and plain-text versions."""
         templates_dir = os.path.join(
-            os.path.dirname(__file__), "..", "..", "templates", "mail"
+            os.path.dirname(__file__), "..", "services", "mail", "templates"
         )
         for template in MailTemplate:
             name = template.value

@@ -22,7 +22,6 @@ class TestArchitecture:
 
     @pytest.mark.parametrize("module", FORBIDDEN_MODULES)
     def test_auth_never_imports_application_modules(self, module):
-
         for mod in sys.modules:
             if mod.startswith("services.auth"):
                 assert module not in mod, f"{mod} imports {module}"
@@ -39,9 +38,9 @@ class TestArchitecture:
                     # Allow self-references and stdlib
                     if forbidden in ("os", "sys"):
                         continue
-                    assert (
-                        forbidden not in content
-                    ), f"{mod_name} references {forbidden}"
+                    assert forbidden not in content, (
+                        f"{mod_name} references {forbidden}"
+                    )
 
     def test_providers_use_base_class(self):
         from services.auth.providers.base import AuthProvider
@@ -72,9 +71,9 @@ class TestArchitecture:
                     for i, line in enumerate(content.split("\n"))
                     if "os.environ" in line or "os.getenv" in line
                 ]
-                assert (
-                    not lines_with_osenv
-                ), f"{mod_name} reads os.environ at lines: {lines_with_osenv}"
+                assert not lines_with_osenv, (
+                    f"{mod_name} reads os.environ at lines: {lines_with_osenv}"
+                )
 
     def test_service_accepts_only_valid_inputs(self):
         from services.auth.service import AuthService

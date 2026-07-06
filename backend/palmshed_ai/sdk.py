@@ -11,7 +11,7 @@ import tempfile
 import requests
 import logging
 import time
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from gtts import gTTS
 from google import genai as google_genai
 from google.genai import types
@@ -50,6 +50,28 @@ class GeminiAI:
             self.image_config.provider, self.image_config
         )
 
+    def _build_contents(self, messages: List[dict]) -> List[types.Content]:
+        """Convert message list [{role, content}, ...] to Gemini Contents.
+
+        Skips messages without content.  The last message should be the
+        user's latest prompt.
+        """
+        contents: List[types.Content] = []
+        for msg in messages:
+            role = msg.get("role", "")
+            if role not in ("user", "assistant"):
+                continue
+            text = (msg.get("content") or "").strip()
+            if not text:
+                continue
+            contents.append(
+                types.Content(
+                    role="model" if role == "assistant" else "user",
+                    parts=[types.Part(text=text)],
+                )
+            )
+        return contents
+
     def generate_text(self, prompt: str) -> str:
         """Generate text response from prompt."""
         if not prompt or len(prompt) > 5000:
@@ -74,6 +96,69 @@ class GeminiAI:
         else:
             self.cache.set(cache_key, result)
         return result
+
+    def generate_chat(self, messages: List[dict]) -> str:
+        """Generate text response from conversation history."""
+        if not messages:
+            raise ValueError("No messages provided")
+        contents = self._build_contents(messages)
+        if not contents:
+            raise ValueError("No valid messages to send")
+        try:
+            response = self.client.models.generate_content(
+                model=models.TEXT_MODEL, contents=contents
+            )
+            return response.text
+        except Exception as e:
+            raise ValueError(f"Failed to generate chat: {e}") from e
+
+    def generate_chat_with_thinking(self, messages: List[dict]) -> Dict[str, Any]:
+        """Generate text with thinking from conversation history."""
+        if not messages:
+            raise ValueError("No messages provided")
+        contents = self._build_contents(messages)
+        if not contents:
+            raise ValueError("No valid messages to send")
+        try:
+            response = self.client.models.generate_content(
+                model=models.THINKING_MODEL,
+                contents=contents,
+                config={"thinking_config": {"include_thoughts": True}},
+            )
+        except Exception as e:
+            raise ValueError(f"Failed to generate chat with thinking: {e}") from e
+
+        main_response = response.text if hasattr(response, "text") else ""
+        thinking_summary: list[str] = []
+
+        if hasattr(response, "candidates") and response.candidates:
+            candidate = response.candidates[0]
+            if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                for part in candidate.content.parts:
+                    is_thought = getattr(part, "thought", False)
+                    part_text = getattr(part, "text", None)
+                    if is_thought and part_text:
+                        thinking_summary.append(part_text)
+
+        return {"response": main_response, "thinking_summary": thinking_summary}
+
+    def generate_chat_with_url_context(self, messages: List[dict]) -> str:
+        """Generate text with URL context from conversation history."""
+        if not messages:
+            raise ValueError("No messages provided")
+        contents = self._build_contents(messages)
+        if not contents:
+            raise ValueError("No valid messages to send")
+        try:
+            url_context_tool = types.Tool(url_context=types.UrlContext())
+            response = self.client.models.generate_content(
+                model=models.URL_CONTEXT_MODEL,
+                contents=contents,
+                config={"tools": [url_context_tool]},
+            )
+            return response.text
+        except Exception as e:
+            raise ValueError(f"Failed to generate chat with URL context: {e}") from e
 
     def generate_text_with_thinking(self, prompt: str) -> Dict[str, Any]:
         """Generate text with thinking summary.

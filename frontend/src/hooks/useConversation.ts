@@ -1,50 +1,69 @@
 import { useState, useCallback } from 'react';
 import { api } from '../services/api';
-import { getEndpoint } from '../utils';
-import type { ConversationData } from '../types';
+import type { MessageData, ConversationData } from '../types';
 
 interface UseConversationReturn {
-  response: string;
-  thinking: string;
-  imageUrl: string;
-  audioUrl: string;
+  messages: MessageData[];
   isLoading: boolean;
   conversationStarted: boolean;
-  submit: (text: string, mode: string) => Promise<void>;
-  setAudioUrl: (url: string) => void;
+  error: string | null;
+  submit: (text: string, mode: string, convMessages?: MessageData[]) => Promise<void>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
+  reconcileMessages: (newMessages: MessageData[]) => void;
 }
 
 export function useConversation(): UseConversationReturn {
-  const [response, setResponse] = useState('');
-  const [thinking, setThinking] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
-  const [audioUrl, setAudioUrl] = useState('');
+  const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationStarted, setConversationStarted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const submit = useCallback(async (text: string, mode: string) => {
+  const conversationStarted = messages.length > 0 || isLoading;
+
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[]) => {
     if (!text.trim() || isLoading) return;
     setIsLoading(true);
-    setConversationStarted(true);
+    setError(null);
+
+    const ts = new Date().toISOString();
+    const userMsg: MessageData = {
+      id: '', role: 'user', content: text, timestamp: ts,
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    /* Build full conversation history for outbound request */
+    const history = convMessages
+      ? [...convMessages, userMsg]
+      : [userMsg];
 
     try {
       if (mode === 'images') {
         const blob = await api.generateImage(text);
-        setImageUrl(URL.createObjectURL(blob));
-      } else if (mode === 'thinking') {
-        const result = await api.generateWithThinking(text);
-        setThinking(result.thinking_summary?.join('\n') || '');
-        setResponse(result.response || '');
-      } else if (mode === 'web') {
-        const result = await api.generateWithUrlContext(text);
-        setResponse(result || '');
+        const url = URL.createObjectURL(blob);
+        setMessages(prev => [...prev, {
+          id: '', role: 'assistant', content: '[Image generated]', image: url, timestamp: new Date().toISOString(),
+        }]);
       } else {
-        const result = await api.generate(text);
-        setResponse(result || '');
+        let responseText = '';
+        let thinkingText = '';
+        if (mode === 'thinking') {
+          const result = await api.generateWithThinking(text, history);
+          responseText = result.response || '';
+          thinkingText = result.thinking_summary?.join('\n') || '';
+        } else if (mode === 'web') {
+          responseText = await api.generateWithUrlContext(text, history);
+        } else {
+          responseText = await api.generate(text, history);
+        }
+        setMessages(prev => [...prev, {
+          id: '', role: 'assistant', content: responseText,
+          thinking: thinkingText || undefined,
+          timestamp: new Date().toISOString(),
+        }]);
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Request failed';
+      setError(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -52,37 +71,23 @@ export function useConversation(): UseConversationReturn {
   }, [isLoading]);
 
   const loadConversation = useCallback((conv: ConversationData) => {
-    const msgs = conv.messages ?? [];
-    const lastAssistant = [...msgs].reverse().find((m) => m.role === 'assistant');
-    const lastThinking = [...msgs].reverse().find((m) => m.thinking);
-    const lastImage = [...msgs].reverse().find((m) => m.image);
-    setResponse(lastAssistant?.content ?? '');
-    setThinking(lastThinking?.thinking ?? '');
-    setImageUrl(lastImage?.image ?? '');
-    setAudioUrl('');
+    setMessages(conv.messages || []);
+    setError(null);
     setIsLoading(false);
-    setConversationStarted(msgs.length > 0);
   }, []);
 
   const clear = useCallback(() => {
-    setResponse('');
-    setThinking('');
-    setImageUrl('');
-    setAudioUrl('');
+    setMessages([]);
     setIsLoading(false);
-    setConversationStarted(false);
+    setError(null);
+  }, []);
+
+  const reconcileMessages = useCallback((newMessages: MessageData[]) => {
+    setMessages(newMessages);
   }, []);
 
   return {
-    response,
-    thinking,
-    imageUrl,
-    audioUrl,
-    isLoading,
-    conversationStarted,
-    submit,
-    setAudioUrl,
-    clear,
-    loadConversation,
+    messages, isLoading, conversationStarted, error,
+    submit, clear, loadConversation, reconcileMessages,
   };
 }

@@ -26,7 +26,7 @@ const mockApi = vi.hoisted(() => ({
   listConversations: vi.fn().mockImplementation(() => Promise.resolve([...convRef.current])),
   getConversation: vi.fn().mockImplementation((id: string) => Promise.resolve(convDataRef.current[id] || convDataRef.current['conv-a'])),
   createConversation: vi.fn().mockImplementation((data: CreateConversationPayload) => {
-    const newConv = { ...data, id: 'conv-new', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const newConv: ConversationData = { ...data, id: 'conv-new', title: data.title || 'New conversation', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     convRef.current.push(newConv as unknown as ConversationEntry);
     convDataRef.current[newConv.id] = newConv;
     return Promise.resolve(newConv);
@@ -359,5 +359,54 @@ describe('Sidebar — delete', () => {
     await waitFor(() => {
       expect(mockApi.deleteConversation).toHaveBeenCalledWith('conv-b');
     }, { timeout: 3000 });
+  });
+});
+
+describe('Conversation rendering', () => {
+  beforeEach(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    vi.clearAllMocks();
+    convRef.current = [...mockConversations];
+    convDataRef.current = { ...mockConvData };
+  });
+
+  it('preserves full message history across two exchanges and attaches TTS only to assistant messages', async () => {
+    render(<App />);
+
+    /* --- First exchange --- */
+    const textarea = screen.getByPlaceholderText('Ask anything...');
+    fireEvent.change(textarea, { target: { value: 'First prompt' } });
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    /* User message appears after async submit */
+    expect(await screen.findByText('First prompt')).not.toBeNull();
+
+    /* Assistant response appears */
+    expect(await screen.findByText('mock response')).not.toBeNull();
+
+    /* TTS button attached to first assistant message */
+    await waitFor(() => {
+      expect(screen.getAllByText('Listen').length).toBe(1);
+    });
+
+    /* --- Second exchange --- */
+    const textarea2 = screen.getByPlaceholderText('Ask anything...');
+    fireEvent.change(textarea2, { target: { value: 'Second prompt' } });
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    /* Second user message appears */
+    expect(await screen.findByText('Second prompt')).not.toBeNull();
+
+    /* First exchange still present — not overwritten */
+    expect(screen.getByText('First prompt')).not.toBeNull();
+    expect(screen.getAllByText('mock response').length).toBeGreaterThanOrEqual(1);
+
+    /* Wait for second assistant response */
+    await waitFor(() => {
+      expect(screen.getAllByText('Listen').length).toBe(2);
+    });
+
+    /* Still 2 TTS buttons (one per assistant message, none on user messages) */
+    expect(screen.getAllByText('Listen').length).toBe(2);
   });
 });

@@ -45,14 +45,19 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
+        messages = data.get("messages")
 
-        if not prompt:
+        if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
-        if len(prompt) > 5000:
-            return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-
-        response = ai.generate_text(prompt)
+        if messages:
+            response = ai.generate_chat(messages)
+        else:
+            if not prompt:
+                return jsonify({"error": "No prompt provided"}), 400
+            if len(prompt) > 5000:
+                return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
+            response = ai.generate_text(prompt)
         return jsonify({"response": response})
 
     except Exception as e:
@@ -65,14 +70,19 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
+        messages = data.get("messages")
 
-        if not prompt:
+        if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
-        if len(prompt) > 5000:
-            return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-
-        result = ai.generate_text_with_thinking(prompt)
+        if messages:
+            result = ai.generate_chat_with_thinking(messages)
+        else:
+            if not prompt:
+                return jsonify({"error": "No prompt provided"}), 400
+            if len(prompt) > 5000:
+                return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
+            result = ai.generate_text_with_thinking(prompt)
         return jsonify(result)
 
     except Exception as e:
@@ -85,14 +95,19 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
+        messages = data.get("messages")
 
-        if not prompt:
+        if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
-        if len(prompt) > 5000:
-            return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-
-        response = ai.generate_text_with_url_context(prompt)
+        if messages:
+            response = ai.generate_chat_with_url_context(messages)
+        else:
+            if not prompt:
+                return jsonify({"error": "No prompt provided"}), 400
+            if len(prompt) > 5000:
+                return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
+            response = ai.generate_text_with_url_context(prompt)
         return jsonify({"response": response})
 
     except Exception as e:

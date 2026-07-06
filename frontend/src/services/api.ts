@@ -1,4 +1,4 @@
-import type { ApiThinkingResult, ConversationEntry, ConversationData, CreateConversationPayload } from '../types';
+import type { ApiThinkingResult, ConversationEntry, ConversationData, CreateConversationPayload, MessageData } from '../types';
 
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
@@ -47,23 +47,24 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt }).then(
+  generate(prompt: string, messages?: MessageData[]): Promise<string> {
+    return request<{ response: string }>('/api/generate', { prompt, messages }).then(
       (d) => d.response,
     );
   },
 
   generateWithThinking(
     prompt: string,
+    messages?: MessageData[],
   ): Promise<ApiThinkingResult> {
     return request<ApiThinkingResult>('/api/generate-with-thinking', {
-      prompt,
+      prompt, messages,
     });
   },
 
-  generateWithUrlContext(prompt: string): Promise<string> {
+  generateWithUrlContext(prompt: string, messages?: MessageData[]): Promise<string> {
     return request<{ response: string }>('/api/generate-with-url-context', {
-      prompt,
+      prompt, messages,
     }).then((d) => d.response);
   },
 

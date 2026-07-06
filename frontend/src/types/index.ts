@@ -18,7 +18,7 @@ export interface ConversationEntry {
 }
 
 export interface MessageData {
-  id: string;
+  id?: string;
   role: string;
   timestamp: string;
   content: string;
@@ -32,7 +32,7 @@ export interface ConversationData {
   id: string;
   title: string;
   mode: string;
-  schema_version: number;
+  schema_version?: number;
   created_at: string;
   updated_at: string;
   messages: MessageData[];

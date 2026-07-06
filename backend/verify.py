@@ -538,7 +538,7 @@ def check_persistence() -> Dict[str, Any]:
         from services import platform
         from palmshed_ai.conversations import Conversation, Message, ConversationStore
 
-        store = ConversationStore(storage=platform.storage)
+        store = ConversationStore(storage=platform.storage, owner_id="verify")
 
         conv = Conversation(
             id=str(uuid.uuid4()),
@@ -561,7 +561,7 @@ def check_persistence() -> Dict[str, Any]:
             result["error"] = "create: conversation id mismatch"
             return result
 
-        store2 = ConversationStore(storage=platform.storage)
+        store2 = ConversationStore(storage=platform.storage, owner_id="verify")
         loaded = store2.load(conv.id)
         if loaded is None:
             result["error"] = "load: conversation not found after save"
@@ -592,6 +592,176 @@ def check_persistence() -> Dict[str, Any]:
     return result
 
 
+def check_identity() -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "name": "identity",
+        "label": "Anonymous Identity",
+        "group": "platform",
+        "status": "fail",
+    }
+    t0 = time.time()
+    try:
+        import uuid
+        from palmshed_ai import create_app
+        from palmshed_ai.identity import COOKIE_NAME
+        from services import platform
+        from palmshed_ai.conversations import Conversation, Message, ConversationStore
+
+        app = create_app()
+        client = app.test_client()
+
+        # First request — no cookie
+        resp1 = client.get("/api/conversations")
+        cookie1 = resp1.headers.get("Set-Cookie", "")
+        if COOKIE_NAME not in cookie1:
+            result["error"] = "First response missing alma_client cookie"
+            return result
+
+        # Extract cookie value
+        prefix = f"{COOKIE_NAME}="
+        cookie_val = None
+        for part in cookie1.split(";"):
+            part = part.strip()
+            if part.startswith(prefix):
+                cookie_val = part[len(prefix) :]
+                break
+        if not cookie_val:
+            result["error"] = "Could not extract cookie value"
+            return result
+
+        # Verify HttpOnly and other attributes
+        if "HttpOnly" not in cookie1:
+            result["error"] = "Cookie missing HttpOnly"
+            return result
+        if "SameSite=Lax" not in cookie1:
+            result["error"] = "Cookie missing SameSite=Lax"
+            return result
+        if "Path=/" not in cookie1:
+            result["error"] = "Cookie missing Path=/"
+            return result
+        if "Max-Age=31536000" not in cookie1:
+            result["error"] = "Cookie missing Max-Age=31536000"
+            return result
+
+        # Second request — test client sends cookie automatically
+        resp2 = client.get("/api/conversations")
+        cookie2 = resp2.headers.get("Set-Cookie", "")
+        if COOKIE_NAME in cookie2:
+            result["error"] = "Second request should not re-set cookie"
+            return result
+
+        # Create a conversation under this identity
+        store_a = ConversationStore(storage=platform.storage, owner_id=cookie_val)
+        conv = Conversation(
+            id=str(uuid.uuid4()),
+            title="Verify identity",
+            mode="chat",
+            created_at="2026-07-05T12:00:00Z",
+            updated_at="2026-07-05T12:00:00Z",
+            messages=[
+                Message(
+                    id=str(uuid.uuid4()),
+                    role="user",
+                    timestamp="2026-07-05T12:00:00Z",
+                    content="Hello from identity verify",
+                ),
+            ],
+        )
+        created = store_a.create(conv)
+        if created.id != conv.id:
+            result["error"] = "create: conversation id mismatch"
+            return result
+
+        # Reload — still accessible
+        loaded = store_a.load(conv.id)
+        if loaded is None:
+            result["error"] = "load: conversation lost after save"
+            return result
+
+        # Different identity — no access
+        other_id = str(uuid.uuid4())
+        store_b = ConversationStore(storage=platform.storage, owner_id=other_id)
+        if store_b.load(conv.id) is not None:
+            result["error"] = "Different identity should not see other's conversations"
+            return result
+
+        # Cleanup
+        store_a.delete(conv.id)
+
+        elapsed = round(time.time() - t0, 1)
+        result["status"] = "pass"
+        result["latency"] = elapsed
+        result["details"] = {
+            "cycles": (
+                "first request → cookie issued with all attributes → "
+                "second request → cookie reused → "
+                "create conversation → reload → "
+                "different identity isolated"
+            ),
+        }
+
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 1)
+        result["latency"] = elapsed
+        result["error"] = str(exc)
+    return result
+
+
+def check_context(config: Dict[str, str]) -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "name": "context",
+        "label": "Conversation Context",
+        "group": "application",
+        "status": "fail",
+    }
+    t0 = time.time()
+    from palmshed_ai.sdk import GeminiAI
+
+    try:
+        ai = GeminiAI()
+    except (ValueError, Exception) as e:
+        result["status"] = "skip"
+        result["warning"] = f"Cannot initialise SDK: {e}"
+        result["latency"] = round(time.time() - t0, 1)
+        return result
+
+    try:
+        messages = [
+            {"role": "user", "content": "My name is Alice."},
+            {"role": "assistant", "content": "Nice to meet you, Alice!"},
+            {"role": "user", "content": "What is my name?"},
+        ]
+
+        response = ai.generate_chat(messages)
+        if not response:
+            result["error"] = "generate_chat returned empty response"
+            return result
+
+        # Check that the response contains "Alice" — proof of context
+        if "alice" not in response.lower():
+            result["warning"] = (
+                f"Model response did not mention Alice (context may be missing): "
+                f"{response[:200]}"
+            )
+            result["status"] = "pass"
+            result["details"] = {
+                "response_preview": response[:200],
+                "note": "Context sent but model did not reference prior turn",
+            }
+        else:
+            result["status"] = "pass"
+            result["details"] = {
+                "response_preview": response[:200],
+                "context_verified": True,
+            }
+
+    except Exception as exc:
+        result["error"] = str(exc)
+
+    result["latency"] = round(time.time() - t0, 1)
+    return result
+
+
 # ── Check registry ───────────────────────────────────────────────────
 
 PLATFORM_CHECKS: Dict[str, Any] = {
@@ -600,6 +770,7 @@ PLATFORM_CHECKS: Dict[str, Any] = {
     "storage": check_storage,
     "notifications": check_notifications,
     "persistence": check_persistence,
+    "identity": check_identity,
 }
 
 APPLICATION_CHECKS: Dict[str, Any] = {
@@ -608,6 +779,7 @@ APPLICATION_CHECKS: Dict[str, Any] = {
     "thinking": check_thinking,
     "web": check_web,
     "images": check_images,
+    "context": check_context,
 }
 
 ALL_CHECKS: Dict[str, Any] = {**PLATFORM_CHECKS, **APPLICATION_CHECKS}

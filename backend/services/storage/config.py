@@ -26,7 +26,7 @@ class StorageConfig:
 
     def is_valid(self) -> tuple[bool, list[str]]:
         errors: list[str] = []
-        if self.provider not in ("mock", "local", "cloud"):
+        if self.provider not in ("mock", "local", "cloud", "gcs", "vercel_blob"):
             errors.append(f"Unknown storage provider: {self.provider}")
         if self.max_upload_size_mb < 1:
             errors.append("max_upload_size_mb must be >= 1")

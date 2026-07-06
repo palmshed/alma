@@ -7,7 +7,7 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Optional
 
 from services.storage import StorageService, StorageError
 
@@ -15,8 +15,6 @@ from .models import Conversation, SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
-INDEX_FILE = "conversations/index.json"
-CONVERSATION_PREFIX = "conversations/"
 INDEX_VERSION = 1
 
 
@@ -63,9 +61,12 @@ def _now_utc() -> str:
 
 
 class ConversationStore:
-    def __init__(self, storage: StorageService) -> None:
+    def __init__(self, storage: StorageService, owner_id: str) -> None:
         self._storage = storage
+        self._owner_id = owner_id
+        self._prefix = f"conversations/{owner_id}/"
         self._cache: dict[str, Conversation] = {}
+        self._index_cache: Optional[dict[str, Any]] = None
 
     # ── public API ──
 
@@ -101,7 +102,7 @@ class ConversationStore:
         return conversations
 
     def delete(self, conversation_id: str) -> bool:
-        path = f"{CONVERSATION_PREFIX}{conversation_id}.json"
+        path = self._conversation_path(conversation_id)
         try:
             self._storage.delete(path)
         except StorageError:
@@ -118,21 +119,28 @@ class ConversationStore:
 
     # ── index management ──
 
+    def _index_path(self) -> str:
+        return f"{self._prefix}index.json"
+
     def _load_index(self) -> dict[str, Any]:
+        if self._index_cache is not None:
+            return self._index_cache
         try:
-            _, raw = self._storage.download(INDEX_FILE)
-            return json.loads(raw.decode("utf-8"))
+            _, raw = self._storage.download(self._index_path())
+            self._index_cache = json.loads(raw.decode("utf-8"))
+            return self._index_cache
         except (StorageError, json.JSONDecodeError):
-            return {
+            self._index_cache = {
                 "version": INDEX_VERSION,
                 "updated_at": _now_utc(),
                 "conversations": {},
             }
+            return self._index_cache
 
     def _write_index(self, index: dict[str, Any]) -> None:
         index["updated_at"] = _now_utc()
         self._storage.upload(
-            INDEX_FILE,
+            self._index_path(),
             json.dumps(index, indent=2).encode("utf-8"),
             content_type="application/json",
         )
@@ -153,7 +161,7 @@ class ConversationStore:
     # ── conversation file management ──
 
     def _conversation_path(self, conversation_id: str) -> str:
-        return f"{CONVERSATION_PREFIX}{conversation_id}.json"
+        return f"{self._prefix}{conversation_id}.json"
 
     def _save_conversation_file(self, conversation: Conversation) -> None:
         path = self._conversation_path(conversation.id)
@@ -180,7 +188,31 @@ class ConversationStore:
         return list(index.get("conversations", {}).keys())
 
     def index_entries(self) -> list[IndexEntry]:
+        entries = self._discover_from_storage()
+        if entries:
+            self._index_cache = {
+                "version": INDEX_VERSION,
+                "updated_at": _now_utc(),
+                "conversations": {e.id: e.to_dict() for e in entries},
+            }
+            return entries
         index = self._load_index()
         return [
             IndexEntry.from_dict(e) for e in index.get("conversations", {}).values()
         ]
+
+    def _discover_from_storage(self) -> list[IndexEntry]:
+        try:
+            names = self._storage.list(self._prefix)
+            entries = []
+            for name in names:
+                if not name.endswith(".json") or name == self._index_path():
+                    continue
+                conv_id = name.removeprefix(self._prefix).removesuffix(".json")
+                conv = self._load_conversation_file(conv_id)
+                if conv is not None:
+                    entries.append(IndexEntry.from_conversation(conv))
+            entries.sort(key=lambda e: e.created_at, reverse=True)
+            return entries
+        except (StorageError, Exception):
+            return []
