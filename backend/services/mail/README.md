@@ -150,7 +150,7 @@ ProviderRegistry.register("myprovider", MyProvider)
 
 ## Adding a template
 
-1. Create `templates/mail/{name}.html` and `templates/mail/{name}.txt`.
+1. Create `backend/services/mail/templates/{name}.html` and `backend/services/mail/templates/{name}.txt`.
 2. Add an enum member to `MailTemplate` in `templates.py`.
 3. Add metadata to `_TEMPLATE_METADATA` with required placeholders.
 

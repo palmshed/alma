@@ -122,7 +122,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          version=$(cat VERSION)
+          version=$(python3 -c "import re; f=open('backend/palmshed_ai/__init__.py'); print(re.search(r'__version__ = \"(.+?)\"', f.read()).group(1))")
           echo "VERSION=$version" >> $GITHUB_OUTPUT
 
       - name: Validate tag does not exist

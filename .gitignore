@@ -44,7 +44,14 @@ coverage.xml
 .env.local
 .env.prod
 
+# Caches
+.pytest_cache/
+.ruff_cache/
+
+# Build artifacts
+frontend/dist/
+
 # Verification artifacts
-verify-output/
 backend/verify-output/
-verify-history/
+
+.env*

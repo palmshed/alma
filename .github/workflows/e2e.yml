@@ -143,7 +143,7 @@ jobs:
         if: success()
         run: |
           VERSION=$(uv run python -c "from backend.palmshed_ai import __version__; print(__version__)" 2>/dev/null || echo "0.0.0")
-          ARCHIVE_DIR="verify-history/v${VERSION}"
+          ARCHIVE_DIR="backend/verify-history/v${VERSION}"
           mkdir -p "$ARCHIVE_DIR"
           if [ -d backend/verify-output ]; then
             cp -r backend/verify-output/* "$ARCHIVE_DIR/" 2>/dev/null || true
@@ -155,4 +155,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: verify-history
-          path: verify-history/
+          path: backend/verify-history/

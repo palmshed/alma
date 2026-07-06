@@ -85,7 +85,7 @@ def _extract_placeholders(text: str) -> set[str]:
 class MailTemplates:
     def __init__(self, directory: str = "") -> None:
         self.directory = directory or os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "templates", "mail"
+            os.path.dirname(__file__), "templates"
         )
         self._validate()
 

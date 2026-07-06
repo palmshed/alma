@@ -3,7 +3,7 @@
 ---
 # Bump Version
 #
-# Manual workflow to bump the VERSION file, create a branch,
+# Manual workflow to bump the version, create a branch,
 # and open a version-bump PR — all attributed to the GitHub App.
 # The Publish Release workflow takes over once the PR is merged.
 
@@ -50,7 +50,7 @@ jobs:
       - name: Bump version
         id: version
         run: |
-          current=$(cat VERSION)
+          current=$(python3 -c "import re; f=open('backend/palmshed_ai/__init__.py'); print(re.search(r'__version__ = \"(.+?)\"', f.read()).group(1))")
           IFS='.' read -r major minor patch <<< "$current"
           case "${{ github.event.inputs.bump_type }}" in
             major) major=$((major+1)); minor=0; patch=0 ;;
@@ -58,14 +58,14 @@ jobs:
             patch) patch=$((patch+1)) ;;
           esac
           new_version="${major}.${minor}.${patch}"
-          echo "$new_version" > VERSION
+          python3 -c "import os, re; current='$current'; new='$new_version'; p='backend/palmshed_ai/__init__.py'; c=open(p).read(); open(p,'w').write(c.replace(f'__version__ = \"{current}\"', f'__version__ = \"{new}\"')); t='pyproject.toml'; l=open(t).readlines(); [l.__setitem__(i,f'version = \"{new}\"\n') for i,x in enumerate(l) if x.startswith('version = ') and 'target-version' not in x]; open(t,'w').writelines(l); print(f'Bumped: {current} -> {new}')"
           echo "NEW_VERSION=$new_version" >> "$GITHUB_OUTPUT"
 
       - name: Create branch and push
         run: |
           branch="automated/version-bump"
           git checkout -b "$branch"
-          git add VERSION
+          git add backend/palmshed_ai/__init__.py pyproject.toml
           git commit -m "chore: bump version to v${{ steps.version.outputs.NEW_VERSION }}"
           git push origin "$branch"
 

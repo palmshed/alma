@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 ---
 # Composite Action: Prepare Version Bump
-# Creates a PR that bumps VERSION, __init__.py, and pyproject.toml.
+# Creates a PR that bumps __init__.py and pyproject.toml.
 # Tagging and release happen in a separate workflow after merge.
 
 name: 'Prepare Version Bump'
@@ -22,8 +22,9 @@ runs:
       run: pip install uv
       shell: bash
     - name: Compute new version
+      id: version
       run: |
-        current=$(cat VERSION)
+        current=$(python3 -c "import re; f=open('backend/palmshed_ai/__init__.py'); print(re.search(r'__version__ = \"(.+?)\"', f.read()).group(1))")
         new=$(echo "$current" | awk -F. '{print $1"."$2"."($3+1)}')
         echo "CURRENT=$current" >> $GITHUB_ENV
         echo "NEW=$new" >> $GITHUB_ENV
@@ -35,10 +36,6 @@ runs:
 
         current = os.environ['CURRENT']
         new = os.environ['NEW']
-
-        # VERSION
-        with open('VERSION', 'w') as f:
-            f.write(new + '\n')
 
         # __init__.py
         with open('backend/palmshed_ai/__init__.py', 'r') as f:
@@ -57,15 +54,13 @@ runs:
         with open('pyproject.toml', 'w') as f:
             f.writelines(lines)
 
-        # Verify all three agree
-        with open('VERSION') as f:
-            v1 = f.read().strip()
+        # Verify both agree
         with open('backend/palmshed_ai/__init__.py') as f:
-            v2 = re.search(r'__version__ = \"(.+?)\"', f.read()).group(1)
+            v1 = re.search(r'__version__ = \"(.+?)\"', f.read()).group(1)
         with open('pyproject.toml') as f:
-            v3 = re.search(r'^version = \"(.+?)\"', f.read(), re.MULTILINE).group(1)
+            v2 = re.search(r'^version = \"(.+?)\"', f.read(), re.MULTILINE).group(1)
 
-        assert v1 == v2 == v3 == new, f'Version mismatch: VERSION={v1} __init__={v2} pyproject={v3}'
+        assert v1 == v2 == new, f'Version mismatch: __init__={v1} pyproject={v2}'
         print(f'Version bumped: {current} → {new}')
         "
       shell: bash

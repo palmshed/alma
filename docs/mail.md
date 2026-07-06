@@ -67,7 +67,7 @@ backend/services/mail/
     ├── smtp.py         # SMTPProvider
     └── mock.py         # MockProvider (testing)
 
-templates/mail/
+backend/services/mail/templates/
 ├── welcome.html / .txt
 ├── verification.html / .txt
 ├── password_reset.html / .txt
@@ -250,7 +250,7 @@ Validation runs at startup:
 
 Add a template:
 
-1. Create `templates/mail/{name}.html` and `templates/mail/{name}.txt`
+1. Create `backend/services/mail/templates/{name}.html` and `backend/services/mail/templates/{name}.txt`
 2. Add the `MailTemplate` enum member in `templates.py`
 3. Add the `TemplateDefinition` with metadata and required placeholders
 
