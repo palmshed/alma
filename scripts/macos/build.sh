@@ -63,4 +63,9 @@ if [ -d "Sources/Alma/Assets.xcassets" ]; then
         2>&1 | grep -v "^/* com\.apple\.actool"
 fi
 
+# Remove ad-hoc signature left by swift build. The signature metadata
+# says resources must be present, but our minimal Assets.xcassets may
+# produce no Assets.car, causing Gatekeeper to reject the bundle.
+codesign --remove-signature "$APP_BUNDLE/Contents/MacOS/Alma" 2>/dev/null || true
+
 echo "=== Alma.app built at $APP_BUNDLE ==="
