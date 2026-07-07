@@ -11,10 +11,16 @@ public final class ConversationService {
     public var error: String? = nil
 
     private let api: ConversationAPI
+    private let generationAPI: GenerationAPI
     private let defaults: UserDefaults
 
-    public init(api: ConversationAPI, defaults: UserDefaults = .standard) {
+    public init(
+        api: ConversationAPI,
+        generationAPI: GenerationAPI,
+        defaults: UserDefaults = .standard
+    ) {
         self.api = api
+        self.generationAPI = generationAPI
         self.defaults = defaults
     }
 
@@ -83,6 +89,34 @@ public final class ConversationService {
             self.error = error.localizedDescription
         }
         isLoading = false
+    }
+
+    public func send(text: String) async {
+        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        guard var conversation = selectedConversation else { return }
+
+        let userMessage = ChatMessage(
+            id: UUID().uuidString,
+            role: "user",
+            timestamp: ISO8601DateFormatter().string(from: Date()),
+            content: text
+        )
+        conversation.messages.append(userMessage)
+        selectedConversation = conversation
+
+        do {
+            let response = try await generationAPI.generate(messages: conversation.messages)
+            let assistantMessage = ChatMessage(
+                id: UUID().uuidString,
+                role: "assistant",
+                timestamp: ISO8601DateFormatter().string(from: Date()),
+                content: response
+            )
+            conversation.messages.append(assistantMessage)
+            selectedConversation = conversation
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }
 

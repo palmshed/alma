@@ -25,12 +25,14 @@ final class MockURLProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-func makeClient() -> APIClient {
+let mockClient: APIClient = {
     let config = URLSessionConfiguration.ephemeral
     config.protocolClasses = [MockURLProtocol.self]
     let session = URLSession(configuration: config)
     return APIClient(baseURL: URL(string: "http://localhost:8080")!, session: session)
-}
+}()
+
+func makeClient() -> APIClient { mockClient }
 
 @Suite(.serialized) struct NetworkingTests {
 

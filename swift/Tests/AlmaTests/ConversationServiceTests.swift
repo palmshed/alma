@@ -5,12 +5,31 @@ import Foundation
 @MainActor
 extension NetworkingTests {
 
+private func makeService() -> ConversationService {
+    let defaults = UserDefaults(suiteName: "\(UUID().uuidString)")!
+    let client = makeClient()
+    return ConversationService(
+        api: ConversationAPI(client: client),
+        generationAPI: GenerationAPI(client: client),
+        defaults: defaults
+    )
+}
+
+private func makeService(defaults: UserDefaults) -> ConversationService {
+    let client = makeClient()
+    return ConversationService(
+        api: ConversationAPI(client: client),
+        generationAPI: GenerationAPI(client: client),
+        defaults: defaults
+    )
+}
+
     @Test("list conversations populates conversations array")
     func testServiceListConversations() async throws {
         try await withMock(json: """
         [{"id":"1","title":"Chat 1","mode":"chat","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}]
         """) {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.loadConversations()
             #expect(service.conversations.count == 1)
             #expect(service.conversations[0].title == "Chat 1")
@@ -22,7 +41,7 @@ extension NetworkingTests {
     @Test("empty list shows no conversations")
     func testServiceEmptyList() async throws {
         try await withMock(json: "[]") {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.loadConversations()
             #expect(service.conversations.isEmpty)
             #expect(service.selectedConversation == nil)
@@ -34,7 +53,7 @@ extension NetworkingTests {
         try await withMock(json: """
         {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[{"id":"m1","role":"user","timestamp":"2025-01-01T00:00:00Z","content":"Hello"}]}
         """) {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.selectConversation("1")
             #expect(service.selectedConversation != nil)
             #expect(service.selectedConversation?.title == "Chat 1")
@@ -49,7 +68,7 @@ extension NetworkingTests {
         {"id":"new-id","title":"New Chat","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
         """
         try await withMock(json: responseJSON, statusCode: 201) {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.createConversation()
             #expect(service.conversations.count == 1)
             #expect(service.conversations[0].id == "new-id")
@@ -92,10 +111,7 @@ extension NetworkingTests {
             }
             defer { MockURLProtocol.requestHandler = nil }
 
-            let service = ConversationService(
-                api: ConversationAPI(client: makeClient()),
-                defaults: defaults
-            )
+            let service = makeService(defaults: defaults)
             await service.loadConversations()
             #expect(service.selectedConversation?.id == "saved-1")
             #expect(service.selectedConversation?.title == "Saved Chat")
@@ -115,10 +131,7 @@ extension NetworkingTests {
         """
 
         try await withMock(json: listJSON) {
-            let service = ConversationService(
-                api: ConversationAPI(client: makeClient()),
-                defaults: defaults
-            )
+            let service = makeService(defaults: defaults)
             await service.loadConversations()
             #expect(service.conversations.count == 1)
             #expect(service.selectedConversation == nil)
@@ -131,7 +144,7 @@ extension NetworkingTests {
         try await withMock(json: """
         {"error":"Internal server error"}
         """, statusCode: 500) {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.loadConversations()
             #expect(service.error != nil)
             #expect(service.conversations.isEmpty)
@@ -144,11 +157,78 @@ extension NetworkingTests {
         try await withMock(json: """
         {"error":"Conversation not found"}
         """, statusCode: 404) {
-            let service = ConversationService(api: ConversationAPI(client: makeClient()))
+            let service = makeService()
             await service.selectConversation("nonexistent")
             #expect(service.selectedConversation == nil)
             #expect(service.selectedId == nil)
             #expect(service.error != nil)
         }
+    }
+
+    @Test("user message appended before generation request")
+    func testSendAppendsUserMessageBeforeRequest() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"Hello back"}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                let data: Data
+                if callCount == 1 {
+                    data = Data(convJSON.utf8)
+                } else {
+                    data = Data(genJSON.utf8)
+                }
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+            #expect(service.selectedConversation?.messages.isEmpty == true)
+
+            await service.send(text: "Hello")
+
+            let messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(messages[0].role == "user")
+            #expect(messages[0].content == "Hello")
+            #expect(messages[1].role == "assistant")
+            #expect(messages[1].content == "Hello back")
+        }
+    }
+
+    @Test("empty submission does not modify conversation")
+    func testSendEmptyTextIgnored() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[{"id":"m1","role":"user","timestamp":"2025-01-01T00:00:00Z","content":"Existing"}]}
+        """
+
+        try await withMock(json: convJSON) {
+            let service = makeService()
+            await service.selectConversation("1")
+            let originalCount = service.selectedConversation?.messages.count
+
+            await service.send(text: "")
+            await service.send(text: "   ")
+
+            #expect(service.selectedConversation?.messages.count == originalCount)
+        }
+    }
+
+    @Test("send without selected conversation does nothing")
+    func testSendWithoutSelection() async throws {
+        let service = makeService()
+        await service.send(text: "Hello")
+        #expect(service.selectedConversation == nil)
     }
 }

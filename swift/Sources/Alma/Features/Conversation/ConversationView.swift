@@ -8,7 +8,11 @@ struct ConversationView: View {
         if let conversation = service.selectedConversation {
             VStack(spacing: 0) {
                 messageList(conversation)
-                ComposerView(text: $text, onSend: {})
+                ComposerView(text: $text, onSend: {
+                    let textToSend = text
+                    text = ""
+                    Task { await service.send(text: textToSend) }
+                })
             }
         } else {
             ContentUnavailableView(
