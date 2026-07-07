@@ -2,10 +2,14 @@ import SwiftUI
 
 struct ConversationView: View {
     let service: ConversationService
+    @State private var text = ""
 
     var body: some View {
         if let conversation = service.selectedConversation {
-            messageList(conversation)
+            VStack(spacing: 0) {
+                messageList(conversation)
+                ComposerView(text: $text, onSend: {})
+            }
         } else {
             ContentUnavailableView(
                 "Select a conversation",
