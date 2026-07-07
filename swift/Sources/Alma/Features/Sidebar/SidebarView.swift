@@ -1,20 +1,59 @@
 import SwiftUI
 
 struct SidebarView: View {
-    @State private var conversations: [ConversationListItem] = []
+    @Bindable var service: ConversationService
     @State private var searchText = ""
 
     var body: some View {
         VStack(spacing: 0) {
             newChatButton
             searchBar
-            conversationList
+            content
         }
         .frame(minWidth: 240, maxWidth: 300)
     }
 
+    @ViewBuilder
+    private var content: some View {
+        if service.isLoading && service.conversations.isEmpty {
+            loadingView
+        } else if let error = service.error, service.conversations.isEmpty {
+            errorView(error)
+        } else if service.conversations.isEmpty {
+            emptyView
+        } else {
+            conversationList
+        }
+    }
+
+    private var loadingView: some View {
+        Spacer()
+    }
+
+    private var emptyView: some View {
+        ContentUnavailableView(
+            "No conversations",
+            systemImage: "message",
+            description: Text("Start a new conversation.")
+        )
+    }
+
+    private func errorView(_ error: String) -> some View {
+        ContentUnavailableView {
+            Label("Could not load", systemImage: "exclamationmark.triangle")
+        } description: {
+            Text(error)
+        } actions: {
+            Button("Retry") {
+                Task { await service.loadConversations() }
+            }
+        }
+    }
+
     private var newChatButton: some View {
-        Button(action: {}) {
+        Button(action: {
+            Task { await service.createConversation() }
+        }) {
             Label("New conversation", systemImage: "plus")
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -37,24 +76,21 @@ struct SidebarView: View {
     }
 
     private var conversationList: some View {
-        List(conversations) { item in
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .lineLimit(1)
-                    .font(.body)
-                Text(item.preview)
-                    .lineLimit(1)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        List(selection: $service.selectedId) {
+            ForEach(service.conversations) { item in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .lineLimit(1)
+                        .font(.body)
+                }
+                .padding(.vertical, 4)
+                .tag(item.id as String?)
             }
-            .padding(.vertical, 4)
         }
         .listStyle(.plain)
+        .onChange(of: service.selectedId) { _, newId in
+            guard let id = newId else { return }
+            Task { await service.selectConversation(id) }
+        }
     }
-}
-
-struct ConversationListItem: Identifiable {
-    let id: String
-    let title: String
-    let preview: String
 }

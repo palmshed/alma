@@ -3,10 +3,15 @@ import SwiftUI
 @main
 struct AlmaApp: App {
     @State private var selectedTheme: AppTheme = .system
+    @State private var service = ConversationService(
+        api: ConversationAPI(
+            client: APIClient(baseURL: URL(string: "http://localhost:8080")!)
+        )
+    )
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(service: service)
                 .environment(\.theme, selectedTheme)
                 .preferredColorScheme(selectedTheme.colorScheme)
         }
@@ -20,11 +25,16 @@ struct AlmaApp: App {
 }
 
 struct ContentView: View {
+    let service: ConversationService
+
     var body: some View {
         NavigationSplitView {
-            SidebarView()
+            SidebarView(service: service)
         } detail: {
-            ConversationView()
+            ConversationView(service: service)
+        }
+        .task {
+            await service.loadConversations()
         }
     }
 }
