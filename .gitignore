@@ -51,6 +51,9 @@ coverage.xml
 # Build artifacts
 frontend/dist/
 
+# Swift
+swift/.build/
+
 # Verification artifacts
 backend/verify-output/
 
