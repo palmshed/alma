@@ -83,3 +83,42 @@ configuration is added on top.
   release, but release cadence is low enough that this is not a concern.
 - The DMG format may change if future distribution methods (Homebrew,
   Mac App Store) replace direct download as the primary channel.
+
+---
+
+### DS_Store generation (v0.3.4+)
+
+The DMG `.DS_Store` is generated during packaging by
+`scripts/macos/generate-dsstore.py` using the `ds_store` and
+`mac_alias` Python libraries.
+
+**Decision**
+
+Generate `.DS_Store` programmatically rather than committing a binary
+template or relying on AppleScript to configure Finder view state.
+
+**Rationale**
+
+- AppleScript's `set background picture` no longer persists Finder
+  window configuration to `.DS_Store` on macOS 15 — the background
+  image, icon size, and arrangement settings are lost when the window
+  is closed or the volume is remounted.
+- A generated `.DS_Store` is deterministic, reviewable, and
+  source-controlled as code.
+- CI can produce identical installers without manual Finder interaction
+  or GUI scripting.
+- No opaque binary template is committed to the repository.
+
+**Implementation detail**
+
+Finder ignores `backgroundImageBookmark` (NSData containing a modern
+Bookmark record, magic `b"book"`) for DMG background images. It accepts
+`backgroundImageAlias` (NSData containing an old-style Alias record,
+magic `b"\0\0\0\0"`). The generator therefore uses
+`mac_alias.Alias.for_file()` and stores the result under the
+`backgroundImageAlias` plist key.
+
+`mac_alias` v2.2.3 uses 32-bit `I` format for CNID path entries in
+alias records, which fails on APFS volumes with 64-bit inode numbers.
+The installed copy is patched to use `Q` format in both virtualenvs
+(`.build-dsstore/` and `/tmp/dsstore-env/`).

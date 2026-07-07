@@ -73,6 +73,13 @@ else
 
     if ls "$APP_BUNDLE/Contents/Resources/"*.car &>/dev/null 2>&1; then
         check "Asset catalog compiled" "test -f \"$APP_BUNDLE/Contents/Resources/Assets.car\""
+        # Verify the asset catalog is non-empty (has actual content, not just an empty catalog)
+        CAR_SIZE=$(stat -f%z "$APP_BUNDLE/Contents/Resources/Assets.car" 2>/dev/null || echo "0")
+        if [ "$CAR_SIZE" -gt 500 ]; then
+            check "Asset catalog has icon content ($CAR_SIZE bytes)" "true"
+        else
+            check "Asset catalog has icon content ($CAR_SIZE bytes)" "false"
+        fi
     else
         check "No asset catalog (empty xcassets)" "true"
     fi
@@ -91,6 +98,12 @@ else
     check "DMG is not empty" "test -s \"$DMG\""
     check "DMG is a UDZO image" "hdiutil imageinfo \"$DMG\" 2>/dev/null | grep -q 'UDZO'"
 
+    # Detach any prior mount of this DMG to avoid Resource busy
+    if mount | grep -q "$DMG" 2>/dev/null; then
+        hdiutil detach "$(mount | grep "$DMG" | awk '{print $3}')" -force 2>/dev/null || true
+        sleep 1
+    fi
+
     MOUNT_POINT=$(mktemp -d)
     if hdiutil attach "$DMG" -mountpoint "$MOUNT_POINT" -nobrowse 2>/dev/null; then
         check "DMG mounts successfully" "true"
@@ -99,6 +112,32 @@ else
         check "DMG contains exactly one .app" "test \"$APP_COUNT\" -eq 1"
         check "Alma.app inside DMG" "test -d \"$MOUNT_POINT/Alma.app\""
         check "Applications symlink inside DMG" "test -L \"$MOUNT_POINT/Applications\""
+
+        # Verify DMG resources
+        if [ -f "$MOUNT_POINT/background.png" ]; then
+            check "DMG background image present" "true"
+            # Check if hidden (BSD flag 'hidden' via ls -lO)
+            if ls -lO "$MOUNT_POINT/background.png" 2>/dev/null | grep -q "hidden"; then
+                check "DMG background image is hidden" "true"
+            else
+                check "DMG background image is hidden" "false"
+            fi
+        else
+            check "DMG background image present" "false"
+        fi
+
+        if [ -f "$MOUNT_POINT/.DS_Store" ]; then
+            check "DMG .DS_Store present" "true"
+        else
+            check "DMG .DS_Store present" "false"
+        fi
+
+        # Verify volume icon is set
+        if [ -f "$MOUNT_POINT/.VolumeIcon.icns" ]; then
+            check "DMG volume icon (.VolumeIcon.icns) present" "true"
+        else
+            check "DMG volume icon (.VolumeIcon.icns) present" "false"
+        fi
 
         # Verify the bundle inside DMG matches the source bundle
         if [ -d "$MOUNT_POINT/Alma.app" ] && [ -d "$APP_BUNDLE" ]; then

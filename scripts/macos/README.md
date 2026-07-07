@@ -23,6 +23,9 @@ milestones.
 | Script | Purpose |
 |--------|---------|
 | `build.sh` | Build Alma.app from Swift source |
+| `generate-icons.sh` | Render canonical logo.svg into AppIcon.appiconset |
+| `generate-dmg-resources.sh` | Render background.svg into DMG background.png |
+| `generate-dsstore.py` | Generate .DS_Store with background alias and window settings |
 | `package.sh` | Package Alma.app into Alma.dmg |
 | `verify.sh` | Verify bundle structure and DMG contents |
 
@@ -33,3 +36,17 @@ Run all three locally:
 ./scripts/macos/package.sh
 ./scripts/macos/verify.sh
 ```
+
+## DS_Store generation
+
+The DMG `.DS_Store` is generated from scratch during packaging, not
+copied from a template. This keeps the installer deterministic and
+reviewable.
+
+### Implementation note
+
+Finder ignores `backgroundImageBookmark` (Bookmark format, magic `book`)
+for DMG backgrounds on macOS 15. Use `backgroundImageAlias` (Alias
+format, magic `\0\0\0\0`) instead. The generator uses
+`mac_alias.Alias.for_file()` and stores the result under the
+`backgroundImageAlias` key in the `icvp` plist.
