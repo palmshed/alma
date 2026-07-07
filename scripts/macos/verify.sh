@@ -52,7 +52,7 @@ else
             "test \"\$(/usr/libexec/PlistBuddy -c 'Print NSHighResolutionCapable' \"$PLIST\" 2>/dev/null)\" = 'true'"
 
         check "Version matches tag or is dev" \
-            "case \"\$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' \"$PLIST\" 2>/dev/null)\" in 0.0.0-dev|v*) true ;; *) false ;; esac"
+            "case \"\$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' \"$PLIST\" 2>/dev/null)\" in 0.0.0-dev|[0-9]*) true ;; *) false ;; esac"
     fi
 
     if ls "$APP_BUNDLE/Contents/Resources/"*.car &>/dev/null 2>&1; then
