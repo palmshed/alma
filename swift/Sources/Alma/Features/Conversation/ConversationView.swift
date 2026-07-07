@@ -8,11 +8,15 @@ struct ConversationView: View {
         if let conversation = service.selectedConversation {
             VStack(spacing: 0) {
                 messageList(conversation)
-                ComposerView(text: $text, onSend: {
-                    let textToSend = text
-                    text = ""
-                    Task { await service.send(text: textToSend) }
-                })
+                ComposerView(
+                    text: $text,
+                    onSend: {
+                        let textToSend = text
+                        text = ""
+                        Task { await service.send(text: textToSend) }
+                    },
+                    isGenerating: service.isGenerating
+                )
             }
         } else {
             ContentUnavailableView(
@@ -29,11 +33,29 @@ struct ConversationView: View {
                 ForEach(conversation.messages) { message in
                     MessageBubble(message: message)
                 }
+
+                if service.isGenerating {
+                    HStack {
+                        ProgressView()
+                            .padding(12)
+                        Spacer()
+                    }
+                }
+
+                if let error = service.generationError {
+                    HStack {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(12)
+                        Spacer()
+                    }
+                }
             }
             .padding()
         }
         .overlay {
-            if conversation.messages.isEmpty {
+            if conversation.messages.isEmpty && !service.isGenerating {
                 ContentUnavailableView(
                     "Start a conversation",
                     systemImage: "message",

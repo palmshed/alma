@@ -231,4 +231,130 @@ private func makeService(defaults: UserDefaults) -> ConversationService {
         await service.send(text: "Hello")
         #expect(service.selectedConversation == nil)
     }
+
+    @Test("isGenerating true during request")
+    func testSendIsGeneratingDuringRequest() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"Hello back"}
+        """
+
+        var generatingDuringRequest = false
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                let data: Data
+                if callCount == 1 {
+                    data = Data(convJSON.utf8)
+                } else {
+                    data = Data(genJSON.utf8)
+                }
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+            #expect(service.isGenerating == false)
+            #expect(service.generationError == nil)
+
+            let messagesBefore = try #require(service.selectedConversation?.messages)
+            #expect(messagesBefore.isEmpty)
+
+            await service.send(text: "Hello")
+
+            let messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(service.isGenerating == false)
+            #expect(service.generationError == nil)
+        }
+    }
+
+    @Test("isGenerating false after generation failure")
+    func testSendIsGeneratingFalseOnFailure() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                if callCount == 1 {
+                    let data = Data(convJSON.utf8)
+                    let response = try #require(HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "application/json"]
+                    ))
+                    return (response, data)
+                }
+                let data = Data(#"{"error":"Generation failed"}"#.utf8)
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 500, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+            #expect(service.isGenerating == false)
+            #expect(service.generationError == nil)
+
+            await service.send(text: "Hello")
+
+            #expect(service.isGenerating == false)
+            let error = try #require(service.generationError)
+            #expect(error.contains("Generation failed"))
+        }
+    }
+
+    @Test("error clears on next send")
+    func testSendErrorClearsOnNextSend() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"Hello back"}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                let data: Data
+                if callCount == 1 {
+                    data = Data(convJSON.utf8)
+                } else if callCount == 2 {
+                    data = Data(#"{"error":"Generation failed"}"#.utf8)
+                } else {
+                    data = Data(genJSON.utf8)
+                }
+                let statusCode: Int = callCount == 2 ? 500 : 200
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: statusCode, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+
+            await service.send(text: "First")
+            #expect(service.generationError != nil)
+
+            await service.send(text: "Second")
+            #expect(service.generationError == nil)
+        }
+    }
 }

@@ -9,6 +9,8 @@ public final class ConversationService {
     public var selectedId: String? = nil
     public var isLoading = false
     public var error: String? = nil
+    public var isGenerating = false
+    public var generationError: String? = nil
 
     private let api: ConversationAPI
     private let generationAPI: GenerationAPI
@@ -95,6 +97,9 @@ public final class ConversationService {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         guard var conversation = selectedConversation else { return }
 
+        isGenerating = true
+        generationError = nil
+
         let userMessage = ChatMessage(
             id: UUID().uuidString,
             role: "user",
@@ -115,8 +120,9 @@ public final class ConversationService {
             conversation.messages.append(assistantMessage)
             selectedConversation = conversation
         } catch {
-            self.error = error.localizedDescription
+            generationError = error.localizedDescription
         }
+        isGenerating = false
     }
 }
 
