@@ -119,6 +119,8 @@ public final class ConversationService {
             )
             conversation.messages.append(assistantMessage)
             selectedConversation = conversation
+
+            try? await api.update(id: conversation.id, conversation)
         } catch {
             generationError = error.localizedDescription
         }
