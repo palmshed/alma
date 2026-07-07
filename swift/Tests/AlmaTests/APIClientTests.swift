@@ -298,6 +298,7 @@ func makeClient() -> APIClient {
 
 // MARK: - Helpers
 
+@MainActor
 func withMock<T>(
     json: String,
     statusCode: Int = 200,
@@ -310,6 +311,7 @@ func withMock<T>(
     )
 }
 
+@MainActor
 func withMock<T>(
     data: Data,
     statusCode: Int = 200,

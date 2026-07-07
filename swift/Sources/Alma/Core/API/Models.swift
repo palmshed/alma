@@ -13,8 +13,8 @@ public struct Conversation: Codable, Identifiable, Equatable, Sendable {
     public let title: String
     public let mode: String
     public let schemaVersion: Int
-    public let createdAt: String
-    public let updatedAt: String
+    public let createdAt: String?
+    public let updatedAt: String?
     public var messages: [ChatMessage]
     public let titleIsManual: Bool?
 
@@ -23,8 +23,8 @@ public struct Conversation: Codable, Identifiable, Equatable, Sendable {
         title: String,
         mode: String,
         schemaVersion: Int = 1,
-        createdAt: String,
-        updatedAt: String,
+        createdAt: String? = nil,
+        updatedAt: String? = nil,
         messages: [ChatMessage],
         titleIsManual: Bool? = nil
     ) {
