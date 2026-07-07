@@ -1,13 +1,13 @@
 import { useState, useCallback } from 'react';
 import { api } from '../services/api';
-import type { MessageData, ConversationData } from '../types';
+import type { AttachmentData, MessageData, ConversationData } from '../types';
 
 interface UseConversationReturn {
   messages: MessageData[];
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[]) => Promise<void>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => Promise<void>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
@@ -20,14 +20,16 @@ export function useConversation(): UseConversationReturn {
 
   const conversationStarted = messages.length > 0 || isLoading;
 
-  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[]) => {
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => {
     if (!text.trim() || isLoading) return;
     setIsLoading(true);
     setError(null);
 
     const ts = new Date().toISOString();
+    const attData = attachments?.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size }));
     const userMsg: MessageData = {
       id: '', role: 'user', content: text, timestamp: ts,
+      ...(attData && attData.length > 0 ? { attachments: attData as unknown as Record<string, unknown>[] } : {}),
     };
     setMessages(prev => [...prev, userMsg]);
 

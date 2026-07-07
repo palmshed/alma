@@ -1,3 +1,12 @@
+export interface AttachmentData {
+  id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  checksum: string;
+  created_at: string;
+}
+
 export interface ApiThinkingResult {
   response: string;
   thinking_summary: string[];

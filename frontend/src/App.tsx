@@ -16,7 +16,7 @@ import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, SUGGESTIONS } from './utils';
 import { api } from './services/api';
-import { ConversationData } from './types';
+import { AttachmentData, ConversationData } from './types';
 
 const STORAGE_ACTIVE_CONV = 'alma_active_conversation';
 
@@ -42,6 +42,8 @@ function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
+  const [pendingAttachments, setPendingAttachments] = useState<AttachmentData[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
@@ -143,13 +145,44 @@ function App() {
     document.documentElement.setAttribute('data-theme', next);
   }, [theme]);
 
+  const handleAttach = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const uploaded: AttachmentData[] = [];
+    for (const file of Array.from(files)) {
+      try {
+        const att = await api.uploadAttachment(file);
+        uploaded.push(att);
+      } catch (err) {
+        console.error('Upload failed:', file.name, err);
+      }
+    }
+    setPendingAttachments(prev => [...prev, ...uploaded]);
+    e.target.value = '';
+  }, []);
+
+  const handleRemoveAttachment = useCallback(async (att: AttachmentData) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== att.id));
+    try {
+      await api.deleteAttachment(att.id);
+    } catch {
+      /* ignore — server-side cleanup is best-effort */
+    }
+  }, []);
+
   const handleSubmit = useCallback(async (text: string) => {
+    const atts = pendingAttachments.length > 0 ? pendingAttachments : undefined;
     composerClear();
+    setPendingAttachments([]);
     lastPromptRef.current = text;
     try {
       if (activeConversationId) {
         const payload = JSON.parse(JSON.stringify(activeConversationRef.current));
-        payload.messages.push({ role: 'user', content: text, timestamp: new Date().toISOString() });
+        payload.messages.push({ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) });
         payload.metadata = { ...(payload.metadata || {}), status: 'pending' };
         const updated = await api.updateConversation(activeConversationId, payload);
         activeConversationRef.current = updated;
@@ -157,7 +190,7 @@ function App() {
         const payload = {
           title: text.slice(0, 60),
           mode,
-          messages: [{ role: 'user', content: text, timestamp: new Date().toISOString() }],
+          messages: [{ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) }],
           metadata: { status: 'pending' },
         };
         const conv = await api.createConversation(payload);
@@ -167,8 +200,8 @@ function App() {
     } catch {
       /* Continue anyway — the user's message will be in local state */
     }
-    submit(text, mode, messages);
-  }, [submit, mode, activeConversationId, composerClear, messages]);
+    submit(text, mode, messages, atts);
+  }, [submit, mode, activeConversationId, composerClear, messages, pendingAttachments]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -254,6 +287,7 @@ function App() {
       value={input}
       onChange={setInput}
       onSubmit={handleSubmit}
+      onAttach={handleAttach}
       placeholder="Ask anything..."
       loading={isLoading}
       onClear={composerClear}
@@ -273,6 +307,15 @@ function App() {
     <div className="app-container">
       <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} />
 
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileChange}
+        multiple
+        accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown"
+        style={{ display: 'none' }}
+      />
+
       {!conversationStarted ? (
         <LandingLayout
           hero={
@@ -286,7 +329,33 @@ function App() {
               <span className="landing-title">Alma</span>
             </>
           }
-          composer={composer}
+          composer={
+            <div className="composer-wrapper">
+              {composer}
+              {pendingAttachments.length > 0 && (
+                <div className="pending-attachments">
+                  {pendingAttachments.map(a => (
+                    <span key={a.id} className="attachment-chip">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={12} height={12}>
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                      </svg>
+                      {a.filename}
+                      <button
+                        className="attachment-chip-remove"
+                        onClick={() => handleRemoveAttachment(a)}
+                        type="button"
+                        aria-label={`Remove ${a.filename}`}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={10} height={10}>
+                          <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          }
           suggestions={
             !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
@@ -311,7 +380,36 @@ function App() {
             <>
               {messages.map((msg, i) => {
                 if (msg.role === 'user') {
-                  return <UserMessage key={i} content={msg.content} />;
+                  return (
+                    <div key={i}>
+                      <UserMessage content={msg.content} />
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div className="message-attachments">
+                          {msg.attachments.map((att: Record<string, unknown>) => {
+                            const isImage = typeof att.mime_type === 'string' && att.mime_type.startsWith('image/');
+                            const attId = typeof att.id === 'string' ? att.id : '';
+                            const filename = typeof att.filename === 'string' ? att.filename : 'file';
+                            const mime = typeof att.mime_type === 'string' ? att.mime_type : '';
+                            if (isImage) {
+                              return (
+                                <a key={attId} href={`/api/attachments/${attId}`} target="_blank" rel="noopener noreferrer" className="attachment-image-link">
+                                  <img src={`/api/attachments/${attId}`} alt={filename} className="attachment-image" loading="lazy" />
+                                </a>
+                              );
+                            }
+                            return (
+                              <a key={attId} href={`/api/attachments/${attId}`} target="_blank" rel="noopener noreferrer" className="attachment-chip" download={filename}>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={12} height={12}>
+                                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                                </svg>
+                                {filename}
+                              </a>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
                 }
                 if (msg.role === 'assistant') {
                   return (
@@ -342,7 +440,31 @@ function App() {
           }
           composer={
             <>
-              {composer}
+              <div className="composer-wrapper">
+                {composer}
+                {pendingAttachments.length > 0 && (
+                  <div className="pending-attachments">
+                    {pendingAttachments.map(a => (
+                      <span key={a.id} className="attachment-chip">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={12} height={12}>
+                          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                        </svg>
+                        {a.filename}
+                        <button
+                          className="attachment-chip-remove"
+                          onClick={() => handleRemoveAttachment(a)}
+                          type="button"
+                          aria-label={`Remove ${a.filename}`}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={10} height={10}>
+                            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
               <SegmentedControl
                 options={MODES}
                 value={mode}
