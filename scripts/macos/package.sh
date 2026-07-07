@@ -29,6 +29,7 @@ if [ ! -d "$PYENV_ROOT" ]; then
     ALIAS_PY="$PYENV_ROOT/lib/python*/site-packages/mac_alias/alias.py"
     if grep -q '">%uI"' $ALIAS_PY 2>/dev/null; then
         sed -i '' 's/">%uI"/">%uQ"/g; s/length \/\/ 4/length \/\/ 8/g' $ALIAS_PY
+        rm -rf "$PYENV_ROOT/lib/python*/site-packages/mac_alias/__pycache__"
     fi
 fi
 
