@@ -57,9 +57,11 @@ def create_app():
 
     # Register blueprints
     from .routes.api import api_bp
+    from .routes.attachments import attachments_bp
     from .routes.conversations import conversations_bp
 
     app.register_blueprint(api_bp)
+    app.register_blueprint(attachments_bp)
     app.register_blueprint(conversations_bp)
 
     # Apply rate limiting to API routes
