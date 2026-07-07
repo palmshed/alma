@@ -50,26 +50,27 @@ struct MessageBubble: View {
     var body: some View {
         HStack {
             if message.role == "user" {
-                Spacer()
+                Spacer(minLength: 60)
             }
 
-            Group {
-                if message.role == "user" {
-                    Text(message.content)
-                        .padding(12)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                } else {
-                    Text(message.content)
-                        .padding(12)
-                        .background(.fill.tertiary)
-                        .foregroundStyle(.primary)
-                }
+            if message.role == "user" {
+                Text(message.content)
+                    .padding(12)
+                    .background(Color.accentColor)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .textSelection(.enabled)
+            } else {
+                Text(message.content)
+                    .padding(12)
+                    .background(.fill.tertiary)
+                    .foregroundStyle(.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .textSelection(.enabled)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             if message.role != "user" {
-                Spacer()
+                Spacer(minLength: 60)
             }
         }
     }
