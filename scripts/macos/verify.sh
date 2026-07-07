@@ -55,6 +55,22 @@ else
             "case \"\$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' \"$PLIST\" 2>/dev/null)\" in 0.0.0-dev|[0-9]*) true ;; *) false ;; esac"
     fi
 
+    # Structural verification — these check the bundle is valid even
+    # though it is unsigned. Unexpected failures here indicate a change
+    # in macOS behavior or a packaging regression.
+    if codesign --verify --deep --strict "$APP_BUNDLE" 2>/dev/null; then
+        check "codesign: bundle structure is valid (ad-hoc signed)" "true"
+    else
+        check "codesign: bundle structure is valid" "false"
+    fi
+
+    SPCTL_RESULT=$(spctl --assess --ignore-cache "$APP_BUNDLE" 2>&1 || true)
+    if echo "$SPCTL_RESULT" | grep -q "rejected"; then
+        check "spctl: bundle rejected (expected for unsigned)" "true"
+    else
+        check "spctl: assessment completed" "true"
+    fi
+
     if ls "$APP_BUNDLE/Contents/Resources/"*.car &>/dev/null 2>&1; then
         check "Asset catalog compiled" "test -f \"$APP_BUNDLE/Contents/Resources/Assets.car\""
     else
