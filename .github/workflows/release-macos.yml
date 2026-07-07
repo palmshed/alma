@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# Build the native macOS client.
+# Build and package the native macOS client.
 #
-# Triggered on version tags. Produces Alma.app as a workflow artifact.
-# Packaging into DMG and release upload happen in separate commits.
+# Triggered on version tags. Produces Alma.app and Alma.dmg as
+# workflow artifacts. Release upload happens in a separate commit.
 
 name: Release macOS
 
@@ -29,9 +29,22 @@ jobs:
       - name: Build Alma.app
         run: ./scripts/macos/build.sh ${{ github.ref_name }}
 
+      - name: Package Alma.dmg
+        run: ./scripts/macos/package.sh
+
+      - name: Verify bundle and DMG
+        run: ./scripts/macos/verify.sh
+
       - name: Upload Alma.app as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: Alma-macOS-app
           path: output/Alma.app
+          if-no-files-found: error
+
+      - name: Upload Alma.dmg as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Alma-macOS-dmg
+          path: output/Alma-*.dmg
           if-no-files-found: error
