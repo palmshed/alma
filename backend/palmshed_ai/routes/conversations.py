@@ -1,12 +1,19 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
 from flask import Blueprint, g, request, jsonify
 from services import platform
-from palmshed_ai.conversations import ConversationStore, Conversation
+from palmshed_ai.conversations import (
+    AttachmentStore,
+    ConversationStore,
+    Conversation,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _now_utc() -> str:
@@ -20,10 +27,78 @@ def _get_store() -> ConversationStore:
     return ConversationStore(storage=platform.storage, owner_id=g.client_id)
 
 
+def _get_attachment_store() -> AttachmentStore:
+    return AttachmentStore(storage=platform.storage)
+
+
 def _ensure_message_ids(messages: list[dict]) -> None:
     for msg in messages:
         if not msg.get("id"):
             msg["id"] = str(uuid.uuid4())
+
+
+def _populate_attachment_references(conversation_id: str, messages: list) -> None:
+    """Store conversation_id and message_id on each referenced attachment.
+
+    These are references only, not ownership — the attachment remains
+    independently addressable and reusable.
+    """
+    att_store = _get_attachment_store()
+    for msg in messages:
+        attachments = (
+            msg.attachments if hasattr(msg, "attachments") else msg.get("attachments")
+        )
+        if not attachments:
+            continue
+        message_id = msg.id if hasattr(msg, "id") else msg["id"]
+        for ref in attachments:
+            att_id = ref.get("id") if isinstance(ref, dict) else ref.id
+            if att_id:
+                att_store.update_metadata(
+                    att_id,
+                    {"conversation_id": conversation_id, "message_id": message_id},
+                )
+
+
+def _cleanup_attachments_for_conversation(
+    conversation_id: str,
+) -> list[str]:
+    """Delete all attachments referenced by messages in a conversation.
+
+    Returns a list of attachment IDs that could not be deleted.
+    Does not raise — failures are logged and collected.
+    """
+    store = _get_store()
+    conv = store.load(conversation_id)
+    if conv is None:
+        return []
+
+    att_store = _get_attachment_store()
+    failures: list[str] = []
+    seen: set[str] = set()
+    for msg in conv.messages:
+        if not msg.attachments:
+            continue
+        for ref in msg.attachments:
+            att_id = ref.get("id") if isinstance(ref, dict) else ref.id
+            if att_id in seen:
+                continue
+            seen.add(att_id)
+            try:
+                if not att_store.delete(att_id):
+                    logger.warning(
+                        "Attachment %s not found during conversation %s cleanup",
+                        att_id,
+                        conversation_id,
+                    )
+            except Exception:
+                logger.exception(
+                    "Failed to delete attachment %s during conversation %s cleanup",
+                    att_id,
+                    conversation_id,
+                )
+                failures.append(att_id)
+    return failures
 
 
 @conversations_bp.route("/api/conversations", methods=["GET"])
@@ -71,6 +146,9 @@ def create_conversation():
         conv.title = _default_title(conv)
 
     created = store.create(conv)
+
+    _populate_attachment_references(created.id, created.messages)
+
     return jsonify(created.to_dict()), 201
 
 
@@ -100,15 +178,29 @@ def update_conversation(conversation_id):
         return jsonify({"error": f"Invalid conversation data: {e}"}), 400
 
     store.save(conv)
+
+    _populate_attachment_references(conv.id, conv.messages)
+
     return jsonify(conv.to_dict())
 
 
 @conversations_bp.route("/api/conversations/<conversation_id>", methods=["DELETE"])
 def delete_conversation(conversation_id):
+    failures = _cleanup_attachments_for_conversation(conversation_id)
+
     store = _get_store()
     success = store.delete(conversation_id)
     if not success:
         return jsonify({"error": "Conversation not found"}), 404
+
+    if failures:
+        logger.warning(
+            "Conversation %s deleted but %d attachments could not be removed: %s",
+            conversation_id,
+            len(failures),
+            ", ".join(failures),
+        )
+
     return "", 204
 
 

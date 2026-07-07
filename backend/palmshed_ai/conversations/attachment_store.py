@@ -37,9 +37,7 @@ class AttachmentStore:
     def load_data(self, attachment_id: str) -> Optional[bytes]:
         return self._load_data(attachment_id)
 
-    def load_with_data(
-        self, attachment_id: str
-    ) -> Optional[tuple[Attachment, bytes]]:
+    def load_with_data(self, attachment_id: str) -> Optional[tuple[Attachment, bytes]]:
         attachment = self.load_metadata(attachment_id)
         if attachment is None:
             return None
@@ -64,6 +62,25 @@ class AttachmentStore:
         except StorageError:
             pass
         return sorted(ids)
+
+    def update_metadata(self, attachment_id: str, updates: dict[str, object]) -> bool:
+        """Update specific keys in the attachment's metadata dict.
+
+        The metadata dict is the application-defined metadata bag on the
+        Attachment object, not the top-level fields. This is used to store
+        non-ownership references such as conversation_id and message_id.
+
+        Returns True if the metadata was updated, False if the attachment
+        does not exist.
+        """
+        attachment = self._load_metadata(attachment_id)
+        if attachment is None:
+            return False
+        if attachment.metadata is None:
+            attachment.metadata = {}
+        attachment.metadata.update(updates)
+        self._save_metadata(attachment)
+        return True
 
     def metadata_exists(self, attachment_id: str) -> bool:
         return self._storage.exists(self._metadata_path(attachment_id))

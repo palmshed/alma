@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 import io
+import json
 import os
 import uuid
 
@@ -56,9 +57,7 @@ class TestAttachmentUpload:
         assert body["mime_type"] == "image/jpeg"
 
     def test_upload_pdf(self, client):
-        data = {
-            "file": (io.BytesIO(b"%PDF-1.4 fake"), "doc.pdf", "application/pdf")
-        }
+        data = {"file": (io.BytesIO(b"%PDF-1.4 fake"), "doc.pdf", "application/pdf")}
         resp = client.post(
             "/api/attachments",
             data=data,
@@ -69,9 +68,7 @@ class TestAttachmentUpload:
         assert body["mime_type"] == "application/pdf"
 
     def test_upload_text(self, client):
-        data = {
-            "file": (io.BytesIO(b"hello world"), "notes.txt", "text/plain")
-        }
+        data = {"file": (io.BytesIO(b"hello world"), "notes.txt", "text/plain")}
         resp = client.post(
             "/api/attachments",
             data=data,
@@ -109,6 +106,7 @@ class TestAttachmentUpload:
         assert resp.status_code == 201
         body = resp.get_json()
         import hashlib
+
         expected = hashlib.sha256(content).hexdigest()
         assert body["checksum"] == expected
 
@@ -302,3 +300,217 @@ class TestAttachmentWorkflow:
         assert client.get(f"/api/attachments/{ids[0]}").status_code == 200
         assert client.get(f"/api/attachments/{ids[1]}").status_code == 404
         assert client.get(f"/api/attachments/{ids[2]}").status_code == 200
+
+
+TIMESTAMP = "2026-07-07T12:00:00Z"
+
+
+class TestAttachmentConversationLifecycle:
+    """Phase 5 + Phase 6: populate references + cleanup on conversation delete."""
+
+    def _upload(self, client, content: bytes, filename: str, mime: str) -> str:
+        data = {"file": (io.BytesIO(content), filename, mime)}
+        resp = client.post(
+            "/api/attachments",
+            data=data,
+            content_type="multipart/form-data",
+        )
+        assert resp.status_code == 201
+        return resp.get_json()["id"]
+
+    def _create_conv(self, client, messages: list[dict]) -> dict:
+        for msg in messages:
+            msg.setdefault("timestamp", TIMESTAMP)
+        resp = client.post(
+            "/api/conversations",
+            data=json.dumps(
+                {
+                    "mode": "chat",
+                    "title": "Attachment lifecycle test",
+                    "messages": messages,
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 201, f"Create failed: {resp.get_json()}"
+        return resp.get_json()
+
+    def _get_conv(self, client, conv_id: str) -> dict:
+        resp = client.get(f"/api/conversations/{conv_id}")
+        assert resp.status_code == 200
+        return resp.get_json()
+
+    def test_create_conversation_populates_attachment_refs(self, client):
+        img_id = self._upload(client, PNG_HEADER + b"img", "photo.png", "image/png")
+        pdf_id = self._upload(client, b"%PDF-data", "doc.pdf", "application/pdf")
+
+        conv = self._create_conv(
+            client,
+            [
+                {
+                    "role": "user",
+                    "content": "Check these files",
+                    "attachments": [
+                        {
+                            "id": img_id,
+                            "filename": "photo.png",
+                            "mime_type": "image/png",
+                            "size": 7,
+                        },
+                        {
+                            "id": pdf_id,
+                            "filename": "doc.pdf",
+                            "mime_type": "application/pdf",
+                            "size": 9,
+                        },
+                    ],
+                },
+            ],
+        )
+        conv_id = conv["id"]
+        msg_id = conv["messages"][0]["id"]
+
+        # Verify metadata was populated
+        meta_resp = client.get(f"/api/attachments/{img_id}/metadata")
+        assert meta_resp.status_code == 200
+        meta = meta_resp.get_json()
+        assert meta.get("metadata", {}).get("conversation_id") == conv_id
+        assert meta.get("metadata", {}).get("message_id") == msg_id
+
+        meta_resp2 = client.get(f"/api/attachments/{pdf_id}/metadata")
+        assert meta_resp2.status_code == 200
+        meta2 = meta_resp2.get_json()
+        assert meta2.get("metadata", {}).get("conversation_id") == conv_id
+        assert meta2.get("metadata", {}).get("message_id") == msg_id
+
+    def test_delete_conversation_removes_attachments(self, client):
+        img_id = self._upload(client, PNG_HEADER + b"del", "del.png", "image/png")
+        pdf_id = self._upload(client, b"%DEL-data", "del.pdf", "application/pdf")
+
+        conv = self._create_conv(
+            client,
+            [
+                {
+                    "role": "user",
+                    "content": "Delete test",
+                    "attachments": [
+                        {
+                            "id": img_id,
+                            "filename": "del.png",
+                            "mime_type": "image/png",
+                            "size": 7,
+                        },
+                        {
+                            "id": pdf_id,
+                            "filename": "del.pdf",
+                            "mime_type": "application/pdf",
+                            "size": 9,
+                        },
+                    ],
+                },
+            ],
+        )
+        conv_id = conv["id"]
+
+        # Verify attachments exist before delete
+        assert client.get(f"/api/attachments/{img_id}").status_code == 200
+        assert client.get(f"/api/attachments/{pdf_id}").status_code == 200
+
+        # Delete the conversation
+        del_resp = client.delete(f"/api/conversations/{conv_id}")
+        assert del_resp.status_code == 204
+
+        # Verify attachments were also removed
+        assert client.get(f"/api/attachments/{img_id}").status_code == 404
+        assert client.get(f"/api/attachments/{pdf_id}").status_code == 404
+
+    def test_delete_conversation_without_attachments_succeeds(self, client):
+        conv = self._create_conv(
+            client,
+            [
+                {"role": "user", "content": "No attachments"},
+            ],
+        )
+        del_resp = client.delete(f"/api/conversations/{conv['id']}")
+        assert del_resp.status_code == 204
+
+    def test_delete_conversation_twice_idempotent(self, client):
+        conv = self._create_conv(
+            client,
+            [
+                {"role": "user", "content": "Idempotent test"},
+            ],
+        )
+        conv_id = conv["id"]
+        assert client.delete(f"/api/conversations/{conv_id}").status_code == 204
+        assert client.delete(f"/api/conversations/{conv_id}").status_code == 404
+
+    def test_attachment_not_referenced_by_deleted_message(self, client):
+        """Attachments in a deleted conversation should not be loadable after cleanup."""
+        att_id = self._upload(client, b"orphan-check", "orphan.txt", "text/plain")
+        conv = self._create_conv(
+            client,
+            [
+                {
+                    "role": "user",
+                    "content": "Orphan test",
+                    "attachments": [
+                        {
+                            "id": att_id,
+                            "filename": "orphan.txt",
+                            "mime_type": "text/plain",
+                            "size": 11,
+                        },
+                    ],
+                },
+            ],
+        )
+        conv_id = conv["id"]
+
+        # Verify attachment metadata has references
+        meta_resp = client.get(f"/api/attachments/{att_id}/metadata")
+        meta = meta_resp.get_json()
+        assert meta.get("metadata", {}).get("conversation_id") == conv_id
+
+        # Delete conversation
+        assert client.delete(f"/api/conversations/{conv_id}").status_code == 204
+
+        # Attachment should be gone
+        assert client.get(f"/api/attachments/{att_id}").status_code == 404
+        assert client.get(f"/api/attachments/{att_id}/metadata").status_code == 404
+
+    def test_conversation_with_same_attachment_multiple_messages(self, client):
+        """Deduplication: same attachment in multiple messages — only deleted once."""
+        att_id = self._upload(client, b"shared-att", "shared.txt", "text/plain")
+        conv = self._create_conv(
+            client,
+            [
+                {
+                    "role": "user",
+                    "content": "First message",
+                    "attachments": [
+                        {
+                            "id": att_id,
+                            "filename": "shared.txt",
+                            "mime_type": "text/plain",
+                            "size": 10,
+                        },
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": "Second message",
+                    "attachments": [
+                        {
+                            "id": att_id,
+                            "filename": "shared.txt",
+                            "mime_type": "text/plain",
+                            "size": 10,
+                        },
+                    ],
+                },
+            ],
+        )
+
+        assert client.delete(f"/api/conversations/{conv['id']}").status_code == 204
+        assert client.get(f"/api/attachments/{att_id}").status_code == 404

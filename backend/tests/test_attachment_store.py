@@ -90,8 +90,6 @@ class TestAttachmentStoreSave:
         assert loaded == large_data
 
 
-
-
 class TestAttachmentStoreLoad:
     def test_load_nonexistent_metadata_returns_none(self):
         store, _storage = _make_store()
@@ -253,3 +251,51 @@ class TestAttachmentStoreIsolation:
         store.save(att, b"original")
         store.save(att, b"updated")
         assert store.load_data(att.id) == b"updated"
+
+
+class TestAttachmentStoreUpdateMetadata:
+    def test_update_metadata_adds_keys(self):
+        store, _storage = _make_store()
+        att = _make_attachment()
+        store.save(att, b"data")
+        result = store.update_metadata(
+            att.id, {"conversation_id": "conv-1", "message_id": "msg-1"}
+        )
+        assert result is True
+        loaded = store.load_metadata(att.id)
+        assert loaded is not None
+        assert loaded.metadata == {"conversation_id": "conv-1", "message_id": "msg-1"}
+
+    def test_update_metadata_merges_with_existing(self):
+        store, _storage = _make_store()
+        att = _make_attachment({"metadata": {"width": 800}})
+        store.save(att, b"data")
+        store.update_metadata(att.id, {"conversation_id": "conv-1"})
+        loaded = store.load_metadata(att.id)
+        assert loaded is not None
+        assert loaded.metadata == {"width": 800, "conversation_id": "conv-1"}
+
+    def test_update_metadata_nonexistent_returns_false(self):
+        store, _storage = _make_store()
+        result = store.update_metadata("nonexistent", {"conversation_id": "x"})
+        assert result is False
+
+    def test_update_metadata_idempotent(self):
+        store, _storage = _make_store()
+        att = _make_attachment()
+        store.save(att, b"data")
+        store.update_metadata(att.id, {"conversation_id": "conv-1"})
+        store.update_metadata(att.id, {"conversation_id": "conv-1"})
+        loaded = store.load_metadata(att.id)
+        assert loaded is not None
+        assert loaded.metadata == {"conversation_id": "conv-1"}
+
+    def test_update_metadata_overwrites_key(self):
+        store, _storage = _make_store()
+        att = _make_attachment()
+        store.save(att, b"data")
+        store.update_metadata(att.id, {"conversation_id": "conv-1"})
+        store.update_metadata(att.id, {"conversation_id": "conv-2"})
+        loaded = store.load_metadata(att.id)
+        assert loaded is not None
+        assert loaded.metadata == {"conversation_id": "conv-2"}

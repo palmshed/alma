@@ -1,4 +1,4 @@
-import type { ApiThinkingResult, ConversationEntry, ConversationData, CreateConversationPayload, MessageData } from '../types';
+import type { ApiThinkingResult, AttachmentData, ConversationEntry, ConversationData, CreateConversationPayload, MessageData } from '../types';
 
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
@@ -94,6 +94,29 @@ export const api = {
       throw new Error(msg);
     }
     return res.blob();
+  },
+
+  async uploadAttachment(file: File): Promise<AttachmentData> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`${API_BASE}/api/attachments`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) {
+      const msg = (await res.json().catch(() => ({}))).error || res.statusText;
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+
+  async deleteAttachment(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/api/attachments/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!res.ok && res.status !== 404) {
+      throw new Error('Failed to delete attachment');
+    }
   },
 
   // ── Conversations ──

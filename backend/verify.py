@@ -592,6 +592,179 @@ def check_persistence() -> Dict[str, Any]:
     return result
 
 
+def check_attachments() -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "name": "attachments",
+        "label": "Attachment Lifecycle",
+        "group": "platform",
+        "status": "fail",
+    }
+    t0 = time.time()
+    try:
+        import uuid
+        from services import platform
+        from palmshed_ai.conversations import (
+            Attachment,
+            AttachmentStore,
+            Conversation,
+            Message,
+            ConversationStore,
+        )
+
+        att_store = AttachmentStore(storage=platform.storage)
+        conv_store = ConversationStore(
+            storage=platform.storage, owner_id="verify-attachments"
+        )
+
+        # 1. Upload image
+        png_data = b"\x89PNG\r\n\x1a\n" + b"fake-pixel-data"
+        img_att = Attachment(
+            id=str(uuid.uuid4()),
+            filename="verify.png",
+            mime_type="image/png",
+            size=len(png_data),
+            checksum="abc123",
+            storage_key=f"attachments/{uuid.uuid4()}.bin",
+            created_at="2026-07-07T12:00:00Z",
+        )
+        att_store.save(img_att, png_data)
+
+        # 2. Upload PDF
+        pdf_data = b"%PDF-1.4 fake document content"
+        pdf_att = Attachment(
+            id=str(uuid.uuid4()),
+            filename="verify.pdf",
+            mime_type="application/pdf",
+            size=len(pdf_data),
+            checksum="def456",
+            storage_key=f"attachments/{uuid.uuid4()}.bin",
+            created_at="2026-07-07T12:00:00Z",
+        )
+        att_store.save(pdf_att, pdf_data)
+
+        # 3. Create conversation with a message referencing both
+        msg = Message(
+            id=str(uuid.uuid4()),
+            role="user",
+            timestamp="2026-07-07T12:00:00Z",
+            content="Verify attachment lifecycle",
+            attachments=[
+                {
+                    "id": img_att.id,
+                    "filename": "verify.png",
+                    "mime_type": "image/png",
+                    "size": len(png_data),
+                },
+                {
+                    "id": pdf_att.id,
+                    "filename": "verify.pdf",
+                    "mime_type": "application/pdf",
+                    "size": len(pdf_data),
+                },
+            ],
+        )
+        conv_id = str(uuid.uuid4())
+        conv = Conversation(
+            id=conv_id,
+            title="Verify attachments",
+            mode="chat",
+            created_at="2026-07-07T12:00:00Z",
+            updated_at="2026-07-07T12:00:00Z",
+            messages=[msg],
+        )
+
+        # 4. Populate references and save
+        conv_store.create(conv)
+        for ref in msg.attachments:
+            att_store.update_metadata(
+                ref["id"],
+                {
+                    "conversation_id": conv_id,
+                    "message_id": msg.id,
+                },
+            )
+
+        # 5. Verify metadata populated
+        loaded_img = att_store.load_metadata(img_att.id)
+        if loaded_img is None:
+            result["error"] = "Image metadata not found after save"
+            return result
+        refs = loaded_img.metadata or {}
+        if refs.get("conversation_id") != conv_id:
+            result["error"] = (
+                f"Image conversation_id mismatch: "
+                f"{refs.get('conversation_id')} != {conv_id}"
+            )
+            return result
+        if refs.get("message_id") != msg.id:
+            result["error"] = (
+                f"Image message_id mismatch: {refs.get('message_id')} != {msg.id}"
+            )
+            return result
+
+        # 6. Reload conversation and verify attachments restored
+        loaded_conv = conv_store.load(conv_id)
+        if loaded_conv is None:
+            result["error"] = "Conversation not found after reload"
+            return result
+        if len(loaded_conv.messages) != 1:
+            result["error"] = f"Expected 1 message, got {len(loaded_conv.messages)}"
+            return result
+        loaded_msg = loaded_conv.messages[0]
+        if len(loaded_msg.attachments or []) != 2:
+            result["error"] = (
+                f"Expected 2 attachments, got {len(loaded_msg.attachments or [])}"
+            )
+            return result
+        loaded_ids = {a["id"] for a in loaded_msg.attachments}
+        if img_att.id not in loaded_ids or pdf_att.id not in loaded_ids:
+            result["error"] = "Attachment IDs mismatch after reload"
+            return result
+
+        # 7. Delete conversation — clean up attachments first
+        for att_ref in msg.attachments:
+            att_store.delete(att_ref["id"])
+        conv_store.delete(conv_id)
+
+        # 8. Verify attachments removed
+        if att_store.metadata_exists(img_att.id):
+            result["error"] = "Image metadata still exists after conversation delete"
+            return result
+        if att_store.binary_exists(img_att.id):
+            result["error"] = "Image binary still exists after conversation delete"
+            return result
+        if att_store.metadata_exists(pdf_att.id):
+            result["error"] = "PDF metadata still exists after conversation delete"
+            return result
+        if att_store.binary_exists(pdf_att.id):
+            result["error"] = "PDF binary still exists after conversation delete"
+            return result
+
+        # 9. Verify no orphaned files
+        remaining = att_store.list_ids()
+        if remaining:
+            result["error"] = f"Orphaned attachments remain after cleanup: {remaining}"
+            return result
+
+        elapsed = round(time.time() - t0, 1)
+        result["status"] = "pass"
+        result["latency"] = elapsed
+        result["details"] = {
+            "lifecycle": (
+                "upload image → upload PDF → create conversation → "
+                "populate references → reload → verify attachments restored → "
+                "delete conversation attachments → delete conversation → "
+                "verify cleanup → no orphans"
+            ),
+        }
+
+    except Exception as exc:
+        elapsed = round(time.time() - t0, 1)
+        result["latency"] = elapsed
+        result["error"] = str(exc)
+    return result
+
+
 def check_identity() -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "name": "identity",
@@ -771,6 +944,7 @@ PLATFORM_CHECKS: Dict[str, Any] = {
     "notifications": check_notifications,
     "persistence": check_persistence,
     "identity": check_identity,
+    "attachments": check_attachments,
 }
 
 APPLICATION_CHECKS: Dict[str, Any] = {
@@ -963,7 +1137,7 @@ def main() -> None:
     group.add_argument(
         "--platform",
         action="store_true",
-        help="Run only platform checks (mail, auth, storage, notifications)",
+        help="Run only platform checks (mail, auth, storage, notifications, persistence, identity, attachments)",
     )
     group.add_argument(
         "--application",

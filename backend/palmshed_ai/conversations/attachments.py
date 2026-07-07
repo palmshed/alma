@@ -59,9 +59,7 @@ class Attachment:
                 f"supported version {ATTACHMENT_SCHEMA_VERSION}. Upgrade required."
             )
         extra = {
-            k: copy.deepcopy(v)
-            for k, v in d.items()
-            if k not in _KNOWN_ATTACHMENT_KEYS
+            k: copy.deepcopy(v) for k, v in d.items() if k not in _KNOWN_ATTACHMENT_KEYS
         }
         return cls(
             id=d["id"],

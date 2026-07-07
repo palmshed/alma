@@ -12,6 +12,7 @@
   --text-muted: #71717a;
   --accent: #24d455;
   --accent-hover: #1fbf4a;
+  --danger: #e53e3e;
 
   /* Typography */
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -561,7 +562,7 @@ html {
 }
 
 .composer-btn--send.has-text:hover {
-  background: rgba(36, 212, 85, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .composer-loading-bar {
@@ -641,7 +642,7 @@ html {
 .segmented-control-btn.active {
   color: var(--accent);
   font-weight: 500;
-  background: rgba(36, 212, 85, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 .segmented-control-btn.active .segmented-control-icon {
@@ -688,7 +689,7 @@ html {
 .chip--selected {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(36, 212, 85, 0.08);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 /* ── Loading Dots ── */
@@ -833,7 +834,8 @@ html {
   transform: translate(-50%, -50%);
   background: var(--bg);
   border: 1px solid var(--border-subtle);
-  border-radius: 20px;
+  border-radius: var(--radius-card);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 24px 28px;
   z-index: 1001;
   min-width: 320px;
@@ -865,6 +867,16 @@ html {
   border: 1px solid var(--border-subtle);
 }
 
+.dialog-btn--confirm {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.dialog-btn--confirm:hover {
+  background: var(--accent-hover);
+}
+
 .sidebar-new-chat {
   width: 100%;
   padding: 10px 12px;
@@ -892,11 +904,11 @@ html {
 }
 
 .sidebar-conversation-item:hover {
-  background: var(--surface);
+  background: var(--surface-hover);
 }
 
 .sidebar-conversation-item--active {
-  background: var(--surface);
+  background: var(--surface-hover);
   outline: 1px solid var(--border);
 }
 
@@ -1055,7 +1067,7 @@ html {
   color: var(--danger, #e53e3e);
   padding: 8px 12px;
   text-align: center;
-  background: rgba(229, 62, 62, 0.1);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
   border-radius: 6px;
   margin: 4px 12px;
 }
@@ -1109,4 +1121,94 @@ html {
   background: var(--danger, #e53e3e);
   color: white;
   border-color: var(--danger, #e53e3e);
+}
+
+/* ── Composer Wrapper ── */
+
+.composer-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Pending Attachments (above composer) ── */
+
+.pending-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 24px 8px;
+}
+
+/* ── Attachment Chip ── */
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-chip);
+  padding: 3px 10px;
+  white-space: nowrap;
+  cursor: default;
+}
+
+a.attachment-chip {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.attachment-chip:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.attachment-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 1px;
+  margin-left: 2px;
+  border-radius: 4px;
+  line-height: 0;
+}
+
+.attachment-chip-remove:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+/* ── Message Attachments ── */
+
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 20px 4px 56px;
+}
+
+.attachment-image-link {
+  display: inline-block;
+  line-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  transition: opacity 0.15s;
+}
+
+.attachment-image-link:hover {
+  opacity: 0.85;
+}
+
+.attachment-image {
+  max-width: 240px;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
 }

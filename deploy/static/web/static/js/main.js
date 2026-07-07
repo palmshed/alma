@@ -73,6 +73,101 @@ function showSidebarError(msg) {
   setTimeout(function () { el.style.display = 'none'; }, 4000);
 }
 
+/* ── Attachment Handling ── */
+
+function uploadAttachment(file) {
+  return new Promise(function (resolve, reject) {
+    var formData = new FormData();
+    formData.append('file', file);
+    fetch('/api/attachments', {
+      method: 'POST',
+      body: formData,
+    }).then(function (r) {
+      if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || 'Upload failed'); });
+      return r.json();
+    }).then(resolve).catch(reject);
+  });
+}
+
+function deleteAttachment(id) {
+  return fetch('/api/attachments/' + encodeURIComponent(id), {
+    method: 'DELETE',
+  }).then(function (r) {
+    if (!r.ok && r.status !== 404) throw new Error('Failed to delete attachment');
+  });
+}
+
+function handleFilesSelected(fileList) {
+  var files = Array.from(fileList);
+  function uploadNext() {
+    if (files.length === 0) return;
+    var file = files.shift();
+    uploadAttachment(file).then(function (att) {
+      pendingAttachments.push(att);
+      renderPendingAttachments();
+      uploadNext();
+    }).catch(function (err) {
+      console.error('Upload failed:', file.name, err);
+      uploadNext();
+    });
+  }
+  uploadNext();
+}
+
+function renderPendingAttachments() {
+  var landingContainer = document.getElementById('landing-pending-attachments');
+  var convContainer = document.getElementById('conv-pending-attachments');
+  if (pendingAttachments.length === 0) {
+    if (landingContainer) landingContainer.style.display = 'none';
+    if (convContainer) convContainer.style.display = 'none';
+    return;
+  }
+  var html = '';
+  pendingAttachments.forEach(function (att) {
+    html += '<span class="attachment-chip">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">' +
+      '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>' +
+      escapeHtml(att.filename) +
+      '<button class="attachment-chip-remove" data-attachment-id="' + att.id + '" type="button" aria-label="Remove ' + escapeHtml(att.filename) + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="10" height="10">' +
+      '<path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button></span>';
+  });
+  if (landingContainer) { landingContainer.innerHTML = html; landingContainer.style.display = ''; }
+  if (convContainer) { convContainer.innerHTML = html; convContainer.style.display = ''; }
+
+  /* Wire remove buttons */
+  var removeBtns = (landingContainer || convContainer).querySelectorAll('.attachment-chip-remove');
+  removeBtns.forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var id = btn.getAttribute('data-attachment-id');
+      removePendingAttachment(id);
+    });
+  });
+}
+
+function removePendingAttachment(id) {
+  var att = null;
+  for (var i = 0; i < pendingAttachments.length; i++) {
+    if (pendingAttachments[i].id === id) {
+      att = pendingAttachments[i];
+      pendingAttachments.splice(i, 1);
+      break;
+    }
+  }
+  renderPendingAttachments();
+  if (att) {
+    deleteAttachment(att.id).catch(function (err) {
+      console.error('Failed to delete attachment:', err);
+    });
+  }
+}
+
+function clearPendingAttachments() {
+  pendingAttachments = [];
+  renderPendingAttachments();
+}
+
 /* ── API Calls ── */
 
 function handleSubmit() {
@@ -93,6 +188,11 @@ function handleSubmit() {
   input.style.height = 'auto';
   if (convInput) convInput.style.height = 'auto';
 
+  var attData = pendingAttachments.length > 0
+    ? pendingAttachments.map(function (a) { return { id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size }; })
+    : null;
+  clearPendingAttachments();
+
   const { mode, style } = getActiveMode();
   var modeStr = style === 'thinking' ? 'thinking' : style === 'url-context' ? 'web' : mode === 'image' ? 'images' : 'canvas';
 
@@ -109,7 +209,9 @@ function handleSubmit() {
   if (activeConversationId) {
     /* Existing conversation — add user message now */
     var payload = cloneConversation(activeConversationData);
-    payload.messages.push({ role: 'user', content: prompt, timestamp: new Date().toISOString() });
+    var userMsg = { role: 'user', content: prompt, timestamp: new Date().toISOString() };
+    if (attData) userMsg.attachments = attData;
+    payload.messages.push(userMsg);
     payload.metadata = payload.metadata || {};
     payload.metadata.status = 'pending';
     createPromise = fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
@@ -126,13 +228,15 @@ function handleSubmit() {
   } else {
     /* New conversation — create with user message */
     var title = prompt.slice(0, 60);
+    var userMsg = { role: 'user', content: prompt, timestamp: new Date().toISOString() };
+    if (attData) userMsg.attachments = attData;
     createPromise = fetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: title,
         mode: modeStr,
-        messages: [{ role: 'user', content: prompt, timestamp: new Date().toISOString() }],
+        messages: [userMsg],
         metadata: { status: 'pending' },
       }),
     }).then(function (r) {
@@ -276,6 +380,7 @@ function hideNewChatDialog() {
 function confirmNewChat() {
   hideNewChatDialog();
   clearResults();
+  clearPendingAttachments();
   setActiveConversationId(null);
   activeConversationData = null;
   switchToLanding();
@@ -295,6 +400,7 @@ var sidebarEditingId = null;
 var sidebarEditTitle = '';
 var sidebarConfirmDeleteId = null;
 var sidebarSearchQuery = '';
+var pendingAttachments = [];
 
 function setActiveConversationId(id) {
   activeConversationId = id;
@@ -628,6 +734,25 @@ function renderConversation() {
   msgs.forEach(function (m) {
     if (m.role === 'user') {
       html += '<div class="user-message">' + escapeHtml(m.content) + '</div>';
+      if (m.attachments && m.attachments.length > 0) {
+        html += '<div class="message-attachments">';
+        for (var ai = 0; ai < m.attachments.length; ai++) {
+          var att = m.attachments[ai];
+          var isImage = att.mime_type && att.mime_type.indexOf('image/') === 0;
+          var attId = encodeURIComponent(att.id || '');
+          var fname = escapeHtml(att.filename || 'file');
+          if (isImage) {
+            html += '<a href="/api/attachments/' + attId + '" target="_blank" rel="noopener noreferrer" class="attachment-image-link">' +
+              '<img src="/api/attachments/' + attId + '" alt="' + fname + '" class="attachment-image" loading="lazy"></a>';
+          } else {
+            html += '<a href="/api/attachments/' + attId + '" target="_blank" rel="noopener noreferrer" class="attachment-chip" download="' + fname + '">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12">' +
+              '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" /></svg>' +
+              fname + '</a>';
+          }
+        }
+        html += '</div>';
+      }
     } else if (m.role === 'assistant') {
       if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
@@ -747,7 +872,32 @@ document.addEventListener('DOMContentLoaded', function () {
   const convInput = document.getElementById('conversation-input');
   const convSubmit = document.getElementById('conversation-submit');
 
-  /* Segmented control clicks */
+  /* ── Attachment file input ── */
+  var fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.multiple = true;
+  fileInput.accept = 'image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain,text/markdown';
+  fileInput.style.display = 'none';
+  fileInput.id = 'attachment-file-input';
+  fileInput.addEventListener('change', function (e) {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesSelected(e.target.files);
+    }
+    e.target.value = '';
+  });
+  document.body.appendChild(fileInput);
+
+  function triggerFileInput() {
+    fileInput.click();
+  }
+
+  /* Wire attach buttons */
+  var attachBtn = document.getElementById('attach-button');
+  if (attachBtn) attachBtn.addEventListener('click', triggerFileInput);
+  var convAttachBtn = document.getElementById('conv-attach-button');
+  if (convAttachBtn) convAttachBtn.addEventListener('click', triggerFileInput);
+
+  /* ── Segmented control clicks ── */
   document.querySelectorAll('.segmented-control-btn').forEach((btn) => {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.segmented-control-btn').forEach((b) => {

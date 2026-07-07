@@ -49,15 +49,13 @@ def upload_attachment():
         return jsonify({"error": "Empty file"}), 400
 
     if len(data) > MAX_UPLOAD_SIZE:
-        return jsonify({
-            "error": f"File too large ({len(data)} bytes); max is {MAX_UPLOAD_SIZE}"
-        }), 413
+        return jsonify(
+            {"error": f"File too large ({len(data)} bytes); max is {MAX_UPLOAD_SIZE}"}
+        ), 413
 
     mime_type = file.content_type or "application/octet-stream"
     if mime_type not in SUPPORTED_MIME_TYPES:
-        return jsonify({
-            "error": f"Unsupported file type: {mime_type}"
-        }), 415
+        return jsonify({"error": f"Unsupported file type: {mime_type}"}), 415
 
     checksum = hashlib.sha256(data).hexdigest()
     attachment_id = str(uuid.uuid4())
@@ -95,9 +93,7 @@ def download_attachment(attachment_id):
     )
 
 
-@attachments_bp.route(
-    "/api/attachments/<attachment_id>/metadata", methods=["GET"]
-)
+@attachments_bp.route("/api/attachments/<attachment_id>/metadata", methods=["GET"])
 def get_attachment_metadata(attachment_id):
     store = _get_store()
     attachment = store.load_metadata(attachment_id)

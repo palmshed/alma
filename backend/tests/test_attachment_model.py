@@ -77,13 +77,15 @@ class TestAttachmentSerialization:
         assert restored.metadata == {"width": 1920, "height": 1080}
 
     def test_round_trip_all_fields(self):
-        att = _make_attachment({
-            "filename": "report.pdf",
-            "mime_type": "application/pdf",
-            "size": 2048,
-            "checksum": "xyz789",
-            "metadata": {"page_count": 3},
-        })
+        att = _make_attachment(
+            {
+                "filename": "report.pdf",
+                "mime_type": "application/pdf",
+                "size": 2048,
+                "checksum": "xyz789",
+                "metadata": {"page_count": 3},
+            }
+        )
         d = att.to_dict()
         restored = Attachment.from_dict(d)
         assert restored.filename == "report.pdf"
@@ -118,7 +120,7 @@ class TestAttachmentSerialization:
             "checksum": "abc",
             "storage_key": "attachments/uuid.bin",
             "created_at": "2026-07-06T12:00:00Z",
-            "filename": "overridden.txt",
+            "filename": "overridden.txt",  # noqa: F601
         }
         # the second "filename" overrides the first; that's dict behavior
         att = Attachment.from_dict(raw)

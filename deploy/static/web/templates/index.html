@@ -97,6 +97,7 @@ SPDX-License-Identifier: MIT
                     </div>
                     <div class="composer-loading-bar" id="landing-loading-bar" style="display:none"></div>
                 </div>
+                <div class="pending-attachments" id="landing-pending-attachments" style="display:none"></div>
 
                 <div class="landing-suggestions" id="input-suggestions">
                     <button class="chip tab-canvas" data-text="Summarize this article">Summarize this article</button>
@@ -190,8 +191,14 @@ SPDX-License-Identifier: MIT
         </div>
 
         <div class="conversation-composer">
+            <div class="pending-attachments" id="conv-pending-attachments" style="display:none"></div>
             <div class="composer">
                 <div class="composer-input-row">
+                    <button class="composer-btn composer-btn--attach" id="conv-attach-button" type="button" aria-label="Attach file">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                        </svg>
+                    </button>
                     <textarea class="composer-textarea" id="conversation-input" placeholder="Ask anything..." rows="1"></textarea>
                     <div class="composer-actions">
                         <button class="composer-btn composer-btn--send" id="conversation-submit" type="submit" aria-label="Send message">
