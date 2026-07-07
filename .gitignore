@@ -60,4 +60,10 @@ backend/verify-output/
 # macOS packaging output
 output/
 
+# Build-time Python virtualenv for DS_Store generation
+.build-dsstore/
+
+# Generated intermediate: 1024px render of canonical logo.svg, consumed by sips
+frontend/public/logo-1024.png
+
 .env*

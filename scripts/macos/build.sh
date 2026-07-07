@@ -46,6 +46,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <string>$VERSION</string>
     <key>CFBundleVersion</key>
     <string>$VERSION</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>15.0</string>
     <key>NSHighResolutionCapable</key>
@@ -55,12 +57,29 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 EOF
 
 if [ -d "Sources/Alma/Assets.xcassets" ]; then
+    ACTOOL_OUTPUT="$OUTPUT_DIR/.actool-output"
+    mkdir -p "$ACTOOL_OUTPUT"
     xcrun actool "Sources/Alma/Assets.xcassets" \
-        --compile "$APP_BUNDLE/Contents/Resources" \
+        --compile "$ACTOOL_OUTPUT" \
         --platform macosx \
         --minimum-deployment-target 15.0 \
+        --app-icon AppIcon \
+        --output-partial-info-plist "$ACTOOL_OUTPUT/partial.plist" \
         --output-format human-readable-text \
-        2>&1 | grep -v "^/* com\.apple\.actool"
+        2>&1 | grep -v "^/* com\.apple\.actool" || true
+    # Move the compiled assets into the app bundle
+    if [ -f "$ACTOOL_OUTPUT/Assets.car" ]; then
+        cp "$ACTOOL_OUTPUT/Assets.car" "$APP_BUNDLE/Contents/Resources/Assets.car"
+        echo "  Assets.car: compiled"
+    fi
+    # If actool generated an AppIcon.icns, use it for the app and DMG
+    if [ -f "$ACTOOL_OUTPUT/AppIcon.icns" ]; then
+        cp "$ACTOOL_OUTPUT/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+        echo "  AppIcon.icns: bundled"
+        cp "$ACTOOL_OUTPUT/AppIcon.icns" "$OUTPUT_DIR/Alma.icns"
+        echo "  ICNS: $OUTPUT_DIR/Alma.icns (for DMG volume)"
+    fi
+    rm -rf "$ACTOOL_OUTPUT"
 fi
 
 # Re-sign with a fresh ad-hoc signature. swift build's default ad-hoc

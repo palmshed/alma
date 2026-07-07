@@ -4,6 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 OUTPUT_DIR="$PROJECT_ROOT/output"
 APP_BUNDLE="$OUTPUT_DIR/Alma.app"
+DMG_RESOURCES="$(dirname "$0")/dmg-resources"
 
 if [ ! -d "$APP_BUNDLE" ]; then
     echo "Error: Alma.app not found at $APP_BUNDLE"
@@ -18,21 +19,68 @@ fi
 
 echo "=== Packaging Alma-$VERSION.dmg ==="
 
-STAGING_DIR=$(mktemp -d)
-trap 'rm -rf "$STAGING_DIR"' EXIT
+PYENV_ROOT="$PROJECT_ROOT/.build-dsstore"
+if [ ! -d "$PYENV_ROOT" ]; then
+    python3 -m venv "$PYENV_ROOT"
+    "$PYENV_ROOT/bin/pip" install ds_store mac_alias -q 2>/dev/null
+fi
 
+STAGING_DIR="$OUTPUT_DIR/.staging-$$"
+RW_IMAGE="$OUTPUT_DIR/.Alma-$VERSION-rw.dmg"
+DMG_PATH="$OUTPUT_DIR/Alma-$VERSION.dmg"
+VOLUME_NAME="Alma"
+trap 'rm -rf "$STAGING_DIR" "$RW_IMAGE"' EXIT
+
+# Stage the bundle, Applications symlink, and DMG resources
+mkdir -p "$STAGING_DIR"
 cp -R "$APP_BUNDLE" "$STAGING_DIR/Alma.app"
 ln -s /Applications "$STAGING_DIR/Applications"
 
-DMG_PATH="$OUTPUT_DIR/Alma-$VERSION.dmg"
-rm -f "$DMG_PATH"
+if [ -f "$DMG_RESOURCES/background.png" ]; then
+    cp "$DMG_RESOURCES/background.png" "$STAGING_DIR/background.png"
+    echo "  Background: staged"
+fi
 
+# Generate a pristine .DS_Store that includes background image bookmark,
+# window settings, and icon positions — no AppleScript required.
+"$PYENV_ROOT/bin/python3" "$DMG_RESOURCES/../generate-dsstore.py" "$STAGING_DIR"
+echo "  .DS_Store: generated"
+
+if [ -f "$STAGING_DIR/background.png" ]; then
+    SetFile -a V "$STAGING_DIR/background.png" 2>/dev/null || true
+fi
+
+# Step 1: Read-write DMG from staging
+rm -f "$RW_IMAGE"
 hdiutil create \
-    -volname "Alma $VERSION" \
+    -volname "$VOLUME_NAME" \
     -srcfolder "$STAGING_DIR" \
     -ov \
+    -format UDRW \
+    "$RW_IMAGE" \
+    2>/dev/null
+
+# Step 2: Mount to embed volume icon
+MOUNT_POINT="/Volumes/$VOLUME_NAME"
+if [ -d "$MOUNT_POINT" ]; then
+    hdiutil detach "$MOUNT_POINT" -force 2>/dev/null || true
+    sleep 1
+fi
+if hdiutil attach "$RW_IMAGE" -mountpoint "$MOUNT_POINT" 2>/dev/null; then
+    if [ -f "$OUTPUT_DIR/Alma.icns" ]; then
+        cp "$OUTPUT_DIR/Alma.icns" "$MOUNT_POINT/.VolumeIcon.icns"
+        SetFile -a C "$MOUNT_POINT" 2>/dev/null || true
+        echo "  Volume icon: embedded"
+    fi
+    hdiutil detach "$MOUNT_POINT" 2>/dev/null || true
+fi
+rm -rf "$MOUNT_POINT"
+
+# Step 3: Convert to compressed UDZO
+rm -f "$DMG_PATH"
+hdiutil convert "$RW_IMAGE" \
     -format UDZO \
-    "$DMG_PATH" \
+    -o "$DMG_PATH" \
     2>/dev/null
 
 echo "=== Alma.dmg packaged at $DMG_PATH ==="
