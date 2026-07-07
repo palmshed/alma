@@ -23,6 +23,14 @@ PYENV_ROOT="$PROJECT_ROOT/.build-dsstore"
 if [ ! -d "$PYENV_ROOT" ]; then
     python3 -m venv "$PYENV_ROOT"
     "$PYENV_ROOT/bin/pip" install ds_store mac_alias -q 2>/dev/null
+    # Patch mac_alias to use 64-bit Q format for CNID path entries.
+    # APFS inode numbers exceed 32-bit range on macOS 15;
+    # the shipped v2.2.3 uses I (32-bit) and struct.pack fails.
+    ALIAS_PY="$PYENV_ROOT/lib/python*/site-packages/mac_alias/alias.py"
+    if grep -q '">%uI"' $ALIAS_PY 2>/dev/null; then
+        sed -i '' 's/">%uI"/">%uQ"/g; s/length \/\/ 4/length \/\/ 8/g' $ALIAS_PY
+        rm -rf "$PYENV_ROOT/lib/python*/site-packages/mac_alias/__pycache__"
+    fi
 fi
 
 STAGING_DIR="$OUTPUT_DIR/.staging-$$"
