@@ -94,6 +94,7 @@ public final class ConversationService {
     }
 
     public func send(text: String) async {
+        guard !isGenerating else { return }
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         guard var conversation = selectedConversation else { return }
 

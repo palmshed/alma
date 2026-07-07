@@ -458,6 +458,272 @@ private func makeService(defaults: UserDefaults) -> ConversationService {
         }
     }
 
+    @Test("happy path: select → send → messages appear → persisted")
+    func testWorkflowHappyPath() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"Hello back"}
+        """
+        let updatedConvJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-02T00:00:00Z","messages":[{"id":"m1","role":"user","timestamp":"2025-01-02T00:00:00Z","content":"Hello"},{"id":"m2","role":"assistant","timestamp":"2025-01-02T00:00:00Z","content":"Hello back"}]}
+        """
+
+        var callCount = 0
+        var putRequest: URLRequest?
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                if callCount == 3 { putRequest = request }
+                let data: Data
+                switch callCount {
+                case 1: data = Data(convJSON.utf8)
+                case 3: data = Data(updatedConvJSON.utf8)
+                default: data = Data(genJSON.utf8)
+                }
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+
+            var messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.isEmpty)
+
+            await service.send(text: "Hello")
+
+            #expect(service.isGenerating == false)
+            #expect(service.generationError == nil)
+
+            messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(messages[0].role == "user")
+            #expect(messages[0].content == "Hello")
+            #expect(messages[1].role == "assistant")
+            #expect(messages[1].content == "Hello back")
+
+            #expect(callCount == 3)
+            let put = try #require(putRequest)
+            #expect(put.httpMethod == "PUT")
+            #expect(put.url?.path == "/api/conversations/1")
+        }
+    }
+
+    @Test("generation failure: error shown, no persistence attempted")
+    func testWorkflowGenerationFailure() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                if callCount == 1 {
+                    let data = Data(convJSON.utf8)
+                    let response = try #require(HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "application/json"]
+                    ))
+                    return (response, data)
+                }
+                let data = Data(#"{"error":"Generation failed"}"#.utf8)
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 500, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+
+            #expect(service.generationError == nil)
+
+            await service.send(text: "Hello")
+
+            #expect(callCount == 2)
+            #expect(service.isGenerating == false)
+            let error = try #require(service.generationError)
+            #expect(error.contains("Generation failed"))
+
+            #expect(service.selectedConversation?.messages.count == 1)
+        }
+    }
+
+    @Test("persistence failure: messages survive, state usable")
+    func testWorkflowPersistenceFailure() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"I am here"}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                if callCount == 1 {
+                    let data = Data(convJSON.utf8)
+                    let response = try #require(HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "application/json"]
+                    ))
+                    return (response, data)
+                } else if callCount == 2 {
+                    let data = Data(genJSON.utf8)
+                    let response = try #require(HTTPURLResponse(
+                        url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "application/json"]
+                    ))
+                    return (response, data)
+                }
+                let data = Data(#"{"error":"Storage error"}"#.utf8)
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 500, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+
+            await service.send(text: "Hi")
+
+            #expect(callCount == 3)
+            #expect(service.isGenerating == false)
+            #expect(service.generationError == nil)
+
+            let messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(messages[0].content == "Hi")
+            #expect(messages[1].content == "I am here")
+        }
+    }
+
+    @Test("double-submit: isGenerating prevents concurrent send")
+    func testWorkflowDoubleSubmitPrevention() async throws {
+        let convJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","messages":[]}
+        """
+        let genJSON = """
+        {"response":"Hello back"}
+        """
+        let updatedConvJSON = """
+        {"id":"1","title":"Chat 1","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-02T00:00:00Z","messages":[{"id":"m1","role":"user","timestamp":"2025-01-02T00:00:00Z","content":"Hello"},{"id":"m2","role":"assistant","timestamp":"2025-01-02T00:00:00Z","content":"Hello back"}]}
+        """
+
+        let semaphore = DispatchSemaphore(value: 0)
+        var callCount = 0
+
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                if callCount == 2 {
+                    semaphore.wait()
+                }
+                let data: Data
+                if callCount == 1 {
+                    data = Data(convJSON.utf8)
+                } else if callCount == 3 {
+                    data = Data(updatedConvJSON.utf8)
+                } else {
+                    data = Data(genJSON.utf8)
+                }
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService()
+            await service.selectConversation("1")
+
+            Task { await service.send(text: "Hello") }
+
+            try await Task.sleep(nanoseconds: 100_000_000)
+
+            #expect(service.isGenerating == true)
+
+            await service.send(text: "World")
+
+            semaphore.signal()
+
+            try await Task.sleep(nanoseconds: 100_000_000)
+
+            #expect(callCount == 3)
+
+            let messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(messages[0].content == "Hello")
+            #expect(messages[1].content == "Hello back")
+            #expect(service.isGenerating == false)
+        }
+    }
+
+    @Test("app restart: restore conversation with persisted messages")
+    func testWorkflowRestoreWithMessages() async throws {
+        let savedId = "workflow-1"
+        let defaults = UserDefaults(suiteName: "test-workflow-restore-\(UUID().uuidString)")!
+        defaults.set(savedId, forKey: "selectedConversationId")
+
+        let listJSON = """
+        [{"id":"workflow-1","title":"Workflow Chat","mode":"chat","created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-02T00:00:00Z"}]
+        """
+        let convJSON = """
+        {"id":"workflow-1","title":"Workflow Chat","mode":"chat","schema_version":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-02T00:00:00Z","messages":[{"id":"m1","role":"user","timestamp":"2025-01-02T00:00:00Z","content":"Hello"},{"id":"m2","role":"assistant","timestamp":"2025-01-02T00:00:00Z","content":"Hello back"}]}
+        """
+
+        var callCount = 0
+        try await withMock(data: Data(), statusCode: 200) {
+            MockURLProtocol.requestHandler = { request in
+                callCount += 1
+                let data: Data
+                if callCount == 1 {
+                    data = Data(listJSON.utf8)
+                } else {
+                    data = Data(convJSON.utf8)
+                }
+                let response = try #require(HTTPURLResponse(
+                    url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1",
+                    headerFields: ["Content-Type": "application/json"]
+                ))
+                return (response, data)
+            }
+            defer { MockURLProtocol.requestHandler = nil }
+
+            let service = makeService(defaults: defaults)
+            await service.loadConversations()
+
+            #expect(service.selectedConversation?.id == "workflow-1")
+            #expect(service.selectedConversation?.title == "Workflow Chat")
+            #expect(service.selectedId == "workflow-1")
+
+            let messages = try #require(service.selectedConversation?.messages)
+            #expect(messages.count == 2)
+            #expect(messages[0].role == "user")
+            #expect(messages[0].content == "Hello")
+            #expect(messages[1].role == "assistant")
+            #expect(messages[1].content == "Hello back")
+
+            #expect(service.isLoading == false)
+            #expect(service.error == nil)
+            #expect(callCount == 2)
+        }
+    }
+
     @Test("error clears on next send")
     func testSendErrorClearsOnNextSend() async throws {
         let convJSON = """
