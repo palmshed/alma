@@ -63,9 +63,14 @@ if [ -d "Sources/Alma/Assets.xcassets" ]; then
         2>&1 | grep -v "^/* com\.apple\.actool"
 fi
 
-# Remove ad-hoc signature left by swift build. The signature metadata
-# says resources must be present, but our minimal Assets.xcassets may
-# produce no Assets.car, causing Gatekeeper to reject the bundle.
-codesign --remove-signature "$APP_BUNDLE/Contents/MacOS/Alma" 2>/dev/null || true
+# Re-sign with a fresh ad-hoc signature. swift build's default ad-hoc
+# signature claims resources must be present (files=13), but our
+# minimal Assets.xcassets may produce no Assets.car. macOS sees the
+# mismatch and reports the bundle as damaged.
+#
+# codesign -s - generates a clean ad-hoc signature that correctly
+# reports zero sealed resources, producing the expected
+# "unidentified developer" Gatekeeper flow instead.
+codesign -s - --force "$APP_BUNDLE" 2>/dev/null
 
 echo "=== Alma.app built at $APP_BUNDLE ==="
