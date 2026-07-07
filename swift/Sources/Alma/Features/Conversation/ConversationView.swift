@@ -2,10 +2,22 @@ import SwiftUI
 
 struct ConversationView: View {
     let service: ConversationService
+    @State private var text = ""
 
     var body: some View {
         if let conversation = service.selectedConversation {
-            messageList(conversation)
+            VStack(spacing: 0) {
+                messageList(conversation)
+                ComposerView(
+                    text: $text,
+                    onSend: {
+                        let textToSend = text
+                        text = ""
+                        Task { await service.send(text: textToSend) }
+                    },
+                    isGenerating: service.isGenerating
+                )
+            }
         } else {
             ContentUnavailableView(
                 "Select a conversation",
@@ -21,11 +33,29 @@ struct ConversationView: View {
                 ForEach(conversation.messages) { message in
                     MessageBubble(message: message)
                 }
+
+                if service.isGenerating {
+                    HStack {
+                        ProgressView()
+                            .padding(12)
+                        Spacer()
+                    }
+                }
+
+                if let error = service.generationError {
+                    HStack {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            .padding(12)
+                        Spacer()
+                    }
+                }
             }
             .padding()
         }
         .overlay {
-            if conversation.messages.isEmpty {
+            if conversation.messages.isEmpty && !service.isGenerating {
                 ContentUnavailableView(
                     "Start a conversation",
                     systemImage: "message",
@@ -42,26 +72,27 @@ struct MessageBubble: View {
     var body: some View {
         HStack {
             if message.role == "user" {
-                Spacer()
+                Spacer(minLength: 60)
             }
 
-            Group {
-                if message.role == "user" {
-                    Text(message.content)
-                        .padding(12)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                } else {
-                    Text(message.content)
-                        .padding(12)
-                        .background(.fill.tertiary)
-                        .foregroundStyle(.primary)
-                }
+            if message.role == "user" {
+                Text(message.content)
+                    .padding(12)
+                    .background(Color.accentColor)
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .textSelection(.enabled)
+            } else {
+                Text(message.content)
+                    .padding(12)
+                    .background(.fill.tertiary)
+                    .foregroundStyle(.primary)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .textSelection(.enabled)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
 
             if message.role != "user" {
-                Spacer()
+                Spacer(minLength: 60)
             }
         }
     }

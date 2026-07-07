@@ -6,6 +6,9 @@ struct AlmaApp: App {
     @State private var service = ConversationService(
         api: ConversationAPI(
             client: APIClient(baseURL: URL(string: "http://localhost:8080")!)
+        ),
+        generationAPI: GenerationAPI(
+            client: APIClient(baseURL: URL(string: "http://localhost:8080")!)
         )
     )
 

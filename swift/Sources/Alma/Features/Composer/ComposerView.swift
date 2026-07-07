@@ -3,6 +3,7 @@ import SwiftUI
 struct ComposerView: View {
     @Binding var text: String
     let onSend: () -> Void
+    var isGenerating = false
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 8) {
@@ -28,6 +29,7 @@ struct ComposerView: View {
         TextField("Message Alma…", text: $text, axis: .vertical)
             .textFieldStyle(.plain)
             .lineLimit(1...6)
+            .disabled(isGenerating)
     }
 
     private var sendButton: some View {
@@ -36,7 +38,7 @@ struct ComposerView: View {
                 .font(.title2)
         }
         .buttonStyle(.plain)
-        .disabled(text.trimmingCharacters(in: .whitespaces).isEmpty)
+        .disabled(isGenerating || text.trimmingCharacters(in: .whitespaces).isEmpty)
         .keyboardShortcut(.return, modifiers: [])
     }
 }
