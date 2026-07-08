@@ -3,6 +3,18 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var service: ConversationService
     @State private var searchText = ""
+    @State private var renameId: String?
+    @State private var renameText = ""
+    @State private var deleteId: String?
+
+    private var filteredConversations: [ConversationIndexEntry] {
+        if searchText.isEmpty {
+            return service.conversations
+        }
+        return service.conversations.filter {
+            $0.title.localizedCaseInsensitiveContains(searchText)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -11,6 +23,45 @@ struct SidebarView: View {
             content
         }
         .frame(minWidth: 240, maxWidth: 300)
+        .alert("Rename Conversation", isPresented: renameAlertVisible) {
+            TextField("Title", text: $renameText)
+            Button("Rename") {
+                if let id = renameId {
+                    Task { await service.renameConversation(id, to: renameText) }
+                }
+                renameId = nil
+            }
+            Button("Cancel", role: .cancel) {
+                renameId = nil
+            }
+        }
+        .alert("Delete Conversation", isPresented: deleteAlertVisible) {
+            Button("Delete", role: .destructive) {
+                if let id = deleteId {
+                    Task { await service.deleteConversation(id) }
+                }
+                deleteId = nil
+            }
+            Button("Cancel", role: .cancel) {
+                deleteId = nil
+            }
+        } message: {
+            Text("This cannot be undone.")
+        }
+    }
+
+    private var renameAlertVisible: Binding<Bool> {
+        Binding(
+            get: { renameId != nil },
+            set: { if !$0 { renameId = nil } }
+        )
+    }
+
+    private var deleteAlertVisible: Binding<Bool> {
+        Binding(
+            get: { deleteId != nil },
+            set: { if !$0 { deleteId = nil } }
+        )
     }
 
     @ViewBuilder
@@ -19,7 +70,7 @@ struct SidebarView: View {
             loadingView
         } else if let error = service.error, service.conversations.isEmpty {
             errorView(error)
-        } else if service.conversations.isEmpty {
+        } else if filteredConversations.isEmpty {
             emptyView
         } else {
             conversationList
@@ -58,7 +109,8 @@ struct SidebarView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
-        .padding(12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 
     private var searchBar: some View {
@@ -77,14 +129,28 @@ struct SidebarView: View {
 
     private var conversationList: some View {
         List(selection: $service.selectedId) {
-            ForEach(service.conversations) { item in
-                VStack(alignment: .leading, spacing: 2) {
+            ForEach(filteredConversations) { item in
+                VStack(alignment: .leading, spacing: 1) {
                     Text(item.title)
                         .lineLimit(1)
                         .font(.body)
+                    Text(relativeDate(item.updatedAt))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 4)
                 .tag(item.id as String?)
+                .contextMenu {
+                    Button("Rename…") {
+                        renameId = item.id
+                        renameText = item.title
+                    }
+                    Divider()
+                    Button("Delete", role: .destructive) {
+                        deleteId = item.id
+                    }
+                }
             }
         }
         .listStyle(.plain)
@@ -93,4 +159,23 @@ struct SidebarView: View {
             Task { await service.selectConversation(id) }
         }
     }
+}
+
+private func relativeDate(_ iso: String) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    if let date = formatter.date(from: iso) {
+        return format(date)
+    }
+    formatter.formatOptions = [.withInternetDateTime]
+    if let date = formatter.date(from: iso) {
+        return format(date)
+    }
+    return ""
+}
+
+private func format(_ date: Date) -> String {
+    let rel = RelativeDateTimeFormatter()
+    rel.unitsStyle = .abbreviated
+    return rel.localizedString(for: date, relativeTo: Date())
 }
