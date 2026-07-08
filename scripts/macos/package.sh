@@ -26,8 +26,10 @@ python3 -m venv "$PYENV_ROOT"
 # Patch mac_alias to use 64-bit Q format for CNID path entries.
 # APFS inode numbers exceed 32-bit range on macOS 15;
 # the shipped v2.2.3 uses I (32-bit) and struct.pack fails.
-ALIAS_PY="$PYENV_ROOT/lib/python*/site-packages/mac_alias/alias.py"
-sed -i '' 's/">%uI"/">%uQ"/g; s/length \/\/ 4/length \/\/ 8/g' $ALIAS_PY
+# Use Python to discover the installed path — avoids brittle globs
+# that break across Python versions or venv layouts.
+ALIAS_PY=$("$PYENV_ROOT/bin/python3" -c "import mac_alias, pathlib; print(pathlib.Path(mac_alias.__file__).resolve())")
+sed -i '' 's/">%uI"/">%uQ"/g; s/length \/\/ 4/length \/\/ 8/g' "$ALIAS_PY"
 
 STAGING_DIR="$OUTPUT_DIR/.staging-$$"
 RW_IMAGE="$OUTPUT_DIR/.Alma-$VERSION-rw.dmg"
