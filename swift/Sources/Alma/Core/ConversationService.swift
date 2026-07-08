@@ -93,6 +93,42 @@ public final class ConversationService {
         isLoading = false
     }
 
+    public func deleteConversation(_ id: String) async {
+        do {
+            try await api.delete(id: id)
+            conversations.removeAll { $0.id == id }
+            if selectedId == id {
+                selectedId = nil
+                selectedConversation = nil
+                savedConversationId = nil
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    public func renameConversation(_ id: String, to title: String) async {
+        guard let conversation = try? await api.get(id: id) else { return }
+        let update = Conversation(
+            id: id,
+            title: title,
+            mode: conversation.mode,
+            messages: conversation.messages,
+            titleIsManual: true
+        )
+        do {
+            let updated = try await api.update(id: id, update)
+            if let idx = conversations.firstIndex(where: { $0.id == id }) {
+                conversations[idx].title = updated.title
+            }
+            if selectedId == id {
+                selectedConversation?.title = updated.title
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
     public func send(text: String) async {
         guard !isGenerating else { return }
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -110,6 +146,8 @@ public final class ConversationService {
         conversation.messages.append(userMessage)
         selectedConversation = conversation
 
+        updateConversationTitle(with: text)
+
         do {
             let response = try await generationAPI.generate(messages: conversation.messages)
             let assistantMessage = ChatMessage(
@@ -121,11 +159,31 @@ public final class ConversationService {
             conversation.messages.append(assistantMessage)
             selectedConversation = conversation
 
-            try? await api.update(id: conversation.id, conversation)
+            if let updated = try? await api.update(id: conversation.id, conversation) {
+                applyServerTitle(updated.title)
+            }
         } catch {
             generationError = error.localizedDescription
         }
         isGenerating = false
+    }
+
+    private func updateConversationTitle(with text: String) {
+        guard let convId = selectedConversation?.id else { return }
+        guard let idx = conversations.firstIndex(where: { $0.id == convId }) else { return }
+        let current = conversations[idx].title
+        guard current.isEmpty || current == "New conversation" else { return }
+        let truncated = text.prefix(60) + (text.count > 60 ? "…" : "")
+        conversations[idx].title = String(truncated)
+        selectedConversation?.title = String(truncated)
+    }
+
+    private func applyServerTitle(_ title: String) {
+        guard !title.isEmpty else { return }
+        guard let convId = selectedConversation?.id else { return }
+        guard let idx = conversations.firstIndex(where: { $0.id == convId }) else { return }
+        conversations[idx].title = title
+        selectedConversation?.title = title
     }
 }
 
