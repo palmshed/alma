@@ -1,4 +1,5 @@
 import SwiftUI
+import MarkdownUI
 
 struct ConversationView: View {
     let service: ConversationService
@@ -8,6 +9,9 @@ struct ConversationView: View {
         if let conversation = service.selectedConversation {
             VStack(spacing: 0) {
                 messageList(conversation)
+                if let error = service.generationError {
+                    errorBanner(error)
+                }
                 ComposerView(
                     text: $text,
                     onSend: {
@@ -41,16 +45,6 @@ struct ConversationView: View {
                         Spacer()
                     }
                 }
-
-                if let error = service.generationError {
-                    HStack {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
-                            .padding(12)
-                        Spacer()
-                    }
-                }
             }
             .padding()
         }
@@ -64,36 +58,68 @@ struct ConversationView: View {
             }
         }
     }
+
+    private func errorBanner(_ error: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.yellow)
+            Text(error)
+                .font(.callout)
+                .textSelection(.enabled)
+            Spacer()
+            Button {
+                service.generationError = nil
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(12)
+        .background(.fill.quaternary)
+        .padding(.horizontal)
+        .padding(.bottom, 8)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
 }
 
 struct MessageBubble: View {
     let message: ChatMessage
 
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 0) {
             if message.role == "user" {
                 Spacer(minLength: 60)
             }
 
-            if message.role == "user" {
-                Text(message.content)
-                    .padding(12)
-                    .background(Color.accentColor)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .textSelection(.enabled)
-            } else {
-                Text(message.content)
-                    .padding(12)
-                    .background(.fill.tertiary)
-                    .foregroundStyle(.primary)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .textSelection(.enabled)
-            }
+            content
+                .frame(maxWidth: 0.72, alignment: .leading)
 
             if message.role != "user" {
                 Spacer(minLength: 60)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if message.role == "user" {
+            Text(message.content)
+                .padding(12)
+                .background(Color.accentColor)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .textSelection(.enabled)
+        } else {
+            Markdown(message.content)
+                .markdownTheme(.basic)
+                .markdownTextStyle {
+                    FontSize(14)
+                }
+                .padding(16)
+                .background(.fill.tertiary)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .textSelection(.enabled)
         }
     }
 }

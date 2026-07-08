@@ -20,6 +20,14 @@ struct AlmaApp: App {
         }
         .windowStyle(.titleBar)
         .windowResizability(.contentSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("New Conversation") {
+                    Task { await service.createConversation() }
+                }
+                .keyboardShortcut("n", modifiers: .command)
+            }
+        }
 
         Settings {
             SettingsView(selectedTheme: $selectedTheme)
@@ -36,6 +44,7 @@ struct ContentView: View {
         } detail: {
             ConversationView(service: service)
         }
+        .navigationTitle(service.selectedConversation?.title ?? "Alma")
         .task {
             await service.loadConversations()
         }
