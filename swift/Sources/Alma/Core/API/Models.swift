@@ -2,7 +2,7 @@ import Foundation
 
 public struct ConversationIndexEntry: Codable, Identifiable, Equatable, Sendable {
     public let id: String
-    public let title: String
+    public var title: String
     public let mode: String
     public let createdAt: String
     public let updatedAt: String
@@ -10,7 +10,7 @@ public struct ConversationIndexEntry: Codable, Identifiable, Equatable, Sendable
 
 public struct Conversation: Codable, Identifiable, Equatable, Sendable {
     public let id: String
-    public let title: String
+    public var title: String
     public let mode: String
     public let schemaVersion: Int
     public let createdAt: String?
