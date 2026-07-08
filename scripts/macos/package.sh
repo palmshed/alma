@@ -29,8 +29,12 @@ python3 -m venv "$PYENV_ROOT"
 # Use Python to discover and patch the installed path — avoids
 # brittle globs across Python releases and shell escaping issues.
 "$PYENV_ROOT/bin/python3" -c "
-import mac_alias, pathlib
+import mac_alias, pathlib, shutil
 pkg_dir = pathlib.Path(mac_alias.__file__).resolve().parent
+# Wipe any compiled bytecode so Python recompiles from patched source
+for cache in pkg_dir.glob('__pycache__'):
+    shutil.rmtree(cache)
+    print(f'  Cleared cache: {cache}')
 patched = 0
 for f in pkg_dir.glob('*.py'):
     content = f.read_text()
