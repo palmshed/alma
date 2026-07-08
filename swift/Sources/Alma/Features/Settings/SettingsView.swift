@@ -5,23 +5,11 @@ struct SettingsView: View {
 
     var body: some View {
         TabView {
-            generalTab
             appearanceTab
             shortcutsTab
         }
         .scenePadding()
         .frame(width: 450, height: 300)
-    }
-
-    private var generalTab: some View {
-        Form {
-            TextField("Server URL", text: .constant("http://localhost:5000"))
-                .textFieldStyle(.roundedBorder)
-        }
-        .formStyle(.grouped)
-        .tabItem {
-            Label("General", systemImage: "gearshape")
-        }
     }
 
     private var appearanceTab: some View {
