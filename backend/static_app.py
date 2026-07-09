@@ -52,6 +52,7 @@ def create_static_app():
             if os.path.isfile(filepath):
                 return send_file(filepath)
             abort(404)
+
         return handler
 
     for route, filename in PAGE_ROUTES.items():
