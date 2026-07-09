@@ -6,7 +6,7 @@
 
 __version__ = "0.2.0"
 
-from flask import Flask, send_file, request
+from flask import Flask, send_file, request, abort
 from .sdk import GeminiAI
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -66,6 +66,26 @@ def create_app():
 
     # Apply rate limiting to API routes
     limiter.limit("100/hour")(api_bp)
+
+    PAGES_DIR = os.path.join(app.template_folder, "pages")
+
+    PAGE_ROUTES = {
+        "/terms": "terms.html",
+        "/privacy": "privacy.html",
+        "/contact": "contact.html",
+        "/help": "help.html",
+    }
+
+    def _serve_page(filepath):
+        def handler():
+            if os.path.isfile(filepath):
+                return send_file(filepath)
+            abort(404)
+        return handler
+
+    for route, filename in PAGE_ROUTES.items():
+        page_path = os.path.join(PAGES_DIR, filename)
+        app.add_url_rule(route, endpoint=filename, view_func=_serve_page(page_path))
 
     # Serve React build for root route
     @app.route("/")
