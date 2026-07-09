@@ -4,7 +4,8 @@
 # Static web interface Flask application for Alma.
 # Serves the original HTML/CSS/JS interface on port 5000.
 
-from flask import Flask, render_template
+import os
+from flask import Flask, render_template, send_file, abort
 from flask_cors import CORS
 from dotenv import load_dotenv
 
@@ -33,6 +34,30 @@ def create_static_app():
 
     app.register_blueprint(api_bp)
     app.register_blueprint(conversations_bp)
+
+    # Static pages (Terms, Privacy, Contact, Help)
+    PAGES_DIR = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "../deploy/static/web/pages")
+    )
+
+    PAGE_ROUTES = {
+        "/terms": "terms.html",
+        "/privacy": "privacy.html",
+        "/contact": "contact.html",
+        "/help": "help.html",
+    }
+
+    def _serve_page(filepath):
+        def handler():
+            if os.path.isfile(filepath):
+                return send_file(filepath)
+            abort(404)
+
+        return handler
+
+    for route, filename in PAGE_ROUTES.items():
+        page_path = os.path.join(PAGES_DIR, filename)
+        app.add_url_rule(route, endpoint=filename, view_func=_serve_page(page_path))
 
     # Override the index route to serve static interface
     @app.route("/")

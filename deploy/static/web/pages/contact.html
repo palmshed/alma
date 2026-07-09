@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact us</title>
+    <meta name="robots" content="noindex">
+    <link rel="icon" type="image/svg+xml" href="../static/img/logo.svg">
+    <link rel="alternate icon" href="../static/img/logo_rounded.png" sizes="32x32">
+    <link rel="stylesheet" href="../static/css/main.css">
+    <script>
+        if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light');
+        (function(){var c;try{c=localStorage.getItem('accent')}catch(e){}if(c){var p={color:c};var presets=[{color:'#24d455',hover:'#1fbf4a'},{color:'#3b82f6',hover:'#2563eb'},{color:'#8b5cf6',hover:'#7c3aed'},{color:'#f59e0b',hover:'#d97706'},{color:'#ec4899',hover:'#db2777'},{color:'#14b8a6',hover:'#0d9488'}];for(var i=0;i<presets.length;i++){if(presets[i].color===c){p=presets[i];break}}document.documentElement.style.setProperty('--accent',p.color);document.documentElement.style.setProperty('--accent-hover',p.hover)}})();
+    </script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="app-header-left">
+            <a href="/" class="btn btn--ghost app-header-logo-btn" aria-label="Back to Alma">
+                <svg class="app-header-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/>
+                    <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/>
+                    <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/>
+                    <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>
+                </svg>
+            </a>
+        </div>
+        <div class="app-header-right">
+            <button class="accent-picker-btn" id="accent-picker-btn" aria-label="Change accent color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <circle cx="13.5" cy="6.5" r="1.5" fill="#24d455" stroke="none"/>
+                    <circle cx="17.5" cy="10.5" r="1.5" fill="#3b82f6" stroke="none"/>
+                    <circle cx="8.5" cy="7.5" r="1.5" fill="#f59e0b" stroke="none"/>
+                    <circle cx="6.5" cy="12.5" r="1.5" fill="#ec4899" stroke="none"/>
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.4-.13-.73-.4-1-.27-.27-.4-.6-.4-1 0-.93.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.5-10-10-10z"/>
+                </svg>
+            </button>
+            <div class="accent-picker-popup" id="accent-picker-popup" style="display:none"></div>
+            <button class="btn btn--ghost app-header-btn" id="theme-toggle" aria-label="Toggle theme">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 2v2"/>
+                    <path d="M12 20v2"/>
+                    <path d="m4.93 4.93 1.41 1.41"/>
+                    <path d="m17.66 17.66 1.41 1.41"/>
+                    <path d="M2 12h2"/>
+                    <path d="M20 12h2"/>
+                    <path d="m6.34 17.66-1.41 1.41"/>
+                    <path d="m19.07 4.93-1.41 1.41"/>
+                </svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/>
+                </svg>
+            </button>
+            <a href="/" class="btn btn--ghost app-header-btn" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <path d="M18 6 6 18"/>
+                    <path d="m6 6 12 12"/>
+                </svg>
+            </a>
+        </div>
+    </header>
+    <script>
+        var t = document.getElementById('theme-toggle');
+        if (t) t.addEventListener('click', function () {
+            var cur = document.documentElement.getAttribute('data-theme');
+            if (cur === 'light') { document.documentElement.removeAttribute('data-theme'); localStorage.setItem('theme', 'dark'); }
+            else { document.documentElement.setAttribute('data-theme', 'light'); localStorage.setItem('theme', 'light'); }
+        });
+        var ACCENT_PRESETS=[{color:'#24d455',hover:'#1fbf4a'},{color:'#3b82f6',hover:'#2563eb'},{color:'#8b5cf6',hover:'#7c3aed'},{color:'#f59e0b',hover:'#d97706'},{color:'#ec4899',hover:'#db2777'},{color:'#14b8a6',hover:'#0d9488'},{color:'#9ca3af',hover:'#6b7280'}];
+        function setAccentColor(color){var p=null;for(var i=0;i<ACCENT_PRESETS.length;i++){if(ACCENT_PRESETS[i].color===color){p=ACCENT_PRESETS[i];break}}if(!p)p=ACCENT_PRESETS[0];document.documentElement.style.setProperty('--accent',p.color);document.documentElement.style.setProperty('--accent-hover',p.hover);try{localStorage.setItem('accent',p.color)}catch(e){}}
+        var ab=document.getElementById('accent-picker-btn');var ap=document.getElementById('accent-picker-popup');if(ab&&ap){var sh='',ca=null;try{ca=localStorage.getItem('accent')}catch(e){}ca=ca||'#24d455';for(var i=0;i<ACCENT_PRESETS.length;i++){var p=ACCENT_PRESETS[i],a=p.color===ca?' active':'';sh+='<button class="accent-swatch'+a+'" style="background:'+p.color+'" data-accent="'+p.color+'" aria-label="Set accent to '+p.color+'" type="button"></button>'}ap.innerHTML=sh;ab.addEventListener('click',function(e){e.stopPropagation();ap.style.display=ap.style.display==='none'?'flex':'none'});ap.addEventListener('click',function(e){var s=e.target.closest('.accent-swatch');if(!s)return;setAccentColor(s.getAttribute('data-accent'));ap.style.display='none';ap.querySelectorAll('.accent-swatch').forEach(function(s2){s2.classList.remove('active')});s.classList.add('active')});document.addEventListener('mousedown',function(e){if(ap.style.display==='none')return;if(!e.target.closest('#accent-picker-btn')&&!e.target.closest('#accent-picker-popup'))ap.style.display='none'})}
+    </script>
+    <main class="static-page">
+        <div class="static-page-content">
+            <h1>Contact Us</h1>
+            <p>Questions, feedback, or need help? Open a GitHub issue and we'll get back to you.</p>
+            <p><a href="https://github.com/palmshed/alma/issues/new?template=contact.md" class="btn btn--secondary" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Open an issue
+            </a></p>
+            <p style="margin-top:2rem;font-size:0.85rem;color:var(--text-muted)">Publisher: Palmshed</p>
+        </div>
+    </main>
+</body>
+</html>

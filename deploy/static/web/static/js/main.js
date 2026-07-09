@@ -1,6 +1,119 @@
 "use strict";
 marked.setOptions({ breaks: true, gfm: true });
 
+/* ── Mode Menu ── */
+
+var currentMode = 'canvas';
+var _skipInitSound = false;
+
+var MODE_ICONS = {
+  canvas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2l10 5-10 5L2 7Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
+  thinking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>',
+  web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
+  images: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>',
+};
+
+var MODE_LABELS = {
+  canvas: 'Canvas',
+  thinking: 'Thinking',
+  web: 'Web',
+  images: 'Images',
+};
+
+function setMode(value) {
+  currentMode = value;
+
+  document.querySelectorAll('.mode-menu-trigger').forEach(function (t) {
+    t.innerHTML = MODE_ICONS[value];
+    t.setAttribute('aria-label', 'Mode: ' + MODE_LABELS[value]);
+  });
+
+  document.querySelectorAll('.mode-menu-item').forEach(function (item) {
+    var isActive = item.dataset.mode === value;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
+
+  updateSuggestionsVisibility();
+  if (_skipInitSound) { _skipInitSound = false; } else { playNavSound(); }
+}
+
+/* ── Navigation sound ── */
+var _audioCtx = null;
+function playNavSound() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = _audioCtx.createOscillator();
+    var gain = _audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, _audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(640, _audioCtx.currentTime + 0.07);
+    gain.gain.setValueAtTime(0.06, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 0.12);
+  } catch (e) {}
+}
+
+var overflowParents = [];
+
+function findOverflowParent(el) {
+  while (el) {
+    var style = getComputedStyle(el);
+    if (style.overflow === 'hidden' || style.overflowX === 'hidden' || style.overflowY === 'hidden') {
+      return el;
+    }
+    el = el.parentElement;
+  }
+  return null;
+}
+
+function setOverflowVisible(menuEl, enable) {
+  if (enable) {
+    var parent = findOverflowParent(menuEl);
+    if (parent) {
+      overflowParents.push({ el: parent, overflow: parent.style.overflow || '' });
+      parent.style.overflow = 'visible';
+    }
+  } else {
+    overflowParents.forEach(function (entry) {
+      entry.el.style.overflow = entry.overflow;
+    });
+    overflowParents = [];
+  }
+}
+
+function setupModeMenu(menuId) {
+  var menu = document.getElementById(menuId);
+  if (!menu) return;
+  var trigger = menu.querySelector('.mode-menu-trigger');
+  var dropdown = menu.querySelector('.mode-menu-dropdown');
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var isOpen = dropdown.style.display !== 'none';
+    document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+    document.querySelectorAll('.mode-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+    setOverflowVisible(null, false);
+    if (!isOpen) {
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+      setOverflowVisible(menu, true);
+    }
+  });
+
+  menu.querySelectorAll('.mode-menu-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      setMode(item.dataset.mode);
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      setOverflowVisible(null, false);
+    });
+  });
+}
+
 /* ── Helpers ── */
 
 function getActiveInput() {
@@ -20,14 +133,6 @@ function getActiveSubmit() {
   return document.getElementById('conversation-submit');
 }
 
-function getActiveMode() {
-  const active = document.querySelector('.segmented-control-btn.active');
-  return {
-    mode: active ? active.dataset.mode : 'text',
-    style: active ? active.dataset.style : 'normal',
-  };
-}
-
 /* ── Results ── */
 
 function clearResults() {
@@ -36,30 +141,17 @@ function clearResults() {
   document.getElementById('image-container').style.display = 'none';
 }
 
-function showLoading() {
-  const btn = getActiveSubmit();
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<span class="composer-loading-dots"><span></span><span></span><span></span></span>';
-  }
-  document.getElementById('conversation-loading-bar').style.display = 'block';
-}
-
-function hideLoading() {
-  const btn = getActiveSubmit();
-  if (btn) {
-    btn.disabled = false;
-    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>';
-  }
-  document.getElementById('conversation-loading-bar').style.display = 'none';
-}
-
 function showError(msg) {
   var scroll = document.getElementById('conversation-scroll');
   var loading = scroll.querySelector('.loading-dots');
   if (loading) {
-    var container = loading.closest('.response-container');
-    container.innerHTML = '<em>Error: ' + msg + '</em>';
+    var container = loading.closest('.conversation-loading');
+    if (container) {
+      container.outerHTML = '<div class="response-container"><em>Error: ' + msg + '</em></div>';
+    } else {
+      container = loading.closest('.response-container');
+      if (container) container.innerHTML = '<em>Error: ' + msg + '</em>';
+    }
   } else {
     scroll.innerHTML = '<div class="response-container"><em>Error: ' + msg + '</em></div>';
   }
@@ -182,8 +274,6 @@ function handleSubmit() {
   if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.remove('has-text'); }
   var convSubmit = document.getElementById('conversation-submit');
   if (convSubmit) { convSubmit.disabled = true; convSubmit.classList.remove('has-text'); }
-  var clearBtn = document.getElementById('clear-button');
-  if (clearBtn) clearBtn.style.display = 'none';
   /* Reset textarea height */
   input.style.height = 'auto';
   if (convInput) convInput.style.height = 'auto';
@@ -193,17 +283,15 @@ function handleSubmit() {
     : null;
   clearPendingAttachments();
 
-  const { mode, style } = getActiveMode();
-  var modeStr = style === 'thinking' ? 'thinking' : style === 'url-context' ? 'web' : mode === 'image' ? 'images' : 'canvas';
+  var mode = currentMode;
 
-  lastPrompt = prompt;
   switchToConversation();
 
   clearResults();
 
   /* Show loading immediately */
   var scroll = document.getElementById('conversation-scroll');
-  scroll.innerHTML = '<div class="response-container"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>';
+  scroll.innerHTML = '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>';
 
   var createPromise;
   if (activeConversationId) {
@@ -235,7 +323,7 @@ function handleSubmit() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: title,
-        mode: modeStr,
+        mode: mode,
         messages: [userMsg],
         metadata: { status: 'pending' },
       }),
@@ -253,11 +341,12 @@ function handleSubmit() {
     renderConversation();
     /* Append loading indicator */
     var scroll = document.getElementById('conversation-scroll');
-    scroll.insertAdjacentHTML('beforeend', '<div class="response-container"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
-    if (mode === 'image') {
+    scroll.insertAdjacentHTML('beforeend', '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
+    if (currentMode === 'images') {
       handleImageGen(prompt);
     } else {
-      handleTextGen(prompt, style);
+      var genStyle = currentMode === 'thinking' ? 'thinking' : currentMode === 'web' ? 'url-context' : 'normal';
+      handleTextGen(prompt, genStyle);
     }
   }).catch(function (e) {
     showError(e.message);
@@ -377,6 +466,18 @@ function hideNewChatDialog() {
   document.getElementById('dialog-overlay').style.display = 'none';
 }
 
+/* ── Disclaimer Dialog ── */
+
+function showDisclaimerDialog() {
+  document.getElementById('disclaimer-dialog').style.display = '';
+  document.getElementById('disclaimer-overlay').style.display = '';
+}
+
+function hideDisclaimerDialog() {
+  document.getElementById('disclaimer-dialog').style.display = 'none';
+  document.getElementById('disclaimer-overlay').style.display = 'none';
+}
+
 function confirmNewChat() {
   hideNewChatDialog();
   clearResults();
@@ -394,7 +495,6 @@ function confirmNewChat() {
 
 var activeConversationId = null;
 var activeConversationData = null;
-var lastPrompt = '';
 var sidebarConversations = [];
 var sidebarEditingId = null;
 var sidebarEditTitle = '';
@@ -421,7 +521,32 @@ function formatDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+var ACCENT_PRESETS = [
+  { color: '#24d455', hover: '#1fbf4a' },
+  { color: '#3b82f6', hover: '#2563eb' },
+  { color: '#8b5cf6', hover: '#7c3aed' },
+  { color: '#f59e0b', hover: '#d97706' },
+  { color: '#ec4899', hover: '#db2777' },
+  { color: '#14b8a6', hover: '#0d9488' },
+  { color: '#9ca3af', hover: '#6b7280' },
+];
+
+function setAccentColor(color) {
+  var preset = null;
+  for (var i = 0; i < ACCENT_PRESETS.length; i++) {
+    if (ACCENT_PRESETS[i].color === color) { preset = ACCENT_PRESETS[i]; break; }
+  }
+  if (!preset) preset = ACCENT_PRESETS[0];
+  document.documentElement.style.setProperty('--accent', preset.color);
+  document.documentElement.style.setProperty('--accent-hover', preset.hover);
+  try { localStorage.setItem('accent', preset.color); } catch (e) {}
+}
+
+var _sidebarLoading = false;
+
 function fetchConversations() {
+  _sidebarLoading = true;
+  renderConversationList();
   fetch('/api/conversations')
     .then(function (r) {
       if (!r.ok) throw new Error('Failed to fetch conversations');
@@ -429,10 +554,12 @@ function fetchConversations() {
     })
     .then(function (list) {
       sidebarConversations = list || [];
+      _sidebarLoading = false;
       renderConversationList();
     })
     .catch(function () {
       sidebarConversations = [];
+      _sidebarLoading = false;
       renderConversationList();
     });
 }
@@ -454,9 +581,11 @@ function renderConversationList() {
   var list = document.getElementById('conversation-list');
   var empty = document.getElementById('sidebar-empty');
   var searchEmpty = document.getElementById('sidebar-search-empty');
+  var loading = document.getElementById('sidebar-loading');
   if (!list) return;
 
   list.innerHTML = '';
+  if (loading) loading.style.display = _sidebarLoading ? '' : 'none';
 
   var filtered = sidebarConversations;
   if (sidebarSearchQuery) {
@@ -542,6 +671,7 @@ function renderConversationList() {
         e.stopPropagation();
         sidebarConfirmDeleteId = conv.id;
         document.getElementById('sidebar-delete-dialog').style.display = '';
+        document.getElementById('sidebar-delete-overlay').style.display = '';
       });
       actions.appendChild(deleteBtn);
     }
@@ -572,17 +702,7 @@ function selectConversation(id) {
       renderConversation();
       /* Restore conversation mode */
       if (conv.mode) {
-        var modeMap = { canvas: 'text_normal', thinking: 'text_thinking', web: 'text_url-context', images: 'image_normal' };
-        var targetStyle = modeMap[conv.mode];
-        if (targetStyle) {
-          var parts = targetStyle.split('_');
-          document.querySelectorAll('.segmented-control-btn').forEach(function (b) {
-            var match = b.dataset.mode === parts[0] && b.dataset.style === parts[1];
-            b.classList.toggle('active', match);
-            b.setAttribute('aria-checked', match ? 'true' : 'false');
-          });
-          updateSuggestionsVisibility();
-        }
+        setMode(conv.mode);
       }
       switchToConversation();
       renderConversationList();
@@ -653,6 +773,7 @@ function confirmDeleteConversation() {
   }
   sidebarConfirmDeleteId = null;
   document.getElementById('sidebar-delete-dialog').style.display = 'none';
+  document.getElementById('sidebar-delete-overlay').style.display = 'none';
   renderConversationList();
 
   fetch('/api/conversations/' + encodeURIComponent(id), { method: 'DELETE' })
@@ -698,6 +819,7 @@ function confirmDeleteConversation() {
 function cancelDeleteConversation() {
   sidebarConfirmDeleteId = null;
   document.getElementById('sidebar-delete-dialog').style.display = 'none';
+  document.getElementById('sidebar-delete-overlay').style.display = 'none';
 }
 
 function cloneConversation(conv) {
@@ -849,16 +971,13 @@ function updateSuggestionsVisibility() {
   }
 
   suggestions.style.display = 'flex';
-  const active = document.querySelector('.segmented-control-btn.active');
-  const tabStyle = active ? active.dataset.style : 'normal';
-  const tabMode = active ? active.dataset.mode : 'text';
 
   document.querySelectorAll('.chip').forEach((c) => (c.style.display = 'none'));
 
   let selector = '.tab-canvas';
-  if (tabMode === 'image') selector = '.tab-image';
-  else if (tabStyle === 'thinking') selector = '.tab-thinking';
-  else if (tabStyle === 'url-context') selector = '.tab-url';
+  if (currentMode === 'images') selector = '.tab-image';
+  else if (currentMode === 'thinking') selector = '.tab-thinking';
+  else if (currentMode === 'web') selector = '.tab-url';
 
   document.querySelectorAll(selector).forEach((c) => (c.style.display = 'inline-block'));
 }
@@ -868,7 +987,6 @@ function updateSuggestionsVisibility() {
 document.addEventListener('DOMContentLoaded', function () {
   const input = getActiveInput();
   const submitBtn = document.getElementById('submit-button');
-  const clearBtn = document.getElementById('clear-button');
   const convInput = document.getElementById('conversation-input');
   const convSubmit = document.getElementById('conversation-submit');
 
@@ -897,17 +1015,19 @@ document.addEventListener('DOMContentLoaded', function () {
   var convAttachBtn = document.getElementById('conv-attach-button');
   if (convAttachBtn) convAttachBtn.addEventListener('click', triggerFileInput);
 
-  /* ── Segmented control clicks ── */
-  document.querySelectorAll('.segmented-control-btn').forEach((btn) => {
-    btn.addEventListener('click', function () {
-      document.querySelectorAll('.segmented-control-btn').forEach((b) => {
-        b.classList.remove('active');
-        b.setAttribute('aria-checked', 'false');
-      });
-      this.classList.add('active');
-      this.setAttribute('aria-checked', 'true');
-      updateSuggestionsVisibility();
-    });
+  /* ── Mode menu setup ── */
+  setupModeMenu('landing-mode-menu');
+  setupModeMenu('conv-mode-menu');
+  _skipInitSound = true;
+  setMode('canvas');
+
+  /* Outside click to close mode dropdowns */
+  document.addEventListener('mousedown', function (e) {
+    if (!e.target.closest('.mode-menu')) {
+      document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+      document.querySelectorAll('.mode-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+      setOverflowVisible(null, false);
+    }
   });
 
   /* Submit handlers */
@@ -918,7 +1038,6 @@ document.addEventListener('DOMContentLoaded', function () {
       if (val) submitBtn.classList.add('has-text');
       else submitBtn.classList.remove('has-text');
     }
-    if (clearBtn) clearBtn.style.display = val ? 'block' : 'none';
     updateSuggestionsVisibility();
     input.style.height = 'auto';
     input.style.height = Math.min(input.scrollHeight, 120) + 'px';
@@ -967,16 +1086,6 @@ document.addEventListener('DOMContentLoaded', function () {
   if (submitBtn) submitBtn.addEventListener('click', handleSubmit);
   if (convSubmit) convSubmit.addEventListener('click', handleSubmit);
 
-  if (clearBtn) {
-    clearBtn.addEventListener('click', function () {
-      input.value = '';
-      clearBtn.style.display = 'none';
-      if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.remove('has-text'); }
-      updateSuggestionsVisibility();
-      input.focus();
-    });
-  }
-
   /* Chip clicks */
   document.querySelectorAll('.chip').forEach((chip) => {
     chip.addEventListener('click', function () {
@@ -985,6 +1094,66 @@ document.addEventListener('DOMContentLoaded', function () {
       input.dispatchEvent(new Event('input'));
     });
   });
+
+  /* Accent color picker */
+  var savedAccent = null;
+  try { savedAccent = localStorage.getItem('accent'); } catch (e) {}
+  if (savedAccent) setAccentColor(savedAccent);
+
+  var accentBtn = document.getElementById('accent-picker-btn');
+  var accentPopup = document.getElementById('accent-picker-popup');
+  if (accentBtn && accentPopup) {
+    /* Render swatches */
+    var swatchHtml = '';
+    var currentAccent = savedAccent || '#24d455';
+    for (var ai = 0; ai < ACCENT_PRESETS.length; ai++) {
+      var p = ACCENT_PRESETS[ai];
+      var active = p.color === currentAccent ? ' active' : '';
+      swatchHtml += '<button class="accent-swatch' + active + '" style="background:' + p.color + '" data-accent="' + p.color + '" aria-label="Set accent to ' + p.color + '" type="button"></button>';
+    }
+    accentPopup.innerHTML = swatchHtml;
+
+    accentBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var isOpen = accentPopup.style.display !== 'none';
+      accentPopup.style.display = isOpen ? 'none' : 'flex';
+    });
+
+    accentPopup.addEventListener('click', function (e) {
+      var swatch = e.target.closest('.accent-swatch');
+      if (!swatch) return;
+      setAccentColor(swatch.getAttribute('data-accent'));
+      accentPopup.style.display = 'none';
+      /* Update active state */
+      accentPopup.querySelectorAll('.accent-swatch').forEach(function (s) { s.classList.remove('active'); });
+      swatch.classList.add('active');
+    });
+
+    /* Close on outside click */
+    document.addEventListener('mousedown', function (e) {
+      if (accentPopup.style.display === 'none') return;
+      if (!e.target.closest('#accent-picker-btn') && !e.target.closest('#accent-picker-popup')) {
+        accentPopup.style.display = 'none';
+      }
+    });
+  }
+
+  /* ── Rotating placeholder ── */
+  var PLACEHOLDERS = ['Ask anything...', 'Debug a bug...', 'Send a message...', 'Fix an issue...', 'Explore a topic...'];
+  var placeholderIdx = Math.floor(Math.random() * PLACEHOLDERS.length);
+  setInterval(function () {
+    var landingInput = document.getElementById('landing-input');
+    var convInput = document.getElementById('conversation-input');
+    [landingInput, convInput].forEach(function (el) {
+      if (el) el.classList.add('placeholder-hidden');
+    });
+    setTimeout(function () {
+      placeholderIdx = (placeholderIdx + 1) % PLACEHOLDERS.length;
+      var p = PLACEHOLDERS[placeholderIdx];
+      if (landingInput) { landingInput.placeholder = p; landingInput.classList.remove('placeholder-hidden'); }
+      if (convInput) { convInput.placeholder = p; convInput.classList.remove('placeholder-hidden'); }
+    }, 800);
+  }, 8000);
 
   /* Theme toggle */
   const themeToggle = document.getElementById('theme-toggle');
@@ -1007,7 +1176,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const menuToggle = document.getElementById('menu-toggle');
   const sidebar = document.getElementById('sidebar-menu');
   const overlay = document.getElementById('menu-overlay');
-  const close = document.getElementById('close-menu');
+  const close = document.getElementById('sidebar-close');
 
   function openMenu() {
     sidebar.classList.add('open');
@@ -1027,6 +1196,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var sc = document.getElementById('sidebar-search-clear');
     if (sc) { sc.style.display = 'none'; }
     document.getElementById('sidebar-delete-dialog').style.display = 'none';
+    document.getElementById('sidebar-delete-overlay').style.display = 'none';
     renderConversationList();
   }
 
@@ -1034,9 +1204,20 @@ document.addEventListener('DOMContentLoaded', function () {
   if (close) close.addEventListener('click', closeMenu);
   if (overlay) overlay.addEventListener('click', closeMenu);
 
+  /* Footer links toggle */
+  var footerToggle = document.getElementById('sidebar-footer-toggle');
+  var footerLinks = document.getElementById('sidebar-footer-links');
+  if (footerToggle && footerLinks) {
+    footerToggle.addEventListener('click', function () {
+      var isVisible = footerLinks.style.display !== 'none';
+      footerLinks.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
+
   /* Delete dialog buttons */
   document.getElementById('sidebar-delete-confirm').addEventListener('click', confirmDeleteConversation);
   document.getElementById('sidebar-delete-cancel').addEventListener('click', cancelDeleteConversation);
+  document.getElementById('sidebar-delete-overlay').addEventListener('click', cancelDeleteConversation);
 
   /* Search */
   var searchInput = document.getElementById('sidebar-search-input');
@@ -1120,6 +1301,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+      e.preventDefault();
+      showDisclaimerDialog();
+    }
+  });
+
+  /* Disclaimer dialog */
+  const disclaimerClose = document.getElementById('disclaimer-close');
+  const disclaimerOverlay = document.getElementById('disclaimer-overlay');
+  const disclaimerHint = document.getElementById('landing-footer-hint');
+  if (disclaimerClose) disclaimerClose.addEventListener('click', hideDisclaimerDialog);
+  if (disclaimerOverlay) disclaimerOverlay.addEventListener('click', hideDisclaimerDialog);
+  if (disclaimerHint) disclaimerHint.addEventListener('click', showDisclaimerDialog);
+
+  /* Update footer hint visibility on layout change */
+  function updateFooterHint() {
+    var hint = document.getElementById('landing-footer-hint');
+    var landing = document.getElementById('landing');
+    if (hint && landing) {
+      hint.style.display = landing.style.display !== 'none' ? '' : 'none';
+    }
+  }
+  updateFooterHint();
+  /* Override switchToLanding/switchToConversation to update hint */
+  var _origSwitchToLanding = switchToLanding;
+  var _origSwitchToConversation = switchToConversation;
+  switchToLanding = function () { _origSwitchToLanding(); updateFooterHint(); };
+  switchToConversation = function () { _origSwitchToConversation(); updateFooterHint(); };
+
   /* Initial suggestions */
   updateSuggestionsVisibility();
 
@@ -1138,18 +1349,8 @@ document.addEventListener('DOMContentLoaded', function () {
       .then(function (conv) {
         setActiveConversationId(storedId);
         activeConversationData = conv;
-        var modeMap = { canvas: 'text_normal', thinking: 'text_thinking', web: 'text_url-context', images: 'image_normal' };
         if (conv.mode) {
-          var targetStyle = modeMap[conv.mode];
-          if (targetStyle) {
-            var parts = targetStyle.split('_');
-            document.querySelectorAll('.segmented-control-btn').forEach(function (b) {
-              var match = b.dataset.mode === parts[0] && b.dataset.style === parts[1];
-              b.classList.toggle('active', match);
-              b.setAttribute('aria-checked', match ? 'true' : 'false');
-            });
-            updateSuggestionsVisibility();
-          }
+          setMode(conv.mode);
         }
         selectConversation(storedId);
       })

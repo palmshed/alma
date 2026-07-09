@@ -14,10 +14,43 @@ export const SUGGESTIONS: Record<string, string[]> = {
   images: ['A peaceful sunset over mountains', 'A futuristic city with neon lights', 'A cute robot with big eyes'],
 };
 
+export const ACCENT_PRESETS = [
+  { color: '#24d455', hover: '#1fbf4a' },
+  { color: '#3b82f6', hover: '#2563eb' },
+  { color: '#8b5cf6', hover: '#7c3aed' },
+  { color: '#f59e0b', hover: '#d97706' },
+  { color: '#ec4899', hover: '#db2777' },
+  { color: '#14b8a6', hover: '#0d9488' },
+  { color: '#9ca3af', hover: '#6b7280' },
+];
+
 export function getEndpoint(mode: string): string {
   switch (mode) {
     case 'thinking': return '/api/generate-with-thinking';
     case 'web': return '/api/generate-with-url-context';
     default: return '/api/generate';
   }
+}
+
+let _audioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext {
+  if (!_audioCtx) _audioCtx = new AudioContext();
+  return _audioCtx;
+}
+
+export function playNavSound(): void {
+  try {
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, ctx.currentTime);
+    osc.frequency.linearRampToValueAtTime(640, ctx.currentTime + 0.07);
+    gain.gain.setValueAtTime(0.06, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
+  } catch {}
 }

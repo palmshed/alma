@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
-import SegmentedControl from './components/SegmentedControl';
+import ModeMenu from './components/ModeMenu';
 import Chip from './components/Chip';
 import LoadingDots from './components/LoadingDots';
 import ResponseContainer from './components/ResponseContainer';
@@ -14,9 +14,17 @@ import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, SUGGESTIONS } from './utils';
+import { MODES, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
 import { api } from './services/api';
 import { AttachmentData, ConversationData } from './types';
+
+const PLACEHOLDERS = [
+  'Ask anything...',
+  'Debug a bug...',
+  'Send a message...',
+  'Fix an issue...',
+  'Explore a topic...',
+];
 
 const STORAGE_ACTIVE_CONV = 'alma_active_conversation';
 
@@ -34,6 +42,8 @@ function App() {
   const [mode, setMode] = useState('canvas');
   const initialStored = getStorage(STORAGE_ACTIVE_CONV);
   const [restoring, setRestoring] = useState(!!initialStored);
+  const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
+  const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const { input, setInput, clear: composerClear } = useComposer();
   const {
     messages, isLoading, conversationStarted, error,
@@ -42,11 +52,15 @@ function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
+  const [accentColor, setAccentColor] = useState(() => {
+    try { return localStorage.getItem('accent') || '#24d455'; } catch { return '#24d455'; }
+  });
   const [pendingAttachments, setPendingAttachments] = useState<AttachmentData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const lastPromptRef = useRef<string>('');
@@ -83,6 +97,27 @@ function App() {
     });
     return () => { cancelled = true; };
   }, [loadConversation]);
+
+  /* Play sound on mode change */
+  const prevModeRef = useRef(mode);
+  useEffect(() => {
+    if (prevModeRef.current !== mode) {
+      prevModeRef.current = mode;
+      playNavSound();
+    }
+  }, [mode]);
+
+  /* Rotate placeholder every 8s with fade */
+  useEffect(() => {
+    const id = setInterval(() => {
+      setPlaceholderVisible(false);
+      setTimeout(() => {
+        setPlaceholderIndex(i => (i + 1) % PLACEHOLDERS.length);
+        setPlaceholderVisible(true);
+      }, 800);
+    }, 8000);
+    return () => clearInterval(id);
+  }, []);
 
   /* Persist messages when assistant responds */
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
@@ -138,6 +173,13 @@ function App() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isLoading]);
+
+  useEffect(() => {
+    const preset = ACCENT_PRESETS.find(p => p.color === accentColor) || ACCENT_PRESETS[0];
+    document.documentElement.style.setProperty('--accent', preset.color);
+    document.documentElement.style.setProperty('--accent-hover', preset.hover);
+    try { localStorage.setItem('accent', accentColor); } catch {}
+  }, [accentColor]);
 
   const handleThemeToggle = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -238,6 +280,17 @@ function App() {
   }, [handleNewChat]);
 
   useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        setShowDisclaimer(d => !d);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  useEffect(() => {
     if (!showNewChatDialog) {
       if (previousFocusRef.current) {
         previousFocusRef.current.focus();
@@ -281,6 +334,7 @@ function App() {
   }, [showNewChatDialog]);
 
   const suggestions = SUGGESTIONS[mode] || [];
+  const placeholder = PLACEHOLDERS[placeholderIndex];
 
   const composer = (
     <Composer
@@ -288,9 +342,9 @@ function App() {
       onChange={setInput}
       onSubmit={handleSubmit}
       onAttach={handleAttach}
-      placeholder="Ask anything..."
+      placeholder={placeholder}
+      placeholderVisible={placeholderVisible}
       loading={isLoading}
-      onClear={composerClear}
       autoFocus
     />
   );
@@ -298,14 +352,14 @@ function App() {
   if (restoring) {
     return (
       <div className="app-container">
-        <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={false} onNewChat={handleNewChat} />
+        <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={false} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
       </div>
     );
   }
 
   return (
     <div className="app-container">
-      <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} />
+      <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
 
       <input
         type="file"
@@ -366,7 +420,7 @@ function App() {
             ) : undefined
           }
           modes={
-            <SegmentedControl
+            <ModeMenu
               options={MODES}
               value={mode}
               onChange={setMode}
@@ -465,7 +519,7 @@ function App() {
                   </div>
                 )}
               </div>
-              <SegmentedControl
+              <ModeMenu
                 options={MODES}
                 value={mode}
                 onChange={setMode}
@@ -511,6 +565,35 @@ function App() {
         }}
         activeConversationId={activeConversationId}
       />
+
+      {!conversationStarted && (
+        <div className="landing-footer-hint" onClick={() => setShowDisclaimer(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setShowDisclaimer(true); }}>
+          <span className="hint-desktop">ctrl+p</span>
+          <span className="hint-mobile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 16v-4"/>
+              <path d="M12 8h.01"/>
+            </svg>
+          </span>
+        </div>
+      )}
+
+      {showDisclaimer && (
+        <>
+          <div className="dialog-overlay" onClick={() => setShowDisclaimer(false)} />
+          <div className="dialog disclaimer-dialog" role="dialog" aria-modal="true">
+            <p className="dialog-title">About Alma</p>
+            <p className="dialog-description">
+              Alma uses AI (large language models) to generate responses.
+              The AI can make mistakes. Always verify important information.
+            </p>
+            <div className="dialog-actions">
+              <button className="btn btn--primary dialog-btn dialog-btn--confirm" onClick={() => setShowDisclaimer(false)} type="button">Got it</button>
+            </div>
+          </div>
+        </>
+      )}
 
       {showNewChatDialog && (
         <>

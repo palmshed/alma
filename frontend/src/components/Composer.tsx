@@ -1,14 +1,14 @@
 import React, { useRef, useEffect } from 'react';
-import { Paperclip, Send } from 'lucide-react';
+import { Paperclip } from 'lucide-react';
 
 interface ComposerProps {
   onSubmit: (text: string) => void;
   placeholder?: string;
+  placeholderVisible?: boolean;
   disabled?: boolean;
   loading?: boolean;
   value: string;
   onChange: (value: string) => void;
-  onClear?: () => void;
   onAttach?: () => void;
   autoFocus?: boolean;
 }
@@ -16,11 +16,11 @@ interface ComposerProps {
 const Composer: React.FC<ComposerProps> = ({
   onSubmit,
   placeholder = 'Ask anything...',
+  placeholderVisible = true,
   disabled,
   loading,
   value,
   onChange,
-  onClear,
   onAttach,
   autoFocus,
 }) => {
@@ -59,7 +59,7 @@ const Composer: React.FC<ComposerProps> = ({
 
         <textarea
           ref={textareaRef}
-          className="composer-textarea"
+          className={`composer-textarea${!placeholderVisible ? ' placeholder-hidden' : ''}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -70,30 +70,6 @@ const Composer: React.FC<ComposerProps> = ({
         />
 
         <div className="composer-actions">
-          {hasText && onClear && (
-            <button
-              className="composer-btn"
-              onClick={onClear}
-              disabled={disabled}
-              type="button"
-              aria-label="Clear input"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.7}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                width={16}
-                height={16}
-              >
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          )}
-
           <button
             className={`composer-btn composer-btn--send${hasText ? ' has-text' : ''}`}
             onClick={() => onSubmit(value)}
@@ -106,7 +82,10 @@ const Composer: React.FC<ComposerProps> = ({
                 <span /><span /><span />
               </span>
             ) : (
-              <Send size={18} strokeWidth={1.7} />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+                <path d="M12 19V5"/>
+                <path d="m5 12 7-7 7 7"/>
+              </svg>
             )}
           </button>
         </div>
