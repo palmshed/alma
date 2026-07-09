@@ -28,10 +28,20 @@ SPDX-License-Identifier: MIT
                     <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/>
                     <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>
                 </svg>
-                <span class="app-header-title">Palmshed</span>
+                <span class="app-header-title">Alma</span>
             </button>
         </div>
         <div class="app-header-right">
+            <button class="accent-picker-btn" id="accent-picker-btn" aria-label="Change accent color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                    <circle cx="13.5" cy="6.5" r="1.5" fill="#24d455" stroke="none"/>
+                    <circle cx="17.5" cy="10.5" r="1.5" fill="#3b82f6" stroke="none"/>
+                    <circle cx="8.5" cy="7.5" r="1.5" fill="#f59e0b" stroke="none"/>
+                    <circle cx="6.5" cy="12.5" r="1.5" fill="#ec4899" stroke="none"/>
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.4-.13-.73-.4-1-.27-.27-.4-.6-.4-1 0-.93.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-5.52-4.5-10-10-10z"/>
+                </svg>
+            </button>
+            <div class="accent-picker-popup" id="accent-picker-popup" style="display:none"></div>
             <button class="btn btn--ghost app-header-btn" id="theme-toggle" aria-label="Toggle theme">
                 <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
                     <circle cx="12" cy="12" r="4"/>
@@ -50,9 +60,9 @@ SPDX-License-Identifier: MIT
             </button>
             <button class="btn btn--ghost app-header-btn" id="menu-toggle" aria-label="Open menu">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                    <circle cx="12" cy="12" r="1" fill="currentColor"/>
-                    <circle cx="19" cy="12" r="1" fill="currentColor"/>
-                    <circle cx="5" cy="12" r="1" fill="currentColor"/>
+                    <circle cx="12" cy="5" r="1.2" fill="currentColor" stroke="none"/>
+                    <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                    <circle cx="12" cy="19" r="1.2" fill="currentColor" stroke="none"/>
                 </svg>
             </button>
         </div>
@@ -81,16 +91,10 @@ SPDX-License-Identifier: MIT
                         </button>
                         <textarea class="composer-textarea" id="landing-input" placeholder="Ask anything..." rows="1"></textarea>
                         <div class="composer-actions">
-                            <button class="composer-btn" id="clear-button" style="display:none" type="button" aria-label="Clear input">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-                                    <path d="M18 6 6 18"/>
-                                    <path d="m6 6 12 12"/>
-                                </svg>
-                            </button>
                             <button class="composer-btn composer-btn--send" id="submit-button" type="submit" aria-label="Send message" disabled>
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                                    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
-                                    <path d="m21.854 2.147-10.94 10.939"/>
+                                    <path d="M12 19V5"/>
+                                    <path d="m5 12 7-7 7 7"/>
                                 </svg>
                             </button>
                         </div>
@@ -117,49 +121,82 @@ SPDX-License-Identifier: MIT
                     <button class="chip tab-image" data-text="A cute robot with big eyes">A cute robot with big eyes</button>
                 </div>
 
-                <div class="segmented-control" id="search-tabs" role="radiogroup">
-                    <button class="segmented-control-btn active" data-mode="text" data-style="normal" role="radio" aria-checked="true">
-                        <span class="segmented-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                                <path d="M12 2l10 5-10 5L2 7Z"/>
-                                <path d="M2 17l10 5 10-5"/>
-                                <path d="M2 12l10 5 10-5"/>
-                            </svg>
-                        </span>
-                        <span class="segmented-control-label">Canvas</span>
+                <div class="mode-menu" id="landing-mode-menu">
+                    <button class="mode-menu-trigger" type="button" aria-label="Mode: Canvas" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" id="landing-mode-icon">
+                            <path d="M12 2l10 5-10 5L2 7Z"/>
+                            <path d="M2 17l10 5 10-5"/>
+                            <path d="M2 12l10 5 10-5"/>
+                        </svg>
                     </button>
-                    <button class="segmented-control-btn" data-mode="text" data-style="thinking" role="radio" aria-checked="false">
-                        <span class="segmented-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                            </svg>
-                        </span>
-                        <span class="segmented-control-label">Thinking</span>
-                    </button>
-                    <button class="segmented-control-btn" data-mode="text" data-style="url-context" role="radio" aria-checked="false">
-                        <span class="segmented-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                                <circle cx="12" cy="12" r="10"/>
-                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-                                <path d="M2 12h20"/>
-                            </svg>
-                        </span>
-                        <span class="segmented-control-label">Web</span>
-                    </button>
-                    <button class="segmented-control-btn" data-mode="image" data-style="normal" role="radio" aria-checked="false">
-                        <span class="segmented-control-icon">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                                <rect width="18" height="18" x="3" y="3" rx="2"/>
-                                <circle cx="9" cy="9" r="2"/>
-                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-                            </svg>
-                        </span>
-                        <span class="segmented-control-label">Images</span>
-                    </button>
+                    <div class="mode-menu-dropdown" style="display:none">
+                        <button class="mode-menu-item active" data-mode="canvas" data-icon="layers" role="menuitemradio" aria-checked="true" type="button">
+                            <span class="mode-menu-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                    <path d="M12 2l10 5-10 5L2 7Z"/>
+                                    <path d="M2 17l10 5 10-5"/>
+                                    <path d="M2 12l10 5 10-5"/>
+                                </svg>
+                            </span>
+                            <span class="mode-menu-item-label">Canvas</span>
+                        </button>
+                        <button class="mode-menu-item" data-mode="thinking" data-icon="sparkles" role="menuitemradio" aria-checked="false" type="button">
+                            <span class="mode-menu-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                    <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                                </svg>
+                            </span>
+                            <span class="mode-menu-item-label">Thinking</span>
+                        </button>
+                        <button class="mode-menu-item" data-mode="web" data-icon="globe" role="menuitemradio" aria-checked="false" type="button">
+                            <span class="mode-menu-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                                    <path d="M2 12h20"/>
+                                </svg>
+                            </span>
+                            <span class="mode-menu-item-label">Web</span>
+                        </button>
+                        <button class="mode-menu-item" data-mode="images" data-icon="image" role="menuitemradio" aria-checked="false" type="button">
+                            <span class="mode-menu-item-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                    <rect width="18" height="18" x="3" y="3" rx="2"/>
+                                    <circle cx="9" cy="9" r="2"/>
+                                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                                </svg>
+                            </span>
+                            <span class="mode-menu-item-label">Images</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
+
+    <div class="landing-footer-hint" id="landing-footer-hint" style="display:none">
+        <span class="hint-desktop">ctrl+p</span>
+        <span class="hint-mobile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 16v-4"/>
+                <path d="M12 8h.01"/>
+            </svg>
+        </span>
+    </div>
+
+    <!-- Dialogs -->
+    <div class="dialog-overlay" id="disclaimer-overlay" style="display:none"></div>
+    <div class="dialog disclaimer-dialog" id="disclaimer-dialog" role="dialog" aria-modal="true" aria-labelledby="disclaimer-title" style="display:none">
+        <p id="disclaimer-title" class="dialog-title">About Alma</p>
+        <p class="dialog-description">
+            Alma uses AI (large language models) to generate responses.
+            The AI can make mistakes. Always verify important information.
+        </p>
+        <div class="dialog-actions">
+            <button class="btn btn--primary dialog-btn dialog-btn--confirm" id="disclaimer-close" type="button">Got it</button>
+        </div>
+    </div>
 
     <!-- Conversation (hidden until first submission) -->
     <div id="conversation" class="conversation-layout" style="display:none">
@@ -203,69 +240,78 @@ SPDX-License-Identifier: MIT
                     <div class="composer-actions">
                         <button class="composer-btn composer-btn--send" id="conversation-submit" type="submit" aria-label="Send message">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-                                <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
-                                <path d="m21.854 2.147-10.94 10.939"/>
+                                <path d="M12 19V5"/>
+                                <path d="m5 12 7-7 7 7"/>
                             </svg>
                         </button>
                     </div>
                     <div class="composer-loading-bar" id="conversation-loading-bar" style="display:none"></div>
                 </div>
             </div>
-            <div class="segmented-control" role="radiogroup">
-                <button class="segmented-control-btn active" data-mode="text" data-style="normal" role="radio" aria-checked="true">
-                    <span class="segmented-control-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                            <path d="M12 2l10 5-10 5L2 7Z"/>
-                            <path d="M2 17l10 5 10-5"/>
-                            <path d="M2 12l10 5 10-5"/>
-                        </svg>
-                    </span>
-                    <span class="segmented-control-label">Canvas</span>
+            <div class="mode-menu" id="conv-mode-menu">
+                <button class="mode-menu-trigger" type="button" aria-label="Mode: Canvas" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" id="conv-mode-icon">
+                        <path d="M12 2l10 5-10 5L2 7Z"/>
+                        <path d="M2 17l10 5 10-5"/>
+                        <path d="M2 12l10 5 10-5"/>
+                    </svg>
                 </button>
-                <button class="segmented-control-btn" data-mode="text" data-style="thinking" role="radio" aria-checked="false">
-                    <span class="segmented-control-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                            <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
-                        </svg>
-                    </span>
-                    <span class="segmented-control-label">Thinking</span>
-                </button>
-                <button class="segmented-control-btn" data-mode="text" data-style="url-context" role="radio" aria-checked="false">
-                    <span class="segmented-control-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
-                            <path d="M2 12h20"/>
-                        </svg>
-                    </span>
-                    <span class="segmented-control-label">Web</span>
-                </button>
-                <button class="segmented-control-btn" data-mode="image" data-style="normal" role="radio" aria-checked="false">
-                    <span class="segmented-control-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="13" height="13">
-                            <rect width="18" height="18" x="3" y="3" rx="2"/>
-                            <circle cx="9" cy="9" r="2"/>
-                            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
-                        </svg>
-                    </span>
-                    <span class="segmented-control-label">Images</span>
-                </button>
+                <div class="mode-menu-dropdown" style="display:none">
+                    <button class="mode-menu-item active" data-mode="canvas" data-icon="layers" role="menuitemradio" aria-checked="true" type="button">
+                        <span class="mode-menu-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <path d="M12 2l10 5-10 5L2 7Z"/>
+                                <path d="M2 17l10 5 10-5"/>
+                                <path d="M2 12l10 5 10-5"/>
+                            </svg>
+                        </span>
+                        <span class="mode-menu-item-label">Canvas</span>
+                    </button>
+                    <button class="mode-menu-item" data-mode="thinking" data-icon="sparkles" role="menuitemradio" aria-checked="false" type="button">
+                        <span class="mode-menu-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/>
+                            </svg>
+                        </span>
+                        <span class="mode-menu-item-label">Thinking</span>
+                    </button>
+                    <button class="mode-menu-item" data-mode="web" data-icon="globe" role="menuitemradio" aria-checked="false" type="button">
+                        <span class="mode-menu-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/>
+                                <path d="M2 12h20"/>
+                            </svg>
+                        </span>
+                        <span class="mode-menu-item-label">Web</span>
+                    </button>
+                    <button class="mode-menu-item" data-mode="images" data-icon="image" role="menuitemradio" aria-checked="false" type="button">
+                        <span class="mode-menu-item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
+                                <rect width="18" height="18" x="3" y="3" rx="2"/>
+                                <circle cx="9" cy="9" r="2"/>
+                                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+                            </svg>
+                        </span>
+                        <span class="mode-menu-item-label">Images</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Sidebar Menu -->
     <div class="sidebar-menu" id="sidebar-menu" role="complementary" aria-label="Conversation history">
-        <div class="sidebar-header">
-            <button class="btn btn--ghost close-menu" id="close-menu" aria-label="Close menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
-                    <path d="M18 6 6 18"/>
-                    <path d="m6 6 12 12"/>
-                </svg>
-            </button>
-        </div>
         <div class="sidebar-content">
-            <div class="sidebar-product-label">Alma</div>
+            <div class="sidebar-header-row">
+                <div class="sidebar-product-label">Alma</div>
+                <button class="btn btn--ghost app-header-btn" id="sidebar-close" aria-label="Close menu">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                        <path d="M18 6 6 18"/>
+                        <path d="m6 6 12 12"/>
+                    </svg>
+                </button>
+            </div>
             <button class="btn btn--ghost sidebar-new-chat" id="sidebar-new-chat" type="button">+ New conversation</button>
             <div class="sidebar-section-label">Chats</div>
             <div class="sidebar-search">
@@ -278,10 +324,12 @@ SPDX-License-Identifier: MIT
                 </button>
             </div>
             <div class="sidebar-error" id="sidebar-error" style="display:none" role="alert"></div>
+            <div class="sidebar-loading" id="sidebar-loading" style="display:none">Loading...</div>
             <div class="sidebar-conversation-list" id="conversation-list" role="list"></div>
             <div class="sidebar-empty" id="sidebar-empty" style="display:none">No conversations yet</div>
             <div class="sidebar-empty" id="sidebar-search-empty" style="display:none">No conversations found.</div>
         </div>
+        <div class="sidebar-overlay-inline" id="sidebar-delete-overlay" style="display:none"></div>
         <div class="sidebar-delete-dialog" id="sidebar-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="sidebar-delete-dialog-title" style="display:none">
             <p id="sidebar-delete-dialog-title" class="sidebar-dialog-title">Delete conversation?</p>
             <p class="sidebar-dialog-description">This cannot be undone.</p>
@@ -290,7 +338,40 @@ SPDX-License-Identifier: MIT
                 <button class="btn btn--primary sidebar-dialog-btn sidebar-dialog-btn--delete" id="sidebar-delete-confirm" type="button">Delete</button>
             </div>
         </div>
-        <div class="sidebar-footer">Built by Palmshed</div>
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-top">
+                <div class="sidebar-footer-brand">Built by Palmshed</div>
+                <button class="btn btn--ghost sidebar-footer-toggle" id="sidebar-footer-toggle" type="button" aria-label="More links">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
+                        <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                        <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                        <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="sidebar-footer-links" id="sidebar-footer-links" style="display:none">
+                <a href="/terms" class="sidebar-footer-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    Terms
+                </a>
+                <a href="/privacy" class="sidebar-footer-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Privacy
+                </a>
+                <a href="/contact" class="sidebar-footer-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                    Contact
+                </a>
+                <a href="/help" class="sidebar-footer-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    Help
+                </a>
+                <a href="https://github.com/palmshed/alma/issues/new?template=bug_report.md" class="sidebar-footer-link" target="_blank" rel="noopener noreferrer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Report
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Menu Overlay -->
@@ -306,12 +387,6 @@ SPDX-License-Identifier: MIT
         </div>
     </div>
     <div class="dialog-overlay" id="dialog-overlay" style="display:none"></div>
-
-    <!-- Cookie Notification -->
-    <div class="cookie-notification" id="cookie-notification">
-        <div class="cookie-text">This website uses cookies to improve your experience. By using our site.</div>
-        <button class="cookie-button" id="accept-cookies">Got it!</button>
-    </div>
 
     <script src="/static/js/main.js?v=2"></script>
 </body>
