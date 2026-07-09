@@ -374,7 +374,7 @@ describe('Conversation rendering', () => {
     render(<App />);
 
     /* --- First exchange --- */
-    const textarea = screen.getByPlaceholderText('Ask anything...');
+    const textarea = screen.getByPlaceholderText(/Ask anything|Debug a bug|Send a message|Fix an issue|Explore a topic/);
     fireEvent.change(textarea, { target: { value: 'First prompt' } });
     fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
@@ -390,7 +390,7 @@ describe('Conversation rendering', () => {
     });
 
     /* --- Second exchange --- */
-    const textarea2 = screen.getByPlaceholderText('Ask anything...');
+    const textarea2 = screen.getByPlaceholderText(/Ask anything|Debug a bug|Send a message|Fix an issue|Explore a topic/);
     fireEvent.change(textarea2, { target: { value: 'Second prompt' } });
     fireEvent.click(screen.getByRole('button', { name: /send message/i }));
 
