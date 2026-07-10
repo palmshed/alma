@@ -8,12 +8,27 @@ export const MODES: ModeOption[] = [
 ];
 
 export const MODELS: ModelOption[] = [
+  { value: 'auto', label: 'Auto (Smart Select)' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
   { value: 'gemini-3.0-flash', label: 'Gemini 3 Flash' },
   { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
   { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
 ];
+
+export const MODEL_PRIORITY = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.0-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite'];
+
+export function resolveModel(selectedModel: string, availability?: Record<string, { state: string; availableAt?: number }>): string {
+  if (selectedModel !== 'auto') return selectedModel;
+  const now = Date.now();
+  for (const m of MODEL_PRIORITY) {
+    const av = availability?.[m];
+    if (!av || (av.availableAt && now >= av.availableAt)) {
+      return m;
+    }
+  }
+  return MODEL_PRIORITY[0];
+}
 
 export function getModelLabel(value: string): string {
   return MODELS.find(m => m.value === value)?.label || value;

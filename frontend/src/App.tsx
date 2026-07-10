@@ -15,7 +15,7 @@ import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel } from './utils';
+import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
 import { api } from './services/api';
 import { AttachmentData, ConversationData, ModelAvailability } from './types';
 
@@ -242,6 +242,7 @@ function App() {
     composerClear();
     setPendingAttachments([]);
     lastPromptRef.current = text;
+    const actualModel = resolveModel(selectedModel, modelAvailability);
     try {
       if (activeConversationId) {
         const payload = JSON.parse(JSON.stringify(activeConversationRef.current));
@@ -253,7 +254,7 @@ function App() {
         const payload = {
           title: text.slice(0, 60),
           mode,
-          model: selectedModel,
+          model: actualModel,
           messages: [{ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) }],
           metadata: { status: 'pending' },
         };
@@ -264,8 +265,8 @@ function App() {
     } catch {
       /* Continue anyway — the user's message will be in local state */
     }
-    submit(text, mode, messages, atts, selectedModel);
-  }, [submit, mode, selectedModel, activeConversationId, composerClear, messages, pendingAttachments]);
+    submit(text, mode, messages, atts, actualModel);
+  }, [submit, mode, selectedModel, activeConversationId, composerClear, messages, pendingAttachments, modelAvailability]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -436,7 +437,7 @@ function App() {
             !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
-                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, selectedModel); }} />
+                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, resolveModel(selectedModel, modelAvailability)); }} />
                 ))}
               </div>
             ) : undefined
