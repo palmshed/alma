@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import ModeMenu from './components/ModeMenu';
+import ModelMenu from './components/ModelMenu';
 import Chip from './components/Chip';
 import LoadingDots from './components/LoadingDots';
 import ResponseContainer from './components/ResponseContainer';
@@ -14,9 +15,9 @@ import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
+import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel } from './utils';
 import { api } from './services/api';
-import { AttachmentData, ConversationData } from './types';
+import { AttachmentData, ConversationData, ModelAvailability } from './types';
 
 const PLACEHOLDERS = [
   'Ask anything...',
@@ -40,15 +41,34 @@ function removeStorage(key: string): void {
 
 function App() {
   const [mode, setMode] = useState('canvas');
+  const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
   const initialStored = getStorage(STORAGE_ACTIVE_CONV);
   const [restoring, setRestoring] = useState(!!initialStored);
   const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const { input, setInput, clear: composerClear } = useComposer();
+  const [modelAvailability, setModelAvailability] = useState<Record<string, ModelAvailability>>({});
   const {
     messages, isLoading, conversationStarted, error,
     submit, clear: conversationClear, loadConversation, reconcileMessages,
-  } = useConversation();
+  } = useConversation({
+    onQuotaError: (model, retryAfter) => {
+      if (retryAfter) {
+        setModelAvailability(prev => ({
+          ...prev,
+          [model]: { state: 'cooling-down', availableAt: Date.now() + retryAfter * 1000 },
+        }));
+        setTimeout(() => {
+          setModelAvailability(prev => ({ ...prev, [model]: { state: 'ready' } }));
+        }, retryAfter * 1000);
+      } else {
+        setModelAvailability(prev => ({
+          ...prev,
+          [model]: { state: 'unavailable' },
+        }));
+      }
+    },
+  });
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
@@ -90,6 +110,7 @@ function App() {
       setActiveConversationId(storedId);
       loadConversation(conv);
       if (conv.mode) setMode(conv.mode);
+      if (conv.model) setSelectedModel(conv.model);
     }).catch(() => {
       if (!cancelled) removeStorage(STORAGE_ACTIVE_CONV);
     }).finally(() => {
@@ -232,6 +253,7 @@ function App() {
         const payload = {
           title: text.slice(0, 60),
           mode,
+          model: selectedModel,
           messages: [{ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) }],
           metadata: { status: 'pending' },
         };
@@ -242,8 +264,8 @@ function App() {
     } catch {
       /* Continue anyway — the user's message will be in local state */
     }
-    submit(text, mode, messages, atts);
-  }, [submit, mode, activeConversationId, composerClear, messages, pendingAttachments]);
+    submit(text, mode, messages, atts, selectedModel);
+  }, [submit, mode, selectedModel, activeConversationId, composerClear, messages, pendingAttachments]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -414,17 +436,29 @@ function App() {
             !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
-                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode); }} />
+                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, selectedModel); }} />
                 ))}
               </div>
             ) : undefined
           }
           modes={
-            <ModeMenu
-              options={MODES}
-              value={mode}
-              onChange={setMode}
-            />
+            <div className={`composer-toolbar${MODELS.length <= 1 ? ' composer-toolbar--no-model' : ''}${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
+              {MODELS.length > 1 && (
+                <ModelMenu
+                  options={MODELS}
+                  value={selectedModel}
+                  onChange={setSelectedModel}
+                  availability={modelAvailability}
+                />
+              )}
+              {MODES.length > 1 && (
+                <ModeMenu
+                  options={MODES}
+                  value={mode}
+                  onChange={setMode}
+                />
+              )}
+            </div>
           }
         />
       ) : (
@@ -468,6 +502,9 @@ function App() {
                 if (msg.role === 'assistant') {
                   return (
                     <React.Fragment key={i}>
+                      {msg.model && (
+                        <div className="response-model">{getModelLabel(msg.model)}</div>
+                      )}
                       {msg.thinking && <ThinkingContainer content={msg.thinking} />}
                       {msg.image ? (
                         <ImageContainer imageUrl={msg.image} />
@@ -519,11 +556,23 @@ function App() {
                   </div>
                 )}
               </div>
-              <ModeMenu
-                options={MODES}
-                value={mode}
-                onChange={setMode}
-              />
+              <div className={`composer-toolbar${MODELS.length <= 1 ? ' composer-toolbar--no-model' : ''}${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
+                {MODELS.length > 1 && (
+                  <ModelMenu
+                    options={MODELS}
+                    value={selectedModel}
+                    onChange={setSelectedModel}
+                    availability={modelAvailability}
+                  />
+                )}
+                {MODES.length > 1 && (
+                  <ModeMenu
+                    options={MODES}
+                    value={mode}
+                    onChange={setMode}
+                  />
+                )}
+              </div>
             </>
           }
         />
@@ -540,6 +589,7 @@ function App() {
             setActiveConversationId(id);
             loadConversation(conv);
             if (conv.mode) setMode(conv.mode);
+            if (conv.model) setSelectedModel(conv.model);
           }).catch(() => {});
         }}
         onDeleteConversation={async () => {

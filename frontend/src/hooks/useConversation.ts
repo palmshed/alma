@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, isQuotaError } from '../services/api';
 import type { AttachmentData, MessageData, ConversationData } from '../types';
 
 interface UseConversationReturn {
@@ -7,20 +7,24 @@ interface UseConversationReturn {
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => Promise<void>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<void>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
 }
 
-export function useConversation(): UseConversationReturn {
+interface UseConversationOptions {
+  onQuotaError?: (model: string, retryAfter?: number) => void;
+}
+
+export function useConversation(options?: UseConversationOptions): UseConversationReturn {
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const conversationStarted = messages.length > 0 || isLoading;
 
-  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => {
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => {
     if (!text.trim() || isLoading) return;
     setIsLoading(true);
     setError(null);
@@ -44,33 +48,38 @@ export function useConversation(): UseConversationReturn {
         const url = URL.createObjectURL(blob);
         setMessages(prev => [...prev, {
           id: '', role: 'assistant', content: '[Image generated]', image: url, timestamp: new Date().toISOString(),
+          model,
         }]);
       } else {
         let responseText = '';
         let thinkingText = '';
         if (mode === 'thinking') {
-          const result = await api.generateWithThinking(text, history);
+          const result = await api.generateWithThinking(text, history, model);
           responseText = result.response || '';
           thinkingText = result.thinking_summary?.join('\n') || '';
         } else if (mode === 'web') {
-          responseText = await api.generateWithUrlContext(text, history);
+          responseText = await api.generateWithUrlContext(text, history, model);
         } else {
-          responseText = await api.generate(text, history);
+          responseText = await api.generate(text, history, model);
         }
         setMessages(prev => [...prev, {
           id: '', role: 'assistant', content: responseText,
           thinking: thinkingText || undefined,
           timestamp: new Date().toISOString(),
+          model,
         }]);
       }
     } catch (err) {
+      if (model && isQuotaError(err)) {
+        options?.onQuotaError?.(model, err.retryAfter);
+      }
       const msg = err instanceof Error ? err.message : 'Request failed';
       setError(msg);
       console.error(err);
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, options]);
 
   const loadConversation = useCallback((conv: ConversationData) => {
     setMessages(conv.messages || []);
