@@ -136,6 +136,16 @@ SPDX-License-Identifier: MIT
                             <button class="model-menu-item" data-model="gemini-3.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.5 Flash</span></button>
                         </div>
                     </div>
+                    <div class="response-menu" id="landing-response-menu">
+                        <button class="response-menu-trigger" type="button" aria-label="Response: Text" aria-expanded="false">
+                            <span class="response-menu-trigger-label" id="landing-response-label">Text</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="response-menu-dropdown" style="display:none">
+                            <button class="response-menu-item active" data-response="text" role="menuitemradio" aria-checked="true" type="button"><span class="response-menu-item-label">Text</span></button>
+                            <button class="response-menu-item" data-response="voice" role="menuitemradio" aria-checked="false" type="button"><span class="response-menu-item-label">Voice</span></button>
+                        </div>
+                    </div>
                     <div class="mode-menu" id="landing-mode-menu">
                         <button class="mode-menu-trigger" type="button" aria-label="Mode: Canvas" aria-expanded="false">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" id="landing-mode-icon">
@@ -274,6 +284,16 @@ SPDX-License-Identifier: MIT
                         <button class="model-menu-item" data-model="gemini-3.0-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3 Flash</span></button>
                         <button class="model-menu-item" data-model="gemini-3.1-flash-lite" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.1 Flash Lite</span></button>
                         <button class="model-menu-item" data-model="gemini-3.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.5 Flash</span></button>
+                    </div>
+                </div>
+                <div class="response-menu" id="conv-response-menu">
+                    <button class="response-menu-trigger" type="button" aria-label="Response: Text" aria-expanded="false">
+                        <span class="response-menu-trigger-label" id="conv-response-label">Text</span>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="10" height="10"><path d="m6 9 6 6 6-6"/></svg>
+                    </button>
+                    <div class="response-menu-dropdown" style="display:none">
+                        <button class="response-menu-item active" data-response="text" role="menuitemradio" aria-checked="true" type="button"><span class="response-menu-item-label">Text</span></button>
+                        <button class="response-menu-item" data-response="voice" role="menuitemradio" aria-checked="false" type="button"><span class="response-menu-item-label">Voice</span></button>
                     </div>
                 </div>
                 <div class="mode-menu" id="conv-mode-menu">
@@ -417,6 +437,6 @@ SPDX-License-Identifier: MIT
     </div>
     <div class="dialog-overlay" id="dialog-overlay" style="display:none"></div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4"></script>
 </body>
 </html>

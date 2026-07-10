@@ -10,12 +10,31 @@ export interface AttachmentData {
 export interface ApiThinkingResult {
   response: string;
   thinking_summary: string[];
+  audio_base64?: string;
+  voice_model?: string;
+  voice_error?: string;
+  voice_name?: string;
+}
+
+export interface ResponseOption {
+  value: string;
+  label: string;
+}
+
+export interface VoiceOption {
+  value: string;
+  label: string;
 }
 
 export interface ModeOption {
   value: string;
   label: string;
   icon: string;
+}
+
+export interface OutputOption {
+  value: string;
+  label: string;
 }
 
 export interface ModelOption {
@@ -39,6 +58,8 @@ export interface MessageData {
   model?: string;
   thinking?: string | null;
   image?: string | null;
+  audio?: string | null;
+  voice_error?: string | null;
   attachments?: Record<string, unknown>[] | null;
   metadata?: Record<string, unknown> | null;
   thinking_duration_sec?: number;

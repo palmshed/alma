@@ -6,6 +6,8 @@ marked.setOptions({ breaks: true, gfm: true });
 var currentMode = 'canvas';
 var _skipInitSound = false;
 var currentModel = 'auto';
+var currentResponseMode = 'text';
+var currentAudioEl = null;
 
 var MODEL_LABELS = {
   'auto': 'Auto',
@@ -15,6 +17,16 @@ var MODEL_LABELS = {
   'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
   'gemini-3.5-flash': 'Gemini 3.5 Flash',
 };
+
+var RESPONSE_LABELS = {
+  'text': 'Text',
+  'voice': 'Voice',
+};
+
+var RESPONSE_MODES = [
+  { value: 'text', label: 'Text' },
+  { value: 'voice', label: 'Voice' },
+];
 
 var MODEL_PRIORITY = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.0-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite'];
 var modelAvailability = {};
@@ -192,6 +204,55 @@ function setupModelMenu(menuId) {
   });
 }
 
+/* ── Response Menu ── */
+
+function setResponseMode(value) {
+  currentResponseMode = value;
+  try { localStorage.setItem('alma_response_mode', value); } catch (e) {}
+  var label = RESPONSE_LABELS[value] || value;
+
+  document.querySelectorAll('.response-menu-trigger').forEach(function (t) {
+    t.setAttribute('aria-label', 'Response: ' + label);
+  });
+  document.querySelectorAll('.response-menu-trigger-label').forEach(function (el) {
+    el.textContent = label;
+  });
+  document.querySelectorAll('.response-menu-item').forEach(function (item) {
+    var isActive = item.dataset.response === value;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
+}
+
+function setupResponseMenu(menuId) {
+  var menu = document.getElementById(menuId);
+  if (!menu) return;
+  var trigger = menu.querySelector('.response-menu-trigger');
+  var dropdown = menu.querySelector('.response-menu-dropdown');
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var isOpen = dropdown.style.display !== 'none';
+    document.querySelectorAll('.response-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+    document.querySelectorAll('.response-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+    setOverflowVisible(null, false);
+    if (!isOpen) {
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+      setOverflowVisible(menu, true);
+    }
+  });
+
+  menu.querySelectorAll('.response-menu-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      setResponseMode(item.dataset.response);
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      setOverflowVisible(null, false);
+    });
+  });
+}
+
 
 function getActiveInput() {
   const landing = document.getElementById('landing');
@@ -361,6 +422,7 @@ function handleSubmit() {
   clearPendingAttachments();
 
   var mode = currentMode;
+  var responseMode = currentResponseMode;
 
   switchToConversation();
 
@@ -398,13 +460,14 @@ function handleSubmit() {
     createPromise = fetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: title,
-        mode: mode,
-        model: resolveModel(),
-        messages: [userMsg],
-        metadata: { status: 'pending' },
-      }),
+        body: JSON.stringify({
+          title: title,
+          mode: mode,
+          model: resolveModel(),
+          responseMode: responseMode,
+          messages: [userMsg],
+          metadata: { status: 'pending' },
+        }),
     }).then(function (r) {
       if (!r.ok) throw new Error('Failed to create conversation');
       return r.json();
@@ -447,7 +510,7 @@ function handleTextGen(prompt, style) {
     return fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, messages: messages, model: model }),
+      body: JSON.stringify({ prompt: prompt, messages: messages, model: model, mode: style, response_mode: currentResponseMode }),
     });
   }
 
@@ -483,6 +546,8 @@ function handleTextGen(prompt, style) {
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
         model: actualModel,
+        audio: data.audio_base64 || undefined,
+        voice_error: data.voice_error || undefined,
         ...(style === 'thinking' && thinkingText ? { thinking_duration_sec: elapsed } : {}),
       };
       if (usedFallback) {
@@ -1021,25 +1086,46 @@ function renderConversation() {
   });
   scroll.innerHTML = html;
 
-  /* Attach inline TTS to last assistant message */
-  var lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
-  if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content && lastMsg.content.trim()) {
-    var lastResponse = scroll.querySelector('.response-container:last-child');
-    if (lastResponse) {
-      var actionsDiv = document.createElement('div');
-      actionsDiv.className = 'response-actions';
+  /* Attach inline TTS to each assistant message */
+  var assistantMsgs = msgs.filter(function (m) { return m.role === 'assistant' && m.content && m.content.trim(); });
+  var responseContainers = scroll.querySelectorAll('.response-container');
+  assistantMsgs.forEach(function (m, idx) {
+    var responseEl = responseContainers[idx];
+    if (!responseEl) return;
+    var actionsDiv = document.createElement('div');
+    actionsDiv.className = 'response-actions';
 
-      var ttsBtn = document.createElement('button');
-      ttsBtn.className = 'btn btn--ghost message-tts-btn';
+    var ttsBtn = document.createElement('button');
+    ttsBtn.className = 'btn btn--ghost message-tts-btn';
+    var audioEl = document.createElement('audio');
+    audioEl.className = 'audio-player';
+    audioEl.controls = true;
+    audioEl.preload = 'none';
+    audioEl.style.display = 'none';
+
+    if (currentResponseMode === 'voice') {
+      if (currentAudioEl) {
+        currentAudioEl.pause();
+        currentAudioEl.src = '';
+        currentAudioEl.style.display = 'none';
+      }
+      currentAudioEl = audioEl;
+
+      if (m.audio) {
+        audioEl.src = 'data:audio/mp3;base64,' + m.audio;
+        audioEl.style.display = 'block';
+        audioEl.play().catch(function () {});
+        ttsBtn.textContent = 'Playing';
+      } else if (m.voice_error) {
+        ttsBtn.textContent = 'Voice couldn\'t be generated. Gemini TTS is temporarily unavailable.';
+        ttsBtn.disabled = true;
+      } else {
+        ttsBtn.textContent = 'Generating voice...';
+        ttsBtn.disabled = true;
+      }
+    } else {
       ttsBtn.textContent = 'Listen';
-      ttsBtn.setAttribute('data-text', lastMsg.content);
-
-      var audioEl = document.createElement('audio');
-      audioEl.className = 'audio-player';
-      audioEl.controls = true;
-      audioEl.preload = 'none';
-      audioEl.style.display = 'none';
-
+      ttsBtn.setAttribute('data-text', m.content);
       ttsBtn.addEventListener('click', function () {
         var btn = this;
         var audio = btn.parentNode.querySelector('.audio-player');
@@ -1067,12 +1153,12 @@ function renderConversation() {
             btn.textContent = 'Listen';
           });
       });
-
-      actionsDiv.appendChild(ttsBtn);
-      actionsDiv.appendChild(audioEl);
-      lastResponse.appendChild(actionsDiv);
     }
-  }
+
+    actionsDiv.appendChild(ttsBtn);
+    actionsDiv.appendChild(audioEl);
+    responseEl.appendChild(actionsDiv);
+  });
 }
 
 function setConversationFailed() {
@@ -1165,7 +1251,21 @@ document.addEventListener('DOMContentLoaded', function () {
   setupModelMenu('conv-model-menu');
   setModel('auto');
 
-  /* Outside click to close mode/model dropdowns */
+  /* ── Response menu setup ── */
+  setupResponseMenu('landing-response-menu');
+  setupResponseMenu('conv-response-menu');
+  try {
+    var savedResponse = localStorage.getItem('alma_response_mode');
+    setResponseMode(savedResponse || 'text');
+  } catch (e) {
+    setResponseMode('text');
+  }
+
+  if (RESPONSE_MODES.length <= 1) {
+    document.querySelectorAll('.response-menu').forEach(function (el) { el.style.display = 'none'; });
+  }
+
+  /* Outside click to close mode/model/response dropdowns */
   document.addEventListener('mousedown', function (e) {
     if (!e.target.closest('.mode-menu')) {
       document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
@@ -1175,6 +1275,11 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!e.target.closest('.model-menu')) {
       document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
       document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+      setOverflowVisible(null, false);
+    }
+    if (!e.target.closest('.response-menu')) {
+      document.querySelectorAll('.response-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+      document.querySelectorAll('.response-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
       setOverflowVisible(null, false);
     }
   });

@@ -2,6 +2,8 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import ModeMenu from './components/ModeMenu';
+import ResponseMenu from './components/ResponseMenu';
+import VoiceMenu from './components/VoiceMenu';
 import ModelMenu from './components/ModelMenu';
 import Chip from './components/Chip';
 import LoadingDots from './components/LoadingDots';
@@ -15,7 +17,7 @@ import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
+import { MODES, MODELS, RESPONSE_MODES, TTS_VOICES, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, getResponseLabel, getVoiceLabel, resolveModel } from './utils';
 import { api } from './services/api';
 import { AttachmentData, ConversationData, ModelAvailability } from './types';
 
@@ -42,6 +44,12 @@ function removeStorage(key: string): void {
 function App() {
   const [mode, setMode] = useState('canvas');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
+  const [responseMode, setResponseMode] = useState<string>(() => {
+    try { return localStorage.getItem('alma_response_mode') || 'text'; } catch { return 'text'; }
+  });
+  const [voice, setVoice] = useState<string>(() => {
+    try { return localStorage.getItem('alma_voice') || 'default'; } catch { return 'default'; }
+  });
   const initialStored = getStorage(STORAGE_ACTIVE_CONV);
   const [restoring, setRestoring] = useState(!!initialStored);
   const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
@@ -193,6 +201,14 @@ function App() {
     }
   }, [activeConversationId]);
 
+  useEffect(() => {
+    try { localStorage.setItem('alma_response_mode', responseMode); } catch {}
+  }, [responseMode]);
+
+  useEffect(() => {
+    try { localStorage.setItem('alma_voice', voice); } catch {}
+  }, [voice]);
+
   /* Scroll to bottom on new messages */
   useEffect(() => {
     if (scrollRef.current) {
@@ -260,6 +276,7 @@ function App() {
           title: text.slice(0, 60),
           mode,
           model: actualModel,
+          responseMode,
           messages: [{ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) }],
           metadata: { status: 'pending' },
         };
@@ -270,8 +287,8 @@ function App() {
     } catch {
       /* Continue anyway — the user's message will be in local state */
     }
-    submit(text, mode, messages, atts, actualModel);
-  }, [submit, mode, selectedModel, activeConversationId, composerClear, messages, pendingAttachments, modelAvailability]);
+    submit(text, mode, messages, atts, actualModel, responseMode, voice);
+  }, [submit, mode, selectedModel, responseMode, voice, activeConversationId, composerClear, messages, pendingAttachments, modelAvailability]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -439,7 +456,7 @@ function App() {
             !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
-                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, resolveModel(selectedModel, modelAvailability)); }} />
+                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, resolveModel(selectedModel, modelAvailability), responseMode, voice); }} />
                 ))}
               </div>
             ) : undefined
@@ -452,6 +469,20 @@ function App() {
                   value={selectedModel}
                   onChange={setSelectedModel}
                   availability={modelAvailability}
+                />
+              )}
+              {RESPONSE_MODES.length > 1 && (
+                <ResponseMenu
+                  options={RESPONSE_MODES}
+                  value={responseMode}
+                  onChange={setResponseMode}
+                />
+              )}
+              {responseMode === 'voice' && TTS_VOICES.length > 1 && (
+                <VoiceMenu
+                  options={TTS_VOICES}
+                  value={voice}
+                  onChange={setVoice}
                 />
               )}
               {MODES.length > 1 && (
@@ -516,7 +547,7 @@ function App() {
                       ) : (
                         <ResponseContainer content={msg.content} />
                       )}
-                      {msg.content && <TTSButton text={msg.content} />}
+                      {msg.content && <TTSButton text={msg.content} auto={responseMode === 'voice'} audioBase64={msg.audio ?? undefined} voiceError={msg.voice_error} />}
                     </React.Fragment>
                   );
                 }
@@ -570,6 +601,20 @@ function App() {
                     availability={modelAvailability}
                   />
                 )}
+                {RESPONSE_MODES.length > 1 && (
+                  <ResponseMenu
+                    options={RESPONSE_MODES}
+                    value={responseMode}
+                    onChange={setResponseMode}
+                  />
+                )}
+                {responseMode === 'voice' && TTS_VOICES.length > 1 && (
+                  <VoiceMenu
+                    options={TTS_VOICES}
+                    value={voice}
+                    onChange={setVoice}
+                  />
+                )}
                 {MODES.length > 1 && (
                   <ModeMenu
                     options={MODES}
@@ -588,15 +633,15 @@ function App() {
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onNewChat={handleNewChat}
-        onSelectConversation={(id) => {
-          api.getConversation(id).then((conv) => {
-            activeConversationRef.current = conv;
-            setActiveConversationId(id);
-            loadConversation(conv);
-            if (conv.mode) setMode(conv.mode);
-            if (conv.model) setSelectedModel(conv.model);
-          }).catch(() => {});
-        }}
+          onSelectConversation={(id) => {
+            api.getConversation(id).then((conv) => {
+              activeConversationRef.current = conv;
+              setActiveConversationId(id);
+              loadConversation(conv);
+              if (conv.mode) setMode(conv.mode);
+              if (conv.model) setSelectedModel(conv.model);
+            }).catch(() => {});
+          }}
         onDeleteConversation={async () => {
           try {
             const list = await api.listConversations();

@@ -11,6 +11,7 @@ import tempfile
 import requests
 import logging
 import time
+import base64
 from typing import Optional, Dict, Any, List
 from gtts import gTTS
 from google import genai as google_genai
@@ -235,6 +236,87 @@ class GeminiAI:
             return filepath
         except Exception as e:
             raise ValueError(f"Failed to generate speech: {e}") from e
+
+    def text_to_speech_gemini(self, text: str, voice: str = "default") -> str:
+        """Convert text to speech using Gemini TTS model and return file path.
+
+        Args:
+            text: Text to synthesize (max 1000 chars).
+            voice: Voice name to use (pass "default" to let the API choose).
+        """
+        if not text or len(text) > 1000:
+            raise ValueError("Invalid text")
+        try:
+            logging.info(f"Gemini TTS: model={models.TTS_MODEL}, voice={voice}, text_len={len(text)}")
+            filename = f"{uuid.uuid4()}.mp3"
+            filepath = os.path.join(tempfile.gettempdir(), "gemini_tts", filename)
+            os.makedirs(os.path.dirname(filepath), exist_ok=True)
+
+            config_kwargs: Dict[str, Any] = {
+                "response_modalities": ["AUDIO"],
+            }
+
+            from google.genai import types as genai_types
+            voice_name = voice if voice and voice != "default" else models.DEFAULT_TTS_VOICE_NAME
+            speech_config = genai_types.SpeechConfig(
+                voice_config=genai_types.VoiceConfig(
+                    prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
+                        voice_name=voice_name
+                    )
+                )
+            )
+            config_kwargs["speech_config"] = speech_config
+
+            logging.info(f"Gemini TTS request config: model={models.TTS_MODEL}, kwargs={config_kwargs}")
+
+            try:
+                response = self.client.models.generate_content(
+                    model=models.TTS_MODEL,
+                    contents=text,
+                    config=types.GenerateContentConfig(**config_kwargs),
+                )
+            except Exception as api_err:
+                import traceback
+                logging.error(f"Gemini TTS API call failed:\n{traceback.format_exc()}")
+                if hasattr(api_err, 'response') and api_err.response is not None:
+                    try:
+                        logging.error(f"Gemini TTS response body: {api_err.response.text}")
+                    except Exception:
+                        pass
+                if hasattr(api_err, 'message'):
+                    logging.error(f"Gemini TTS error message: {api_err.message}")
+                raise ValueError(f"Failed to generate speech with Gemini TTS: {api_err}") from api_err
+
+            response = self.client.models.generate_content(
+                model=models.TTS_MODEL,
+                contents=text,
+                config=types.GenerateContentConfig(**config_kwargs),
+            )
+
+            audio_data = None
+            mime_type = "audio/mp3"
+
+            if hasattr(response, "candidates") and response.candidates:
+                candidate = response.candidates[0]
+                if hasattr(candidate, "content") and hasattr(candidate.content, "parts"):
+                    for part in candidate.content.parts:
+                        if hasattr(part, "inline_data") and part.inline_data:
+                            audio_data = part.inline_data.data
+                            if hasattr(part.inline_data, "mime_type"):
+                                mime_type = part.inline_data.mime_type
+                            break
+
+            if audio_data is None:
+                raise ValueError("No audio data in TTS response")
+
+            if isinstance(audio_data, str):
+                audio_data = base64.b64decode(audio_data)
+
+            with open(filepath, "wb") as f:
+                f.write(audio_data)
+            return filepath
+        except Exception as e:
+            raise ValueError(f"Failed to generate speech with Gemini TTS: {e}") from e
 
     def process_text_go(self, text: str) -> str:
         """Process text using Go service for normalization."""

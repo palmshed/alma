@@ -1,10 +1,23 @@
-import type { ModeOption, ModelOption } from '../types';
+import type { ModeOption, ModelOption, ResponseOption, VoiceOption } from '../types';
 
 export const MODES: ModeOption[] = [
   { value: 'canvas', label: 'Canvas', icon: 'layers' },
   { value: 'thinking', label: 'Thinking', icon: 'sparkles' },
   { value: 'web', label: 'Web', icon: 'globe' },
   { value: 'images', label: 'Images', icon: 'image' },
+];
+
+export const RESPONSE_MODES: ResponseOption[] = [
+  { value: 'text', label: 'Text' },
+  { value: 'voice', label: 'Voice' },
+];
+
+export const TTS_VOICES: VoiceOption[] = [
+  { value: 'default', label: 'Default voice' },
+  { value: 'Puck', label: 'Puck (male)' },
+  { value: 'Charon', label: 'Charon (female)' },
+  { value: 'Kore', label: 'Kore (female)' },
+  { value: 'Fenrir', label: 'Fenrir (male)' },
 ];
 
 export const MODELS: ModelOption[] = [
@@ -32,6 +45,14 @@ export function resolveModel(selectedModel: string, availability?: Record<string
 
 export function getModelLabel(value: string): string {
   return MODELS.find(m => m.value === value)?.label || value;
+}
+
+export function getResponseLabel(value: string): string {
+  return RESPONSE_MODES.find(o => o.value === value)?.label || value;
+}
+
+export function getVoiceLabel(value: string): string {
+  return TTS_VOICES.find(v => v.value === value)?.label || value;
 }
 
 export const SUGGESTIONS: Record<string, string[]> = {
