@@ -441,6 +441,7 @@ function handleTextGen(prompt, style) {
   var messages = activeConversationData ? activeConversationData.messages : null;
   var firstModel = resolveModel();
   var usedFallback = false;
+  var startTime = performance.now();
 
   function doRequest(model) {
     return fetch(endpoint, {
@@ -473,6 +474,7 @@ function handleTextGen(prompt, style) {
     .then(function (result) {
       var data = result.data;
       var actualModel = result.model;
+      var elapsed = Math.round((performance.now() - startTime) / 1000);
       var thinkingText = data.thinking_summary ? data.thinking_summary.join('\n') : '';
       /* Optimistically update local state */
       var msg = {
@@ -481,6 +483,7 @@ function handleTextGen(prompt, style) {
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
         model: actualModel,
+        ...(style === 'thinking' && thinkingText ? { thinking_duration_sec: elapsed } : {}),
       };
       if (usedFallback) {
         msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
@@ -992,7 +995,27 @@ function renderConversation() {
           html += '<div class="response-model">' + escapeHtml(modelLabel) + '</div>';
         }
       }
-      if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
+      if (m.thinking) {
+        var cleanedThinking = m.thinking.replace(/^(My thought process:|I need to:|Let's think:|Let's think about|Let's start by|Let me think|I'll think|I should start|First,|First:|Okay,|Alright,|So,)\s*/i, '');
+        var newlineCount = (cleanedThinking.match(/\n/g) || []).length;
+        var isShort = newlineCount <= 1;
+        if (isShort) {
+          html += '<div class="thinking-container">';
+          html += '<div class="thinking-content">' + cleanedThinking + '</div>';
+          html += '</div>';
+        } else {
+          var durationLabel = 'Show reasoning';
+          if (m.thinking_duration_sec != null) {
+            durationLabel = 'Thought for ' + m.thinking_duration_sec + 's';
+          }
+          html += '<div class="thinking-container">';
+          html += '<button class="thinking-toggle" type="button" aria-expanded="false">';
+          html += '<span class="thinking-toggle-icon">&#9654;</span> ' + durationLabel;
+          html += '</button>';
+          html += '<div class="thinking-content" style="display:none">' + cleanedThinking + '</div>';
+          html += '</div>';
+        }
+      }
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
     }
   });
@@ -1430,11 +1453,16 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown', function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
       e.preventDefault();
-      showDisclaimerDialog();
     }
   });
 
   /* Disclaimer dialog */
+  var disclaimerShown = false;
+  try { disclaimerShown = !!localStorage.getItem('alma_disclaimer_shown'); } catch (e) {}
+  if (!disclaimerShown) {
+    try { localStorage.setItem('alma_disclaimer_shown', '1'); } catch (e) {}
+    showDisclaimerDialog();
+  }
   const disclaimerClose = document.getElementById('disclaimer-close');
   const disclaimerOverlay = document.getElementById('disclaimer-overlay');
   const disclaimerHint = document.getElementById('landing-footer-hint');
@@ -1484,6 +1512,18 @@ document.addEventListener('DOMContentLoaded', function () {
         try { localStorage.removeItem('alma_active_conversation'); } catch (e) {}
       });
   }
+
+  /* Thinking toggle */
+  document.getElementById('conversation-scroll').addEventListener('click', function (e) {
+    var toggle = e.target.closest('.thinking-toggle');
+    if (!toggle) return;
+    var container = toggle.closest('.thinking-container');
+    var content = container.querySelector('.thinking-content');
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    content.style.display = expanded ? 'none' : 'block';
+    toggle.querySelector('.thinking-toggle-icon').innerHTML = expanded ? '&#9654;' : '&#9660;';
+  });
 
   /* Delete dialog focus trap */
   document.addEventListener('keydown', function (e) {

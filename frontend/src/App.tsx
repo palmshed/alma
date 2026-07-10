@@ -308,14 +308,11 @@ function App() {
   }, [handleNewChat]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
-        e.preventDefault();
-        setShowDisclaimer(d => !d);
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
+    const shown = getStorage('alma_disclaimer_shown');
+    if (!shown) {
+      setShowDisclaimer(true);
+      setStorage('alma_disclaimer_shown', '1');
+    }
   }, []);
 
   useEffect(() => {
@@ -513,7 +510,7 @@ function App() {
                           <>{getModelLabel(msg.model)}{msg.metadata?.autoFallback && <span className="response-model-badge"> Auto fallback</span>}</>
                         </div>
                       )}
-                      {msg.thinking && <ThinkingContainer content={msg.thinking} />}
+                      {msg.thinking && <ThinkingContainer content={msg.thinking} durationSec={msg.thinking_duration_sec} />}
                       {msg.image ? (
                         <ImageContainer imageUrl={msg.image} />
                       ) : (
@@ -626,14 +623,11 @@ function App() {
 
       {!conversationStarted && (
         <div className="landing-footer-hint" onClick={() => setShowDisclaimer(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setShowDisclaimer(true); }}>
-          <span className="hint-desktop">ctrl+p</span>
-          <span className="hint-mobile">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M12 16v-4"/>
-              <path d="M12 8h.01"/>
-            </svg>
-          </span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 16v-4"/>
+            <path d="M12 8h.01"/>
+          </svg>
         </div>
       )}
 

@@ -39,6 +39,9 @@
   /* Shadows (minimal) */
   --shadow-none: none;
 
+  /* Thinking trace */
+  --thinking-bg: #1e1e22;
+
   /* Misc */
   --border-header: rgba(255, 255, 255, 0.03);
   --border-width: 0;
@@ -68,6 +71,7 @@
   --text-muted: #a3a3a3;
   --accent: #24d455;
   --accent-hover: #1fbf4a;
+  --thinking-bg: #f0f0f0;
   --border-header: rgba(0, 0, 0, 0.03);
   --border-width: 0;
 }
@@ -303,11 +307,52 @@ body {
 }
 
 .thinking-container {
-  background: var(--surface);
+  margin-bottom: 0.5rem;
+}
+
+.thinking-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+.thinking-toggle:hover {
+  color: var(--text);
+}
+.thinking-toggle-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  line-height: 1;
+  transition: transform var(--transition-fast);
+}
+.thinking-toggle[aria-expanded="true"] .thinking-toggle-icon {
+  transform: rotate(90deg);
+}
+
+.thinking-content {
+  background: var(--thinking-bg);
   border-radius: var(--radius-card);
   border: var(--border-width) solid var(--border-subtle);
-  padding: 1.25rem;
-  margin-bottom: 0.75rem;
+  padding: 1rem 1.25rem;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  overflow-x: auto;
+  word-wrap: break-word;
+}
+.thinking-content p {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
 }
 
 .image-container {
@@ -1498,16 +1543,13 @@ a.attachment-chip:hover {
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  opacity: 0.6;
   z-index: 10;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0.4;
+  transition: opacity var(--transition-fast);
+  line-height: 0;
 }
-
-.hint-desktop { display: inline; }
-.hint-mobile { display: none; }
-
-@media (max-width: 768px) {
-  .hint-desktop { display: none; }
-  .hint-mobile { display: inline; }
+.landing-footer-hint:hover {
+  opacity: 0.7;
 }
