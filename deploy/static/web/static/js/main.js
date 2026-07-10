@@ -5,15 +5,36 @@ marked.setOptions({ breaks: true, gfm: true });
 
 var currentMode = 'canvas';
 var _skipInitSound = false;
-var currentModel = 'gemini-2.5-flash';
+var currentModel = 'auto';
 
 var MODEL_LABELS = {
+  'auto': 'Auto',
   'gemini-2.5-flash': 'Gemini 2.5 Flash',
   'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
   'gemini-3.0-flash': 'Gemini 3 Flash',
   'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
   'gemini-3.5-flash': 'Gemini 3.5 Flash',
 };
+
+var MODEL_PRIORITY = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.0-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite'];
+var modelAvailability = {};
+
+function resolveModel() {
+  if (currentModel !== 'auto') return currentModel;
+  var now = Date.now();
+  for (var i = 0; i < MODEL_PRIORITY.length; i++) {
+    var m = MODEL_PRIORITY[i];
+    var avail = modelAvailability[m];
+    if (!avail || (avail.availableAt && now >= avail.availableAt)) {
+      return m;
+    }
+  }
+  return MODEL_PRIORITY[0];
+}
+
+function markModelUnavailable(model, retryAfter) {
+  modelAvailability[model] = { availableAt: retryAfter ? Date.now() + retryAfter * 1000 : Infinity };
+}
 
 var MODE_ICONS = {
   canvas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2l10 5-10 5L2 7Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
@@ -380,7 +401,7 @@ function handleSubmit() {
       body: JSON.stringify({
         title: title,
         mode: mode,
-        model: currentModel,
+        model: resolveModel(),
         messages: [userMsg],
         metadata: { status: 'pending' },
       }),
@@ -418,14 +439,21 @@ function handleTextGen(prompt, style) {
 
   /* Include full conversation history for context */
   var messages = activeConversationData ? activeConversationData.messages : null;
+  var actualModel = resolveModel();
 
   fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: prompt, messages: messages, model: currentModel }),
+    body: JSON.stringify({ prompt: prompt, messages: messages, model: actualModel }),
   })
     .then((r) => {
-      if (!r.ok) throw new Error('Request failed');
+      if (!r.ok) {
+        if (r.status === 429 || r.status === 503) {
+          var retryAfter = r.headers.get('Retry-After');
+          markModelUnavailable(actualModel, retryAfter ? parseInt(retryAfter, 10) : undefined);
+        }
+        throw new Error('Request failed');
+      }
       return r.json();
     })
     .then((data) => {
@@ -436,7 +464,7 @@ function handleTextGen(prompt, style) {
         content: data.response || '',
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
-        model: currentModel,
+        model: actualModel,
       });
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
@@ -450,10 +478,11 @@ function handleTextGen(prompt, style) {
 }
 
 function handleImageGen(prompt) {
+  var actualModel = resolveModel();
   fetch('/api/generate-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, model: actualModel }),
   })
     .then((r) => {
       if (!r.ok) throw new Error('Image generation failed');
@@ -472,7 +501,7 @@ function handleImageGen(prompt) {
         role: 'assistant',
         content: '[Image generated]',
         timestamp: new Date().toISOString(),
-        model: currentModel,
+        model: actualModel,
       });
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
@@ -1084,7 +1113,7 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ── Model menu setup ── */
   setupModelMenu('landing-model-menu');
   setupModelMenu('conv-model-menu');
-  setModel('gemini-2.5-flash');
+  setModel('auto');
 
   /* Outside click to close mode/model dropdowns */
   document.addEventListener('mousedown', function (e) {
