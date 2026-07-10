@@ -1,4 +1,4 @@
-import type { ModeOption } from '../types';
+import type { ModeOption, ModelOption } from '../types';
 
 export const MODES: ModeOption[] = [
   { value: 'canvas', label: 'Canvas', icon: 'layers' },
@@ -6,6 +6,18 @@ export const MODES: ModeOption[] = [
   { value: 'web', label: 'Web', icon: 'globe' },
   { value: 'images', label: 'Images', icon: 'image' },
 ];
+
+export const MODELS: ModelOption[] = [
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
+  { value: 'gemini-3.0-flash', label: 'Gemini 3 Flash' },
+  { value: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { value: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+];
+
+export function getModelLabel(value: string): string {
+  return MODELS.find(m => m.value === value)?.label || value;
+}
 
 export const SUGGESTIONS: Record<string, string[]> = {
   canvas: ['Summarize this article', 'Explain this code', 'Generate release notes'],
