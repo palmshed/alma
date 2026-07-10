@@ -41,6 +41,7 @@ export interface MessageData {
   image?: string | null;
   attachments?: Record<string, unknown>[] | null;
   metadata?: Record<string, unknown> | null;
+  thinking_duration_sec?: number;
 }
 
 export type ModelAvailabilityState = 'ready' | 'cooling-down' | 'unavailable';

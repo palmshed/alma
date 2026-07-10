@@ -48,22 +48,27 @@ export function useConversation(options?: UseConversationOptions): UseConversati
     let actualModel = model;
     const firstModel = model;
 
-    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string }> {
+    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number }> {
+      const t0 = performance.now();
+      let responseText: string;
+      let thinkingText: string;
       if (mode === 'images') {
         const blob = await api.generateImage(text);
         const url = URL.createObjectURL(blob);
-        return { responseText: '[Image generated]', thinkingText: '' };
-      }
-      if (mode === 'thinking') {
+        responseText = '[Image generated]';
+        thinkingText = '';
+      } else if (mode === 'thinking') {
         const result = await api.generateWithThinking(text, history, requestModel);
-        return { responseText: result.response || '', thinkingText: result.thinking_summary?.join('\n') || '' };
+        responseText = result.response || '';
+        thinkingText = result.thinking_summary?.join('\n') || '';
+      } else if (mode === 'web') {
+        responseText = await api.generateWithUrlContext(text, history, requestModel);
+        thinkingText = '';
+      } else {
+        responseText = await api.generate(text, history, requestModel);
+        thinkingText = '';
       }
-      if (mode === 'web') {
-        const responseText = await api.generateWithUrlContext(text, history, requestModel);
-        return { responseText, thinkingText: '' };
-      }
-      const responseText = await api.generate(text, history, requestModel);
-      return { responseText, thinkingText: '' };
+      return { responseText, thinkingText, durationMs: performance.now() - t0 };
     }
 
     try {
@@ -74,6 +79,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
           thinking: result.thinkingText || undefined,
           timestamp: new Date().toISOString(),
           model: actualModel,
+          ...(mode === 'thinking' && result.durationMs ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
         };
         if (usedFallback && options?.autoMode) {
           msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
@@ -95,6 +101,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
                 timestamp: new Date().toISOString(),
                 model: fallback,
                 metadata: { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: fallback },
+                ...(mode === 'thinking' ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
               };
               setMessages(prev => [...prev, msg]);
               return;
