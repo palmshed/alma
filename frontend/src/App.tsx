@@ -510,7 +510,7 @@ function App() {
                     <React.Fragment key={i}>
                       {msg.model && (
                         <div className={`response-model${msg.metadata?.autoFallback ? ' response-model--fallback' : ''}`}>
-                          {msg.metadata?.autoFallback ? <>Auto <span className="response-model-arrow">→</span> {getModelLabel(msg.model)}</> : getModelLabel(msg.model)}
+                          <>{getModelLabel(msg.model)}{msg.metadata?.autoFallback && <span className="response-model-badge"> Auto fallback</span>}</>
                         </div>
                       )}
                       {msg.thinking && <ThinkingContainer content={msg.thinking} />}

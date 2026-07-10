@@ -483,7 +483,7 @@ function handleTextGen(prompt, style) {
         model: actualModel,
       };
       if (usedFallback) {
-        msg.metadata = { autoFallback: true };
+        msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
       }
       activeConversationData.messages.push(msg);
       activeConversationData.metadata = activeConversationData.metadata || {};
@@ -987,7 +987,7 @@ function renderConversation() {
       if (m.model) {
         var modelLabel = MODEL_LABELS[m.model] || m.model;
         if (m.metadata && m.metadata.autoFallback) {
-          html += '<div class="response-model response-model--fallback">Auto <span class="response-model-arrow">→</span> ' + escapeHtml(modelLabel) + '</div>';
+          html += '<div class="response-model response-model--fallback">' + escapeHtml(modelLabel) + ' <span class="response-model-badge">Auto fallback</span></div>';
         } else {
           html += '<div class="response-model">' + escapeHtml(modelLabel) + '</div>';
         }

@@ -46,6 +46,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
 
     let usedFallback = false;
     let actualModel = model;
+    const firstModel = model;
 
     async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string }> {
       if (mode === 'images') {
@@ -74,8 +75,8 @@ export function useConversation(options?: UseConversationOptions): UseConversati
           timestamp: new Date().toISOString(),
           model: actualModel,
         };
-        if (usedFallback) {
-          msg.metadata = { autoFallback: true };
+        if (usedFallback && options?.autoMode) {
+          msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
         }
         setMessages(prev => [...prev, msg]);
         return;
@@ -93,7 +94,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
                 thinking: result.thinkingText || undefined,
                 timestamp: new Date().toISOString(),
                 model: fallback,
-                metadata: { autoFallback: true },
+                metadata: { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: fallback },
               };
               setMessages(prev => [...prev, msg]);
               return;
