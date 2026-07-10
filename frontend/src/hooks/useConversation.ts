@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { api } from '../services/api';
+import { api, isQuotaError } from '../services/api';
 import type { AttachmentData, MessageData, ConversationData } from '../types';
 
 interface UseConversationReturn {
@@ -7,20 +7,26 @@ interface UseConversationReturn {
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => Promise<void>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<void>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
 }
 
-export function useConversation(): UseConversationReturn {
+interface UseConversationOptions {
+  onQuotaError?: (model: string, retryAfter?: number) => void;
+  autoMode?: boolean;
+  getFallbackModel?: (failedModel: string) => string | undefined;
+}
+
+export function useConversation(options?: UseConversationOptions): UseConversationReturn {
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const conversationStarted = messages.length > 0 || isLoading;
 
-  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[]) => {
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => {
     if (!text.trim() || isLoading) return;
     setIsLoading(true);
     setError(null);
@@ -38,30 +44,71 @@ export function useConversation(): UseConversationReturn {
       ? [...convMessages, userMsg]
       : [userMsg];
 
-    try {
+    let usedFallback = false;
+    let actualModel = model;
+    const firstModel = model;
+
+    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number }> {
+      const t0 = performance.now();
+      let responseText: string;
+      let thinkingText: string;
       if (mode === 'images') {
         const blob = await api.generateImage(text);
         const url = URL.createObjectURL(blob);
-        setMessages(prev => [...prev, {
-          id: '', role: 'assistant', content: '[Image generated]', image: url, timestamp: new Date().toISOString(),
-        }]);
+        responseText = '[Image generated]';
+        thinkingText = '';
+      } else if (mode === 'thinking') {
+        const result = await api.generateWithThinking(text, history, requestModel);
+        responseText = result.response || '';
+        thinkingText = result.thinking_summary?.join('\n') || '';
+      } else if (mode === 'web') {
+        responseText = await api.generateWithUrlContext(text, history, requestModel);
+        thinkingText = '';
       } else {
-        let responseText = '';
-        let thinkingText = '';
-        if (mode === 'thinking') {
-          const result = await api.generateWithThinking(text, history);
-          responseText = result.response || '';
-          thinkingText = result.thinking_summary?.join('\n') || '';
-        } else if (mode === 'web') {
-          responseText = await api.generateWithUrlContext(text, history);
-        } else {
-          responseText = await api.generate(text, history);
-        }
-        setMessages(prev => [...prev, {
-          id: '', role: 'assistant', content: responseText,
-          thinking: thinkingText || undefined,
+        responseText = await api.generate(text, history, requestModel);
+        thinkingText = '';
+      }
+      return { responseText, thinkingText, durationMs: performance.now() - t0 };
+    }
+
+    try {
+      try {
+        const result = await tryRequest(actualModel!);
+        const msg: MessageData = {
+          id: '', role: 'assistant', content: result.responseText,
+          thinking: result.thinkingText || undefined,
           timestamp: new Date().toISOString(),
-        }]);
+          model: actualModel,
+          ...(mode === 'thinking' && result.durationMs ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
+        };
+        if (usedFallback && options?.autoMode) {
+          msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
+        }
+        setMessages(prev => [...prev, msg]);
+        return;
+      } catch (err) {
+        if (actualModel && isQuotaError(err)) {
+          options?.onQuotaError?.(actualModel, err.retryAfter);
+          if (options?.autoMode && options?.getFallbackModel) {
+            const fallback = options.getFallbackModel(actualModel);
+            if (fallback && fallback !== actualModel) {
+              usedFallback = true;
+              actualModel = fallback;
+              const result = await tryRequest(fallback);
+              const msg: MessageData = {
+                id: '', role: 'assistant', content: result.responseText,
+                thinking: result.thinkingText || undefined,
+                timestamp: new Date().toISOString(),
+                model: fallback,
+                metadata: { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: fallback },
+                ...(mode === 'thinking' ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
+              };
+              setMessages(prev => [...prev, msg]);
+              return;
+            }
+          }
+        }
+        throw err;
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Request failed';
@@ -70,7 +117,7 @@ export function useConversation(): UseConversationReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading]);
+  }, [isLoading, options]);
 
   const loadConversation = useCallback((conv: ConversationData) => {
     setMessages(conv.messages || []);

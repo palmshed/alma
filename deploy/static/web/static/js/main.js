@@ -5,6 +5,36 @@ marked.setOptions({ breaks: true, gfm: true });
 
 var currentMode = 'canvas';
 var _skipInitSound = false;
+var currentModel = 'auto';
+
+var MODEL_LABELS = {
+  'auto': 'Auto',
+  'gemini-2.5-flash': 'Gemini 2.5 Flash',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+  'gemini-3.0-flash': 'Gemini 3 Flash',
+  'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
+  'gemini-3.5-flash': 'Gemini 3.5 Flash',
+};
+
+var MODEL_PRIORITY = ['gemini-2.5-flash', 'gemini-3.5-flash', 'gemini-3.0-flash', 'gemini-2.5-flash-lite', 'gemini-3.1-flash-lite'];
+var modelAvailability = {};
+
+function resolveModel() {
+  if (currentModel !== 'auto') return currentModel;
+  var now = Date.now();
+  for (var i = 0; i < MODEL_PRIORITY.length; i++) {
+    var m = MODEL_PRIORITY[i];
+    var avail = modelAvailability[m];
+    if (!avail || (avail.availableAt && now >= avail.availableAt)) {
+      return m;
+    }
+  }
+  return MODEL_PRIORITY[0];
+}
+
+function markModelUnavailable(model, retryAfter) {
+  modelAvailability[model] = { availableAt: retryAfter ? Date.now() + retryAfter * 1000 : Infinity };
+}
 
 var MODE_ICONS = {
   canvas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2l10 5-10 5L2 7Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
@@ -114,7 +144,54 @@ function setupModeMenu(menuId) {
   });
 }
 
-/* ── Helpers ── */
+/* ── Model Menu ── */
+
+function setModel(value) {
+  currentModel = value;
+  var label = MODEL_LABELS[value] || value;
+
+  document.querySelectorAll('.model-menu-trigger').forEach(function (t) {
+    t.setAttribute('aria-label', 'Model: ' + label);
+  });
+  document.querySelectorAll('.model-menu-trigger-label').forEach(function (el) {
+    el.textContent = label;
+  });
+  document.querySelectorAll('.model-menu-item').forEach(function (item) {
+    var isActive = item.dataset.model === value;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
+}
+
+function setupModelMenu(menuId) {
+  var menu = document.getElementById(menuId);
+  if (!menu) return;
+  var trigger = menu.querySelector('.model-menu-trigger');
+  var dropdown = menu.querySelector('.model-menu-dropdown');
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var isOpen = dropdown.style.display !== 'none';
+    document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+    document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+    setOverflowVisible(null, false);
+    if (!isOpen) {
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+      setOverflowVisible(menu, true);
+    }
+  });
+
+  menu.querySelectorAll('.model-menu-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      setModel(item.dataset.model);
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      setOverflowVisible(null, false);
+    });
+  });
+}
+
 
 function getActiveInput() {
   const landing = document.getElementById('landing');
@@ -324,6 +401,7 @@ function handleSubmit() {
       body: JSON.stringify({
         title: title,
         mode: mode,
+        model: resolveModel(),
         messages: [userMsg],
         metadata: { status: 'pending' },
       }),
@@ -361,41 +439,73 @@ function handleTextGen(prompt, style) {
 
   /* Include full conversation history for context */
   var messages = activeConversationData ? activeConversationData.messages : null;
+  var firstModel = resolveModel();
+  var usedFallback = false;
+  var startTime = performance.now();
 
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: prompt, messages: messages }),
-  })
-    .then((r) => {
-      if (!r.ok) throw new Error('Request failed');
-      return r.json();
-    })
-    .then((data) => {
+  function doRequest(model) {
+    return fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, messages: messages, model: model }),
+    });
+  }
+
+  function handleResponse(r, model) {
+    if (!r.ok) {
+      if ((r.status === 429 || r.status === 503) && currentModel === 'auto' && !usedFallback) {
+        var retryAfter = r.headers.get('Retry-After');
+        markModelUnavailable(model, retryAfter ? parseInt(retryAfter, 10) : undefined);
+        var fallbackModel = resolveModel();
+        if (fallbackModel && fallbackModel !== model) {
+          usedFallback = true;
+          return doRequest(fallbackModel).then(function (r2) {
+            if (!r2.ok) throw new Error('Request failed');
+            return r2.json().then(function (data) { return { data: data, model: fallbackModel }; });
+          });
+        }
+      }
+      throw new Error('Request failed');
+    }
+    return r.json().then(function (data) { return { data: data, model: model }; });
+  }
+
+  doRequest(firstModel).then(function (r) { return handleResponse(r, firstModel); })
+    .then(function (result) {
+      var data = result.data;
+      var actualModel = result.model;
+      var elapsed = Math.round((performance.now() - startTime) / 1000);
       var thinkingText = data.thinking_summary ? data.thinking_summary.join('\n') : '';
       /* Optimistically update local state */
-      activeConversationData.messages.push({
+      var msg = {
         role: 'assistant',
         content: data.response || '',
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
-      });
+        model: actualModel,
+        ...(style === 'thinking' && thinkingText ? { thinking_duration_sec: elapsed } : {}),
+      };
+      if (usedFallback) {
+        msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
+      }
+      activeConversationData.messages.push(msg);
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
       renderConversation();
       persistConversation();
     })
-    .catch((e) => {
+    .catch(function (e) {
       showError(e.message);
       setConversationFailed();
     });
 }
 
 function handleImageGen(prompt) {
+  var actualModel = resolveModel();
   fetch('/api/generate-image', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, model: actualModel }),
   })
     .then((r) => {
       if (!r.ok) throw new Error('Image generation failed');
@@ -414,6 +524,7 @@ function handleImageGen(prompt) {
         role: 'assistant',
         content: '[Image generated]',
         timestamp: new Date().toISOString(),
+        model: actualModel,
       });
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
@@ -876,7 +987,35 @@ function renderConversation() {
         html += '</div>';
       }
     } else if (m.role === 'assistant') {
-      if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
+      if (m.model) {
+        var modelLabel = MODEL_LABELS[m.model] || m.model;
+        if (m.metadata && m.metadata.autoFallback) {
+          html += '<div class="response-model response-model--fallback">' + escapeHtml(modelLabel) + ' <span class="response-model-badge">Auto fallback</span></div>';
+        } else {
+          html += '<div class="response-model">' + escapeHtml(modelLabel) + '</div>';
+        }
+      }
+      if (m.thinking) {
+        var cleanedThinking = m.thinking.replace(/^(My thought process:|I need to:|Let's think:|Let's think about|Let's start by|Let me think|I'll think|I should start|First,|First:|Okay,|Alright,|So,)\s*/i, '');
+        var newlineCount = (cleanedThinking.match(/\n/g) || []).length;
+        var isShort = newlineCount <= 1;
+        if (isShort) {
+          html += '<div class="thinking-container">';
+          html += '<div class="thinking-content">' + cleanedThinking + '</div>';
+          html += '</div>';
+        } else {
+          var durationLabel = 'Show reasoning';
+          if (m.thinking_duration_sec != null) {
+            durationLabel = 'Thought for ' + m.thinking_duration_sec + 's';
+          }
+          html += '<div class="thinking-container">';
+          html += '<button class="thinking-toggle" type="button" aria-expanded="false">';
+          html += '<span class="thinking-toggle-icon">&#9654;</span> ' + durationLabel;
+          html += '</button>';
+          html += '<div class="thinking-content" style="display:none">' + cleanedThinking + '</div>';
+          html += '</div>';
+        }
+      }
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
     }
   });
@@ -1021,11 +1160,21 @@ document.addEventListener('DOMContentLoaded', function () {
   _skipInitSound = true;
   setMode('canvas');
 
-  /* Outside click to close mode dropdowns */
+  /* ── Model menu setup ── */
+  setupModelMenu('landing-model-menu');
+  setupModelMenu('conv-model-menu');
+  setModel('auto');
+
+  /* Outside click to close mode/model dropdowns */
   document.addEventListener('mousedown', function (e) {
     if (!e.target.closest('.mode-menu')) {
       document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
       document.querySelectorAll('.mode-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+      setOverflowVisible(null, false);
+    }
+    if (!e.target.closest('.model-menu')) {
+      document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+      document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
       setOverflowVisible(null, false);
     }
   });
@@ -1304,11 +1453,16 @@ document.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown', function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
       e.preventDefault();
-      showDisclaimerDialog();
     }
   });
 
   /* Disclaimer dialog */
+  var disclaimerShown = false;
+  try { disclaimerShown = !!localStorage.getItem('alma_disclaimer_shown'); } catch (e) {}
+  if (!disclaimerShown) {
+    try { localStorage.setItem('alma_disclaimer_shown', '1'); } catch (e) {}
+    showDisclaimerDialog();
+  }
   const disclaimerClose = document.getElementById('disclaimer-close');
   const disclaimerOverlay = document.getElementById('disclaimer-overlay');
   const disclaimerHint = document.getElementById('landing-footer-hint');
@@ -1358,6 +1512,18 @@ document.addEventListener('DOMContentLoaded', function () {
         try { localStorage.removeItem('alma_active_conversation'); } catch (e) {}
       });
   }
+
+  /* Thinking toggle */
+  document.getElementById('conversation-scroll').addEventListener('click', function (e) {
+    var toggle = e.target.closest('.thinking-toggle');
+    if (!toggle) return;
+    var container = toggle.closest('.thinking-container');
+    var content = container.querySelector('.thinking-content');
+    var expanded = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!expanded));
+    content.style.display = expanded ? 'none' : 'block';
+    toggle.querySelector('.thinking-toggle-icon').innerHTML = expanded ? '&#9654;' : '&#9660;';
+  });
 
   /* Delete dialog focus trap */
   document.addEventListener('keydown', function (e) {

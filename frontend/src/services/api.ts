@@ -3,6 +3,22 @@ import type { ApiThinkingResult, AttachmentData, ConversationEntry, Conversation
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
 
+export class ApiError extends Error {
+  status: number;
+  retryAfter?: number;
+
+  constructor(msg: string, status: number, retryAfter?: number) {
+    super(msg);
+    this.name = 'ApiError';
+    this.status = status;
+    this.retryAfter = retryAfter;
+  }
+}
+
+export function isQuotaError(err: unknown): err is ApiError {
+  return err instanceof ApiError && (err.status === 429 || err.status === 503);
+}
+
 async function request<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
@@ -11,7 +27,8 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const msg = (await res.json().catch(() => ({}))).error || res.statusText;
-    throw new Error(msg);
+    const retryAfter = res.headers.get('Retry-After');
+    throw new ApiError(msg, res.status, retryAfter ? parseInt(retryAfter, 10) : undefined);
   }
   return res.json();
 }
@@ -47,8 +64,8 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string, messages?: MessageData[]): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt, messages }).then(
+  generate(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
+    return request<{ response: string }>('/api/generate', { prompt, messages, model }).then(
       (d) => d.response,
     );
   },
@@ -56,15 +73,16 @@ export const api = {
   generateWithThinking(
     prompt: string,
     messages?: MessageData[],
+    model?: string,
   ): Promise<ApiThinkingResult> {
     return request<ApiThinkingResult>('/api/generate-with-thinking', {
-      prompt, messages,
+      prompt, messages, model,
     });
   },
 
-  generateWithUrlContext(prompt: string, messages?: MessageData[]): Promise<string> {
+  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
     return request<{ response: string }>('/api/generate-with-url-context', {
-      prompt, messages,
+      prompt, messages, model,
     }).then((d) => d.response);
   },
 

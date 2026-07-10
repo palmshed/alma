@@ -18,6 +18,11 @@ export interface ModeOption {
   icon: string;
 }
 
+export interface ModelOption {
+  value: string;
+  label: string;
+}
+
 export interface ConversationEntry {
   id: string;
   title: string;
@@ -31,16 +36,26 @@ export interface MessageData {
   role: string;
   timestamp: string;
   content: string;
+  model?: string;
   thinking?: string | null;
   image?: string | null;
   attachments?: Record<string, unknown>[] | null;
   metadata?: Record<string, unknown> | null;
+  thinking_duration_sec?: number;
+}
+
+export type ModelAvailabilityState = 'ready' | 'cooling-down' | 'unavailable';
+
+export interface ModelAvailability {
+  state: ModelAvailabilityState;
+  availableAt?: number;
 }
 
 export interface ConversationData {
   id: string;
   title: string;
   mode: string;
+  model?: string;
   schema_version?: number;
   created_at: string;
   updated_at: string;
@@ -52,6 +67,7 @@ export interface ConversationData {
 export interface CreateConversationPayload {
   title?: string;
   mode: string;
+  model?: string;
   messages: MessageData[];
   title_is_manual?: boolean;
   metadata?: Record<string, unknown> | null;

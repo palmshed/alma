@@ -1,23 +1,23 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, Sparkles, Globe, Image } from 'lucide-react';
-import type { ModeOption } from '../types';
+import { ChevronDown } from 'lucide-react';
+import type { ModelOption, ModelAvailability } from '../types';
 import { findScrollParent } from '../utils/overflow';
 
-const ICONS: Record<string, React.ReactNode> = {
-  layers: <Layers size={15} strokeWidth={1.7} />,
-  sparkles: <Sparkles size={15} strokeWidth={1.7} />,
-  globe: <Globe size={15} strokeWidth={1.7} />,
-  image: <Image size={15} strokeWidth={1.7} />,
-};
-
-interface ModeMenuProps {
-  options: ModeOption[];
+interface ModelMenuProps {
+  options: ModelOption[];
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  availability?: Record<string, ModelAvailability>;
 }
 
-const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled }) => {
+const STATUS_LABELS: Record<string, string> = {
+  ready: '',
+  'cooling-down': 'Cooling down',
+  unavailable: 'Unavailable',
+};
+
+const ModelMenu: React.FC<ModelMenuProps> = ({ options, value, onChange, disabled, availability }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const overflowParent = useRef<HTMLElement | null>(null);
@@ -59,32 +59,39 @@ const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled 
   }, []);
 
   return (
-    <div className="mode-menu" ref={menuRef}>
+    <div className="model-menu" ref={menuRef}>
       <button
-        className="mode-menu-trigger"
+        className="model-menu-trigger"
         onClick={() => setOpen(!open)}
         disabled={disabled}
         type="button"
-        aria-label={`Mode: ${active.label}`}
+        aria-label={`Model: ${active.label}`}
         aria-expanded={open}
       >
-        {ICONS[active.icon]}
+        <span className="model-menu-trigger-label">{active.label}</span>
+        <ChevronDown size={12} strokeWidth={1.7} />
       </button>
       {open && (
-        <div className="mode-menu-dropdown" role="menu">
+        <div className="model-menu-dropdown" role="menu">
           {options.map((opt) => {
             const isActive = opt.value === value;
+            const av = availability?.[opt.value];
             return (
               <button
                 key={opt.value}
-                className={`mode-menu-item${isActive ? ' active' : ''}`}
+                className={`model-menu-item${isActive ? ' active' : ''}`}
                 onClick={() => { onChange(opt.value); setOpen(false); }}
                 role="menuitemradio"
                 aria-checked={isActive}
                 type="button"
+                disabled={av?.state === 'unavailable'}
               >
-                <span className="mode-menu-item-icon">{ICONS[opt.icon]}</span>
-                <span className="mode-menu-item-label">{opt.label}</span>
+                <span className="model-menu-item-label">{opt.label}</span>
+                {av && av.state !== 'ready' && (
+                  <span className={`model-menu-item-status model-menu-item-status--${av.state}`}>
+                    {STATUS_LABELS[av.state]}
+                  </span>
+                )}
               </button>
             );
           })}
@@ -94,4 +101,4 @@ const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled 
   );
 };
 
-export default ModeMenu;
+export default ModelMenu;
