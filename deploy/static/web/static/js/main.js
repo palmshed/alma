@@ -5,6 +5,15 @@ marked.setOptions({ breaks: true, gfm: true });
 
 var currentMode = 'canvas';
 var _skipInitSound = false;
+var currentModel = 'gemini-2.5-flash';
+
+var MODEL_LABELS = {
+  'gemini-2.5-flash': 'Gemini 2.5 Flash',
+  'gemini-2.5-flash-lite': 'Gemini 2.5 Flash Lite',
+  'gemini-3.0-flash': 'Gemini 3 Flash',
+  'gemini-3.1-flash-lite': 'Gemini 3.1 Flash Lite',
+  'gemini-3.5-flash': 'Gemini 3.5 Flash',
+};
 
 var MODE_ICONS = {
   canvas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2l10 5-10 5L2 7Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
@@ -114,7 +123,54 @@ function setupModeMenu(menuId) {
   });
 }
 
-/* ── Helpers ── */
+/* ── Model Menu ── */
+
+function setModel(value) {
+  currentModel = value;
+  var label = MODEL_LABELS[value] || value;
+
+  document.querySelectorAll('.model-menu-trigger').forEach(function (t) {
+    t.setAttribute('aria-label', 'Model: ' + label);
+  });
+  document.querySelectorAll('.model-menu-trigger-label').forEach(function (el) {
+    el.textContent = label;
+  });
+  document.querySelectorAll('.model-menu-item').forEach(function (item) {
+    var isActive = item.dataset.model === value;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-checked', isActive ? 'true' : 'false');
+  });
+}
+
+function setupModelMenu(menuId) {
+  var menu = document.getElementById(menuId);
+  if (!menu) return;
+  var trigger = menu.querySelector('.model-menu-trigger');
+  var dropdown = menu.querySelector('.model-menu-dropdown');
+
+  trigger.addEventListener('click', function (e) {
+    e.stopPropagation();
+    var isOpen = dropdown.style.display !== 'none';
+    document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+    document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+    setOverflowVisible(null, false);
+    if (!isOpen) {
+      dropdown.style.display = 'flex';
+      trigger.setAttribute('aria-expanded', 'true');
+      setOverflowVisible(menu, true);
+    }
+  });
+
+  menu.querySelectorAll('.model-menu-item').forEach(function (item) {
+    item.addEventListener('click', function () {
+      setModel(item.dataset.model);
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+      setOverflowVisible(null, false);
+    });
+  });
+}
+
 
 function getActiveInput() {
   const landing = document.getElementById('landing');
@@ -324,6 +380,7 @@ function handleSubmit() {
       body: JSON.stringify({
         title: title,
         mode: mode,
+        model: currentModel,
         messages: [userMsg],
         metadata: { status: 'pending' },
       }),
@@ -365,7 +422,7 @@ function handleTextGen(prompt, style) {
   fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: prompt, messages: messages }),
+    body: JSON.stringify({ prompt: prompt, messages: messages, model: currentModel }),
   })
     .then((r) => {
       if (!r.ok) throw new Error('Request failed');
@@ -379,6 +436,7 @@ function handleTextGen(prompt, style) {
         content: data.response || '',
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
+        model: currentModel,
       });
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
@@ -414,6 +472,7 @@ function handleImageGen(prompt) {
         role: 'assistant',
         content: '[Image generated]',
         timestamp: new Date().toISOString(),
+        model: currentModel,
       });
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
@@ -876,6 +935,7 @@ function renderConversation() {
         html += '</div>';
       }
     } else if (m.role === 'assistant') {
+      if (m.model) html += '<div class="response-model">' + escapeHtml(MODEL_LABELS[m.model] || m.model) + '</div>';
       if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
     }
@@ -1021,11 +1081,21 @@ document.addEventListener('DOMContentLoaded', function () {
   _skipInitSound = true;
   setMode('canvas');
 
-  /* Outside click to close mode dropdowns */
+  /* ── Model menu setup ── */
+  setupModelMenu('landing-model-menu');
+  setupModelMenu('conv-model-menu');
+  setModel('gemini-2.5-flash');
+
+  /* Outside click to close mode/model dropdowns */
   document.addEventListener('mousedown', function (e) {
     if (!e.target.closest('.mode-menu')) {
       document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
       document.querySelectorAll('.mode-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
+      setOverflowVisible(null, false);
+    }
+    if (!e.target.closest('.model-menu')) {
+      document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
+      document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
       setOverflowVisible(null, false);
     }
   });
