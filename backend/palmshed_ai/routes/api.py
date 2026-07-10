@@ -8,15 +8,22 @@ from flask import Blueprint, request, jsonify, send_file, after_this_request, Re
 import os
 import tempfile
 import logging
+import base64
 from typing import Any, cast, Dict, Tuple, Union
 from ..image_models import ImageStatus
 from ..sdk import GeminiAI
+from .. import models as sdk_models
 
 
 def _error_response(e: Exception) -> Tuple[Response, int]:
     msg = str(e)
     status = 429 if "429" in msg or "RESOURCE_EXHAUSTED" in msg else 500
     return jsonify({"error": msg}), status
+
+
+def _file_to_base64(filepath: str) -> str:
+    with open(filepath, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 
 def is_safe_path(base_path: str, target_path: str) -> bool:
@@ -46,6 +53,7 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        response_mode = data.get("response_mode", "text")
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
@@ -58,7 +66,21 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             response = ai.generate_text(prompt)
-        return jsonify({"response": response})
+
+        result: Dict[str, Any] = {"response": response}
+        if response_mode == "voice":
+            try:
+                voice = data.get("voice", sdk_models.DEFAULT_TTS_VOICE)
+                logging.info(f"[generate] TTS: model={sdk_models.TTS_MODEL}, voice={voice}")
+                filepath = ai.text_to_speech_gemini(response, voice)
+                result["audio_base64"] = _file_to_base64(filepath)
+                result["voice_model"] = sdk_models.TTS_MODEL
+                result["voice_name"] = voice
+            except Exception as tts_err:
+                logging.warning(f"[generate] Voice generation failed: {tts_err}")
+                result["voice_error"] = str(tts_err)
+
+        return jsonify(result)
 
     except Exception as e:
         logging.error(f"Error in generate_response: {e}")
@@ -71,6 +93,7 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        response_mode = data.get("response_mode", "text")
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
@@ -83,6 +106,19 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             result = ai.generate_text_with_thinking(prompt)
+
+        if response_mode == "voice" and result.get("response"):
+            try:
+                voice = data.get("voice", sdk_models.DEFAULT_TTS_VOICE)
+                logging.info(f"[generate-with-thinking] TTS: model={sdk_models.TTS_MODEL}, voice={voice}")
+                filepath = ai.text_to_speech_gemini(result["response"], voice)
+                result["audio_base64"] = _file_to_base64(filepath)
+                result["voice_model"] = sdk_models.TTS_MODEL
+                result["voice_name"] = voice
+            except Exception as tts_err:
+                logging.warning(f"[generate-with-thinking] Voice generation failed: {tts_err}")
+                result["voice_error"] = str(tts_err)
+
         return jsonify(result)
 
     except Exception as e:
@@ -96,6 +132,7 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        response_mode = data.get("response_mode", "text")
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
@@ -108,7 +145,21 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             response = ai.generate_text_with_url_context(prompt)
-        return jsonify({"response": response})
+
+        result: Dict[str, Any] = {"response": response}
+        if response_mode == "voice":
+            try:
+                voice = data.get("voice", sdk_models.DEFAULT_TTS_VOICE)
+                logging.info(f"[generate-with-url-context] TTS: model={sdk_models.TTS_MODEL}, voice={voice}")
+                filepath = ai.text_to_speech_gemini(response, voice)
+                result["audio_base64"] = _file_to_base64(filepath)
+                result["voice_model"] = sdk_models.TTS_MODEL
+                result["voice_name"] = voice
+            except Exception as tts_err:
+                logging.warning(f"[generate-with-url-context] Voice generation failed: {tts_err}")
+                result["voice_error"] = str(tts_err)
+
+        return jsonify(result)
 
     except Exception as e:
         logging.error(f"Error in generate_response_with_url_context: {e}")
@@ -121,6 +172,7 @@ def text_to_speech() -> Union[Response, Tuple[Response, int]]:
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
         text = data.get("text", "").strip()
+        voice = data.get("voice", "") or ""
 
         if not text:
             return jsonify({"error": "No text provided"}), 400
@@ -128,7 +180,7 @@ def text_to_speech() -> Union[Response, Tuple[Response, int]]:
         if len(text) > 1000:
             return jsonify({"error": "Text too long (max 1000 chars)"}), 400
 
-        filepath = ai.text_to_speech(text)
+        filepath = ai.text_to_speech_gemini(text, voice) if voice else ai.text_to_speech(text)
 
         # Prevent path traversal
         if not is_safe_path(TEMP_AUDIO_DIR, filepath):

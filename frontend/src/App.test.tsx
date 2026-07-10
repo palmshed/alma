@@ -18,9 +18,9 @@ const convRef = { current: [...mockConversations] };
 const convDataRef = { current: { ...mockConvData } };
 
 const mockApi = vi.hoisted(() => ({
-  generate: vi.fn().mockResolvedValue('mock response'),
+  generate: vi.fn().mockResolvedValue({ response: 'mock response' }),
   generateWithThinking: vi.fn().mockResolvedValue({ response: 'mock', thinking_summary: [] }),
-  generateWithUrlContext: vi.fn().mockResolvedValue('mock'),
+  generateWithUrlContext: vi.fn().mockResolvedValue({ response: 'mock' }),
   generateImage: vi.fn().mockResolvedValue(new Blob()),
   textToSpeech: vi.fn().mockResolvedValue(new Blob()),
   listConversations: vi.fn().mockImplementation(() => Promise.resolve([...convRef.current])),

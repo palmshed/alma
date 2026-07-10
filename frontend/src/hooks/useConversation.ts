@@ -7,7 +7,7 @@ interface UseConversationReturn {
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<void>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string, responseMode?: string, voice?: string) => Promise<void>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
@@ -26,7 +26,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
 
   const conversationStarted = messages.length > 0 || isLoading;
 
-  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => {
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string, responseMode?: string, voice?: string) => {
     if (!text.trim() || isLoading) return;
     setIsLoading(true);
     setError(null);
@@ -48,27 +48,41 @@ export function useConversation(options?: UseConversationOptions): UseConversati
     let actualModel = model;
     const firstModel = model;
 
-    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number }> {
+    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number; audioBase64?: string; voiceModel?: string; voiceName?: string }> {
       const t0 = performance.now();
       let responseText: string;
       let thinkingText: string;
+      let audioBase64: string | undefined;
+      let voiceModel: string | undefined;
+      let voiceName: string | undefined;
       if (mode === 'images') {
         const blob = await api.generateImage(text);
         const url = URL.createObjectURL(blob);
         responseText = '[Image generated]';
         thinkingText = '';
       } else if (mode === 'thinking') {
-        const result = await api.generateWithThinking(text, history, requestModel);
+        const result = await api.generateWithThinking(text, history, requestModel, mode, responseMode, voice);
         responseText = result.response || '';
         thinkingText = result.thinking_summary?.join('\n') || '';
+        audioBase64 = result.audio_base64;
+        voiceModel = result.voice_model;
+        voiceName = result.voice_name;
       } else if (mode === 'web') {
-        responseText = await api.generateWithUrlContext(text, history, requestModel);
+        const result = await api.generateWithUrlContext(text, history, requestModel, mode, responseMode, voice);
+        responseText = result.response || '';
         thinkingText = '';
+        audioBase64 = result.audio_base64;
+        voiceModel = result.voice_model;
+        voiceName = result.voice_name;
       } else {
-        responseText = await api.generate(text, history, requestModel);
+        const result = await api.generate(text, history, requestModel, mode, responseMode, voice);
+        responseText = result.response || '';
         thinkingText = '';
+        audioBase64 = result.audio_base64;
+        voiceModel = result.voice_model;
+        voiceName = result.voice_name;
       }
-      return { responseText, thinkingText, durationMs: performance.now() - t0 };
+      return { responseText, thinkingText, durationMs: performance.now() - t0, audioBase64, voiceModel, voiceName };
     }
 
     try {
@@ -79,6 +93,8 @@ export function useConversation(options?: UseConversationOptions): UseConversati
           thinking: result.thinkingText || undefined,
           timestamp: new Date().toISOString(),
           model: actualModel,
+          audio: result.audioBase64 || undefined,
+          voice_error: result.voiceError || undefined,
           ...(mode === 'thinking' && result.durationMs ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
         };
         if (usedFallback && options?.autoMode) {
@@ -100,6 +116,8 @@ export function useConversation(options?: UseConversationOptions): UseConversati
                 thinking: result.thinkingText || undefined,
                 timestamp: new Date().toISOString(),
                 model: fallback,
+                audio: result.audioBase64 || undefined,
+                voice_error: result.voiceError || undefined,
                 metadata: { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: fallback },
                 ...(mode === 'thinking' ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
               };

@@ -64,9 +64,9 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt, messages, model }).then(
-      (d) => d.response,
+  generate(prompt: string, messages?: MessageData[], model?: string, mode?: string, responseMode?: string, voice?: string): Promise<{ response: string; audio_base64?: string; voice_model?: string; voice_error?: string; voice_name?: string }> {
+    return request<{ response: string; audio_base64?: string; voice_model?: string; voice_error?: string; voice_name?: string }>('/api/generate', { prompt, messages, model, mode, response_mode: responseMode, voice }).then(
+      (d) => d,
     );
   },
 
@@ -74,16 +74,19 @@ export const api = {
     prompt: string,
     messages?: MessageData[],
     model?: string,
+    mode?: string,
+    responseMode?: string,
+    voice?: string,
   ): Promise<ApiThinkingResult> {
     return request<ApiThinkingResult>('/api/generate-with-thinking', {
-      prompt, messages, model,
+      prompt, messages, model, mode, response_mode: responseMode, voice,
     });
   },
 
-  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate-with-url-context', {
-      prompt, messages, model,
-    }).then((d) => d.response);
+  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string, mode?: string, responseMode?: string, voice?: string): Promise<{ response: string; audio_base64?: string; voice_model?: string; voice_error?: string; voice_name?: string }> {
+    return request<{ response: string; audio_base64?: string; voice_model?: string; voice_error?: string; voice_name?: string }>('/api/generate-with-url-context', {
+      prompt, messages, model, mode, response_mode: responseMode, voice,
+    }).then((d) => d);
   },
 
   async generateImage(prompt: string): Promise<Blob> {
@@ -100,11 +103,11 @@ export const api = {
     return res.blob();
   },
 
-  async textToSpeech(text: string): Promise<Blob> {
+  async textToSpeech(text: string, voice?: string): Promise<Blob> {
     const res = await fetch(`${API_BASE}/api/text-to-speech`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, ...(voice ? { voice } : {}) }),
     });
     if (!res.ok) {
       const msg =
