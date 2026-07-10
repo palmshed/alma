@@ -52,6 +52,11 @@ function App() {
     messages, isLoading, conversationStarted, error,
     submit, clear: conversationClear, loadConversation, reconcileMessages,
   } = useConversation({
+    autoMode: selectedModel === 'auto',
+    getFallbackModel: (failedModel) => {
+      const next = resolveModel(selectedModel, modelAvailability);
+      return next !== failedModel ? next : undefined;
+    },
     onQuotaError: (model, retryAfter) => {
       if (retryAfter) {
         setModelAvailability(prev => ({
@@ -504,7 +509,9 @@ function App() {
                   return (
                     <React.Fragment key={i}>
                       {msg.model && (
-                        <div className="response-model">{getModelLabel(msg.model)}</div>
+                        <div className={`response-model${msg.metadata?.autoFallback ? ' response-model--fallback' : ''}`}>
+                          {msg.metadata?.autoFallback ? <>Auto <span className="response-model-arrow">→</span> {getModelLabel(msg.model)}</> : getModelLabel(msg.model)}
+                        </div>
                       )}
                       {msg.thinking && <ThinkingContainer content={msg.thinking} />}
                       {msg.image ? (

@@ -439,39 +439,59 @@ function handleTextGen(prompt, style) {
 
   /* Include full conversation history for context */
   var messages = activeConversationData ? activeConversationData.messages : null;
-  var actualModel = resolveModel();
+  var firstModel = resolveModel();
+  var usedFallback = false;
 
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: prompt, messages: messages, model: actualModel }),
-  })
-    .then((r) => {
-      if (!r.ok) {
-        if (r.status === 429 || r.status === 503) {
-          var retryAfter = r.headers.get('Retry-After');
-          markModelUnavailable(actualModel, retryAfter ? parseInt(retryAfter, 10) : undefined);
+  function doRequest(model) {
+    return fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt, messages: messages, model: model }),
+    });
+  }
+
+  function handleResponse(r, model) {
+    if (!r.ok) {
+      if ((r.status === 429 || r.status === 503) && currentModel === 'auto' && !usedFallback) {
+        var retryAfter = r.headers.get('Retry-After');
+        markModelUnavailable(model, retryAfter ? parseInt(retryAfter, 10) : undefined);
+        var fallbackModel = resolveModel();
+        if (fallbackModel && fallbackModel !== model) {
+          usedFallback = true;
+          return doRequest(fallbackModel).then(function (r2) {
+            if (!r2.ok) throw new Error('Request failed');
+            return r2.json().then(function (data) { return { data: data, model: fallbackModel }; });
+          });
         }
-        throw new Error('Request failed');
       }
-      return r.json();
-    })
-    .then((data) => {
+      throw new Error('Request failed');
+    }
+    return r.json().then(function (data) { return { data: data, model: model }; });
+  }
+
+  doRequest(firstModel).then(function (r) { return handleResponse(r, firstModel); })
+    .then(function (result) {
+      var data = result.data;
+      var actualModel = result.model;
       var thinkingText = data.thinking_summary ? data.thinking_summary.join('\n') : '';
       /* Optimistically update local state */
-      activeConversationData.messages.push({
+      var msg = {
         role: 'assistant',
         content: data.response || '',
         thinking: thinkingText || undefined,
         timestamp: new Date().toISOString(),
         model: actualModel,
-      });
+      };
+      if (usedFallback) {
+        msg.metadata = { autoFallback: true };
+      }
+      activeConversationData.messages.push(msg);
       activeConversationData.metadata = activeConversationData.metadata || {};
       activeConversationData.metadata.status = 'complete';
       renderConversation();
       persistConversation();
     })
-    .catch((e) => {
+    .catch(function (e) {
       showError(e.message);
       setConversationFailed();
     });
@@ -964,7 +984,14 @@ function renderConversation() {
         html += '</div>';
       }
     } else if (m.role === 'assistant') {
-      if (m.model) html += '<div class="response-model">' + escapeHtml(MODEL_LABELS[m.model] || m.model) + '</div>';
+      if (m.model) {
+        var modelLabel = MODEL_LABELS[m.model] || m.model;
+        if (m.metadata && m.metadata.autoFallback) {
+          html += '<div class="response-model response-model--fallback">Auto <span class="response-model-arrow">→</span> ' + escapeHtml(modelLabel) + '</div>';
+        } else {
+          html += '<div class="response-model">' + escapeHtml(modelLabel) + '</div>';
+        }
+      }
       if (m.thinking) html += '<div class="thinking-container">' + m.thinking + '</div>';
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
     }
