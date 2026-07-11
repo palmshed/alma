@@ -5,6 +5,7 @@
 # Serves the original HTML/CSS/JS interface on port 5000.
 
 import os
+from pathlib import Path
 from flask import Flask, render_template, send_file, abort
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -12,13 +13,16 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
+FILE_DIR = Path(__file__).resolve().parent
+REPO_DIR = FILE_DIR.parent
+
 
 def create_static_app():
     """Create Flask app for serving static web interface."""
     app = Flask(
         __name__,
-        static_folder="deploy/static/web/static",
-        template_folder="deploy/static/web/templates",
+        static_folder=str(REPO_DIR / "deploy/static/web/static"),
+        template_folder=str(REPO_DIR / "deploy/static/web/templates"),
     )
     CORS(app)  # Enable CORS for API calls
 
@@ -36,9 +40,7 @@ def create_static_app():
     app.register_blueprint(conversations_bp)
 
     # Static pages (Terms, Privacy, Contact, Help)
-    PAGES_DIR = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../deploy/static/web/pages")
-    )
+    PAGES_DIR = REPO_DIR / "deploy/static/web/pages"
 
     PAGE_ROUTES = {
         "/terms": "terms.html",

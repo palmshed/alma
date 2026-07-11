@@ -1,3 +1,5 @@
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+
 ## Dependencies
 
 Backend: Flask, flask-cors, flask-limiter, google-genai, gTTS, python-dotenv, redis (optional).

@@ -475,7 +475,7 @@ function handleTextGen(prompt, style) {
       var data = result.data;
       var actualModel = result.model;
       var elapsed = Math.round((performance.now() - startTime) / 1000);
-      var thinkingText = data.thinking_summary ? data.thinking_summary.join('\n') : '';
+      var thinkingText = data.thinking_summary ? data.thinking_summary.map(function(s) { return s.replace(/[,;:\s-]+$/, ''); }).join('\n') : '';
       /* Optimistically update local state */
       var msg = {
         role: 'assistant',
