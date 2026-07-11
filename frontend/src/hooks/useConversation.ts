@@ -60,7 +60,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
       } else if (mode === 'thinking') {
         const result = await api.generateWithThinking(text, history, requestModel);
         responseText = result.response || '';
-        thinkingText = result.thinking_summary?.join('\n') || '';
+        thinkingText = result.thinking_summary?.map((s: string) => s.replace(/[,;:\s-]+$/, '')).join('\n') || '';
       } else if (mode === 'web') {
         responseText = await api.generateWithUrlContext(text, history, requestModel);
         thinkingText = '';

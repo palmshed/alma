@@ -13,6 +13,7 @@ import UserMessage from './components/UserMessage';
 import Sidebar from './components/Sidebar';
 import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
+import FooterPage from './pages/FooterPage';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
@@ -85,6 +86,7 @@ function App() {
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [currentPage, setCurrentPage] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -200,12 +202,28 @@ function App() {
     }
   }, [messages, isLoading]);
 
+  /* Blur composer on submit so it doesn't stay selected during generation */
+  useEffect(() => {
+    if (isLoading && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  }, [isLoading]);
+
   useEffect(() => {
     const preset = ACCENT_PRESETS.find(p => p.color === accentColor) || ACCENT_PRESETS[0];
     document.documentElement.style.setProperty('--accent', preset.color);
     document.documentElement.style.setProperty('--accent-hover', preset.hover);
     try { localStorage.setItem('accent', accentColor); } catch {}
   }, [accentColor]);
+
+  const handleNavigate = useCallback((page: string) => {
+    setSidebarOpen(false);
+    setCurrentPage(page);
+  }, []);
+
+  const handleClosePage = useCallback(() => {
+    setCurrentPage(null);
+  }, []);
 
   const handleThemeToggle = useCallback(() => {
     const next = theme === 'dark' ? 'light' : 'dark';
@@ -382,6 +400,10 @@ function App() {
     );
   }
 
+  if (currentPage) {
+    return <FooterPage page={currentPage} onClose={handleClosePage} />;
+  }
+
   return (
     <div className="app-container">
       <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
@@ -439,7 +461,7 @@ function App() {
             !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
-                  <Chip key={s} label={s} onClick={() => { setInput(s); submit(s, mode, undefined, undefined, resolveModel(selectedModel, modelAvailability)); }} />
+                  <Chip key={s} label={s} onClick={() => { setInput(s); document.querySelector<HTMLTextAreaElement>('.composer-textarea')?.focus(); }} />
                 ))}
               </div>
             ) : undefined
@@ -514,9 +536,10 @@ function App() {
                       {msg.image ? (
                         <ImageContainer imageUrl={msg.image} />
                       ) : (
-                        <ResponseContainer content={msg.content} />
+                        <ResponseContainer content={msg.content}>
+                          {i === messages.length - 1 && <TTSButton text={msg.content} />}
+                        </ResponseContainer>
                       )}
-                      {msg.content && <TTSButton text={msg.content} />}
                     </React.Fragment>
                   );
                 }
@@ -583,7 +606,7 @@ function App() {
         />
       )}
 
-      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      <div className={`sidebar-overlay${sidebarOpen ? ' sidebar-overlay--active' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -619,6 +642,7 @@ function App() {
           composerClear();
         }}
         activeConversationId={activeConversationId}
+        onNavigate={handleNavigate}
       />
 
       {!conversationStarted && (

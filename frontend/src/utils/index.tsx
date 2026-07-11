@@ -8,7 +8,7 @@ export const MODES: ModeOption[] = [
 ];
 
 export const MODELS: ModelOption[] = [
-  { value: 'auto', label: 'Auto (Smart Select)' },
+  { value: 'auto', label: 'Auto (Smart Select)', shortLabel: 'Auto' },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
   { value: 'gemini-3.0-flash', label: 'Gemini 3 Flash' },

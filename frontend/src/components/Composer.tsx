@@ -77,23 +77,13 @@ const Composer: React.FC<ComposerProps> = ({
             type="submit"
             aria-label="Send message"
           >
-            {loading ? (
-              <span className="composer-loading-dots">
-                <span /><span /><span />
-              </span>
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-                <path d="M12 19V5"/>
-                <path d="m5 12 7-7 7 7"/>
-              </svg>
-            )}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
+              <path d="M12 19V5"/>
+              <path d="m5 12 7-7 7 7"/>
+            </svg>
           </button>
         </div>
       </div>
-
-      {loading && (
-        <div className="composer-loading-bar" />
-      )}
     </div>
   );
 };

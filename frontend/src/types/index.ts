@@ -21,6 +21,7 @@ export interface ModeOption {
 export interface ModelOption {
   value: string;
   label: string;
+  shortLabel?: string;
 }
 
 export interface ConversationEntry {

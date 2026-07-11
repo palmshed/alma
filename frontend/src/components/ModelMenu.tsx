@@ -68,7 +68,7 @@ const ModelMenu: React.FC<ModelMenuProps> = ({ options, value, onChange, disable
         aria-label={`Model: ${active.label}`}
         aria-expanded={open}
       >
-        <span className="model-menu-trigger-label">{active.label}</span>
+        <span className="model-menu-trigger-label">{active.shortLabel || active.label}</span>
         <ChevronDown size={12} strokeWidth={1.7} />
       </button>
       {open && (
