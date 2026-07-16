@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
 import os
 import re
 from enum import Enum

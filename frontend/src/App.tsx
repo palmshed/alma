@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';

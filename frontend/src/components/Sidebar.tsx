@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ConversationEntry } from '../types';
 import { api } from '../services/api';
