@@ -270,6 +270,38 @@ def research_topic() -> Union[Response, Tuple[Response, int]]:
         return jsonify({"error": "Internal server error"}), 500
 
 
+@api_bp.route("/api/review-diff", methods=["POST"])
+def review_diff() -> Union[Response, Tuple[Response, int]]:
+    """Explain or review a pull request diff.
+
+    Stable contract consumed by the diff product. Accepts a unified diff and
+    an optional question, returns an AI-generated review.
+    """
+    try:
+        data = cast(Dict[str, Any], request.get_json() or {})
+        diff = data.get("diff", "").strip()
+        question = data.get("question", "").strip() or "Explain this pull request."
+
+        if not diff:
+            return jsonify({"error": "No diff provided"}), 400
+
+        if len(diff) > 50000:
+            return jsonify({"error": "Diff too long (max 50000 chars)"}), 400
+
+        prompt = (
+            "You are a code review assistant. Given the following unified diff "
+            "from a pull request, answer the request concisely and accurately.\n\n"
+            f"Request: {question}\n\n"
+            f"Diff:\n{diff}"
+        )
+        review = ai.generate_chat([{"role": "user", "content": prompt}])
+        return jsonify({"review": review})
+
+    except Exception as e:
+        logging.error(f"Error in review_diff: {e}")
+        return _error_response(e)
+
+
 @api_bp.route("/api/health", methods=["GET"])
 def health_check():
     """Health endpoint using PlatformManager."""

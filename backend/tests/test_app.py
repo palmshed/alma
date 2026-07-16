@@ -46,6 +46,29 @@ def test_generate_api_success(mock_generate, client):
     mock_generate.assert_called_once()
 
 
+@patch("palmshed_ai.routes.api.ai.generate_chat")
+def test_review_diff_success(mock_chat, client):
+    """Test the review-diff API with a valid diff."""
+    mock_chat.return_value = "This PR adds a feature."
+
+    response = client.post(
+        "/api/review-diff",
+        json={"diff": "--- a\n+++ b\n+new line", "question": "Explain this PR."},
+    )
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["review"] == "This PR adds a feature."
+    mock_chat.assert_called_once()
+
+
+def test_review_diff_missing_diff(client):
+    """Test the review-diff API with no diff."""
+    response = client.post("/api/review-diff", json={})
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "No diff provided" in data["error"]
+
+
 def test_generate_api_missing_prompt(client):
     """Test the generate API with missing prompt."""
     response = client.post("/api/generate", json={})
