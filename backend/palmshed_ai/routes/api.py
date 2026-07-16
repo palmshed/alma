@@ -279,8 +279,16 @@ def review_diff() -> Union[Response, Tuple[Response, int]]:
     """
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
-        diff = data.get("diff", "").strip()
-        question = data.get("question", "").strip() or "Explain this pull request."
+        diff = data.get("diff", "")
+        question = data.get("question", "")
+
+        if not isinstance(diff, str):
+            return jsonify({"error": "Diff must be a string"}), 400
+        if not isinstance(question, str):
+            return jsonify({"error": "Question must be a string"}), 400
+
+        diff = diff.strip()
+        question = question.strip() or "Explain this pull request."
 
         if not diff:
             return jsonify({"error": "No diff provided"}), 400
@@ -288,11 +296,17 @@ def review_diff() -> Union[Response, Tuple[Response, int]]:
         if len(diff) > 50000:
             return jsonify({"error": "Diff too long (max 50000 chars)"}), 400
 
+        if len(question) > 2000:
+            return jsonify({"error": "Question too long (max 2000 chars)"}), 400
+
         prompt = (
             "You are a code review assistant. Given the following unified diff "
             "from a pull request, answer the request concisely and accurately.\n\n"
             f"Request: {question}\n\n"
-            f"Diff:\n{diff}"
+            "Diff:\n"
+            "```diff\n"
+            f"{diff}\n"
+            "```"
         )
         review = ai.generate_chat([{"role": "user", "content": prompt}])
         return jsonify({"review": review})

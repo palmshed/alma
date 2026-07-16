@@ -69,6 +69,24 @@ def test_review_diff_missing_diff(client):
     assert "No diff provided" in data["error"]
 
 
+def test_review_diff_non_string_diff(client):
+    """Test the review-diff API rejects a non-string diff."""
+    response = client.post("/api/review-diff", json={"diff": 123})
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "Diff must be a string" in data["error"]
+
+
+def test_review_diff_question_too_long(client):
+    """Test the review-diff API rejects an overly long question."""
+    response = client.post(
+        "/api/review-diff", json={"diff": "--- a\n+++ b", "question": "x" * 2001}
+    )
+    assert response.status_code == 400
+    data = response.get_json()
+    assert "Question too long" in data["error"]
+
+
 def test_generate_api_missing_prompt(client):
     """Test the generate API with missing prompt."""
     response = client.post("/api/generate", json={})
