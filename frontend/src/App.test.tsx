@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';

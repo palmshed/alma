@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
 """
 UI verification for Alma — verifies that the frontend correctly
 represents every response lifecycle phase for every mode.

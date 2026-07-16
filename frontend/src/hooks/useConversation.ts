@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 import { useState, useCallback } from 'react';
 import { api, isQuotaError } from '../services/api';
 import type { AttachmentData, MessageData, ConversationData } from '../types';

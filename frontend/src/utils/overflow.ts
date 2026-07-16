@@ -1,3 +1,5 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 export function findScrollParent(el: HTMLElement | null): HTMLElement | null {
   while (el) {
     const style = getComputedStyle(el);

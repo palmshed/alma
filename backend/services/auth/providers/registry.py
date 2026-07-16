@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
 from typing import Optional
 
 from ..config import AuthConfig

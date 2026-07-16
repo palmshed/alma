@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum

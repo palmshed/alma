@@ -1,3 +1,5 @@
+# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-License-Identifier: MIT
 from .config import StorageConfig
 from .metrics import StorageMetrics
 from .models import StorageHealth, StorageObject, StorageResult, StorageStatus

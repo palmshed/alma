@@ -1,8 +1,8 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 import React, { ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
-// SPDX-License-Identifier: MIT
 
 interface ResponseContainerProps {
   content: string;
