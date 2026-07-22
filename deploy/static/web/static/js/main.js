@@ -1,5 +1,5 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
-# SPDX-License-Identifier: MIT
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-License-Identifier: MIT
 "use strict";
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -381,6 +381,7 @@ function handleSubmit() {
     payload.messages.push(userMsg);
     payload.metadata = payload.metadata || {};
     payload.metadata.status = 'pending';
+    activeConversationData = payload;
     createPromise = fetch('/api/conversations/' + encodeURIComponent(activeConversationId), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -397,6 +398,13 @@ function handleSubmit() {
     var title = prompt.slice(0, 60);
     var userMsg = { role: 'user', content: prompt, timestamp: new Date().toISOString() };
     if (attData) userMsg.attachments = attData;
+    activeConversationData = {
+      title: title,
+      mode: mode,
+      model: resolveModel(),
+      messages: [userMsg],
+      metadata: { status: 'pending' },
+    };
     createPromise = fetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -416,6 +424,11 @@ function handleSubmit() {
       fetchConversations();
     });
   }
+
+  /* Show the submitted message without waiting for the persistence request. */
+  renderConversation();
+  scroll = document.getElementById('conversation-scroll');
+  scroll.insertAdjacentHTML('beforeend', '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
 
   createPromise.then(function () {
     renderConversation();
@@ -1182,6 +1195,13 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   /* Submit handlers */
+  function resizeComposerInput(composerInput) {
+    composerInput.style.height = 'auto';
+    var height = Math.min(composerInput.scrollHeight, 120);
+    composerInput.style.height = height + 'px';
+    composerInput.style.overflowY = composerInput.scrollHeight > 120 ? 'auto' : 'hidden';
+  }
+
   function onInputChange() {
     const val = input.value.trim();
     if (submitBtn) {
@@ -1190,8 +1210,7 @@ document.addEventListener('DOMContentLoaded', function () {
       else submitBtn.classList.remove('has-text');
     }
     updateSuggestionsVisibility();
-    input.style.height = 'auto';
-    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    resizeComposerInput(input);
 
     /* Conversation input sync */
     if (convInput) {
@@ -1206,6 +1225,7 @@ document.addEventListener('DOMContentLoaded', function () {
       if (val) convSubmit.classList.add('has-text');
       else convSubmit.classList.remove('has-text');
     }
+    resizeComposerInput(convInput);
   }
 
   if (input) {

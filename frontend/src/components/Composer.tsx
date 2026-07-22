@@ -33,7 +33,9 @@ const Composer: React.FC<ComposerProps> = ({
     const el = textareaRef.current;
     if (el) {
       el.style.height = 'auto';
-      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+      const height = Math.min(el.scrollHeight, 120);
+      el.style.height = `${height}px`;
+      el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden';
     }
   }, [value]);
 

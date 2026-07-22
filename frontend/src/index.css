@@ -671,7 +671,7 @@ html {
   resize: none;
   min-height: 24px;
   max-height: 120px;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding: 8px 0;
   margin: 0;
   font-weight: 400;
@@ -1092,6 +1092,10 @@ html {
     width: 100vw;
     right: -100vw;
   }
+
+  .sidebar.sidebar--open {
+    right: 0;
+  }
 }
 
 .sidebar-overlay {
@@ -1179,6 +1183,7 @@ html {
 .dialog-btn {
   padding: 8px 20px;
   background: var(--bg);
+  color: var(--text);
   border: 1px solid var(--border-subtle);
 }
 
@@ -1781,4 +1786,38 @@ a.attachment-chip:hover {
 
 .markdown-content thead {
   background: var(--surface);
+}
+
+@media (max-width: 768px) {
+  .landing {
+    padding: 1.5rem 1rem;
+  }
+
+  .landing-suggestions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 10px 16px 4px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .landing-suggestions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .landing-suggestions .chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .composer-input-row,
+  .conversation-composer .composer-input-row {
+    padding: 10px 16px 4px;
+  }
+
+  .composer-toolbar,
+  .pending-attachments {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }

@@ -570,7 +570,7 @@ body:has(#landing[style*="display:none"]) .app-header-title {
   resize: none;
   min-height: 24px;
   max-height: 120px;
-  overflow-y: auto;
+  overflow-y: hidden;
   padding: 8px 0;
   margin: 0;
   font-weight: 400;
@@ -1219,6 +1219,10 @@ body:has(#landing[style*="display:none"]) .app-header-title {
     width: 100vw;
     right: -100vw;
   }
+
+  .sidebar-menu.open {
+    right: 0;
+  }
 }
 
 .app-header-logo-btn {
@@ -1287,6 +1291,7 @@ body:has(#landing[style*="display:none"]) .app-header-title {
 .dialog-btn {
   padding: 8px 20px;
   background: var(--bg);
+  color: var(--text);
   border: 1px solid var(--border-subtle);
 }
 
@@ -1710,4 +1715,38 @@ a.attachment-chip:hover {
 }
 .landing-footer-hint:hover {
   opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+  .landing {
+    padding: 1.5rem 1rem;
+  }
+
+  .landing-suggestions {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 10px 16px 4px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .landing-suggestions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .landing-suggestions .chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+  }
+
+  .composer-input-row,
+  .conversation-composer .composer-input-row {
+    padding: 10px 16px 4px;
+  }
+
+  .composer-toolbar,
+  .pending-attachments {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
 }
