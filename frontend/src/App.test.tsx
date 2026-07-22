@@ -76,6 +76,37 @@ describe('New conversation — entry points', () => {
   });
 });
 
+describe('Message submission', () => {
+  beforeEach(() => {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    vi.clearAllMocks();
+  });
+
+  it('shows the first message before conversation persistence completes', () => {
+    let resolveCreate: (conversation: ConversationData) => void;
+    mockApi.createConversation.mockImplementationOnce(() => new Promise<ConversationData>((resolve) => {
+      resolveCreate = resolve;
+    }));
+
+    render(<App />);
+    const input = screen.getByPlaceholderText(/Ask anything|Debug a bug|Send a message|Fix an issue|Explore a topic/) as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: 'Show this immediately' } });
+    fireEvent.click(screen.getByRole('button', { name: /send message/i }));
+
+    expect(screen.getByText('Show this immediately')).not.toBeNull();
+    expect(document.querySelector('.conversation-layout')).not.toBeNull();
+
+    resolveCreate!({
+      id: 'conv-delayed',
+      title: 'Show this immediately',
+      mode: 'canvas',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      messages: [],
+    });
+  });
+});
+
 describe('New conversation — keyboard shortcut', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');

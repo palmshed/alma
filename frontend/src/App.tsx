@@ -53,7 +53,7 @@ function App() {
   const [modelAvailability, setModelAvailability] = useState<Record<string, ModelAvailability>>({});
   const {
     messages, isLoading, conversationStarted, error,
-    submit, clear: conversationClear, loadConversation, reconcileMessages,
+    submit, clear: conversationClear, loadConversation, getMessages,
   } = useConversation({
     autoMode: selectedModel === 'auto',
     getFallbackModel: (failedModel) => {
@@ -96,7 +96,6 @@ function App() {
   const activeConversationRef = useRef<ConversationData | null>(null);
   const restoredRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const reconcilingRef = useRef(false);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -148,46 +147,6 @@ function App() {
     }, 8000);
     return () => clearInterval(id);
   }, []);
-
-  /* Persist messages when assistant responds */
-  const persistTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const last = messages[messages.length - 1];
-    if (last.role !== 'assistant') return;
-
-    /* Skip if this render came from reconciling after a persist */
-    if (reconcilingRef.current) {
-      reconcilingRef.current = false;
-      return;
-    }
-
-    const conv = activeConversationRef.current;
-    if (!conv) return;
-
-    clearTimeout(persistTimeoutRef.current);
-    persistTimeoutRef.current = setTimeout(() => {
-      conv.messages = messages;
-      conv.metadata = { ...(conv.metadata || {}), status: 'complete' };
-      api.updateConversation(conv.id, JSON.parse(JSON.stringify(conv)))
-        .then((updated) => {
-          activeConversationRef.current = updated;
-          reconcilingRef.current = true;
-          reconcileMessages(updated.messages);
-        })
-        .catch(() => {});
-    }, 100);
-  }, [messages, reconcileMessages]);
-
-  /* Persist failure status */
-  useEffect(() => {
-    if (!error || !activeConversationId) return;
-    const conv = activeConversationRef.current;
-    if (!conv) return;
-    conv.metadata = { ...(conv.metadata || {}), status: 'failed' };
-    api.updateConversation(activeConversationId, JSON.parse(JSON.stringify(conv)))
-      .catch(() => {});
-  }, [error, activeConversationId]);
 
   useEffect(() => {
     if (activeConversationId) {
@@ -262,36 +221,56 @@ function App() {
     }
   }, []);
 
-  const handleSubmit = useCallback(async (text: string) => {
+  const handleSubmit = useCallback((text: string) => {
     const atts = pendingAttachments.length > 0 ? pendingAttachments : undefined;
     composerClear();
     setPendingAttachments([]);
     lastPromptRef.current = text;
     const actualModel = resolveModel(selectedModel, modelAvailability);
-    try {
-      if (activeConversationId) {
-        const payload = JSON.parse(JSON.stringify(activeConversationRef.current));
-        payload.messages.push({ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) });
-        payload.metadata = { ...(payload.metadata || {}), status: 'pending' };
-        const updated = await api.updateConversation(activeConversationId, payload);
-        activeConversationRef.current = updated;
-      } else {
-        const payload = {
-          title: text.slice(0, 60),
-          mode,
-          model: actualModel,
-          messages: [{ role: 'user', content: text, timestamp: new Date().toISOString(), ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}) }],
-          metadata: { status: 'pending' },
+    const userMessage = {
+      role: 'user' as const,
+      content: text,
+      timestamp: new Date().toISOString(),
+      ...(atts ? { attachments: atts.map(a => ({ id: a.id, filename: a.filename, mime_type: a.mime_type, size: a.size })) } : {}),
+    };
+
+    /* Update the interface before waiting for Vercel to persist the conversation. */
+    const generation = submit(text, mode, messages, atts, actualModel);
+    const existingConversation = activeConversationRef.current;
+    const savedConversation = existingConversation
+      ? Promise.resolve({
+        ...existingConversation,
+        messages: [...existingConversation.messages, userMessage],
+        metadata: { ...(existingConversation.metadata || {}), status: 'pending' },
+      })
+      : api.createConversation({
+        title: text.slice(0, 60),
+        mode,
+        model: actualModel,
+        messages: [userMessage],
+        metadata: { status: 'pending' },
+      }).then((conversation) => {
+        setActiveConversationId(conversation.id);
+        return conversation;
+      });
+
+    void Promise.all([generation, savedConversation])
+      .then(([succeeded, conversation]) => {
+        const completedConversation = {
+          ...conversation,
+          messages: getMessages(),
+          metadata: { ...(conversation.metadata || {}), status: succeeded ? 'complete' : 'failed' },
         };
-        const conv = await api.createConversation(payload);
-        setActiveConversationId(conv.id);
-        activeConversationRef.current = conv;
-      }
-    } catch {
-      /* Continue anyway — the user's message will be in local state */
-    }
-    submit(text, mode, messages, atts, actualModel);
-  }, [submit, mode, selectedModel, activeConversationId, composerClear, messages, pendingAttachments, modelAvailability]);
+        activeConversationRef.current = completedConversation;
+        return api.updateConversation(conversation.id, JSON.parse(JSON.stringify(completedConversation)));
+      })
+      .then((updated) => {
+        activeConversationRef.current = updated;
+      })
+      .catch(() => {
+        /* The visible conversation remains available if background persistence fails. */
+      });
+  }, [submit, mode, selectedModel, composerClear, messages, pendingAttachments, modelAvailability, getMessages]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;

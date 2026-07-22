@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { api, isQuotaError } from '../services/api';
 import type { AttachmentData, MessageData, ConversationData } from '../types';
 
@@ -9,10 +9,11 @@ interface UseConversationReturn {
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<void>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<boolean>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
+  getMessages: () => MessageData[];
 }
 
 interface UseConversationOptions {
@@ -23,13 +24,14 @@ interface UseConversationOptions {
 
 export function useConversation(options?: UseConversationOptions): UseConversationReturn {
   const [messages, setMessages] = useState<MessageData[]>([]);
+  const messagesRef = useRef<MessageData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const conversationStarted = messages.length > 0 || isLoading;
 
   const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => {
-    if (!text.trim() || isLoading) return;
+    if (!text.trim() || isLoading) return false;
     setIsLoading(true);
     setError(null);
 
@@ -39,7 +41,11 @@ export function useConversation(options?: UseConversationOptions): UseConversati
       id: '', role: 'user', content: text, timestamp: ts,
       ...(attData && attData.length > 0 ? { attachments: attData as unknown as Record<string, unknown>[] } : {}),
     };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => {
+      const next = [...prev, userMsg];
+      messagesRef.current = next;
+      return next;
+    });
 
     /* Build full conversation history for outbound request */
     const history = convMessages
@@ -86,8 +92,12 @@ export function useConversation(options?: UseConversationOptions): UseConversati
         if (usedFallback && options?.autoMode) {
           msg.metadata = { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: actualModel };
         }
-        setMessages(prev => [...prev, msg]);
-        return;
+        setMessages(prev => {
+          const next = [...prev, msg];
+          messagesRef.current = next;
+          return next;
+        });
+        return true;
       } catch (err) {
         if (actualModel && isQuotaError(err)) {
           options?.onQuotaError?.(actualModel, err.retryAfter);
@@ -105,8 +115,12 @@ export function useConversation(options?: UseConversationOptions): UseConversati
                 metadata: { autoFallback: true, requestedModel: 'auto', resolvedModel: firstModel, fallbackModel: fallback },
                 ...(mode === 'thinking' ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
               };
-              setMessages(prev => [...prev, msg]);
-              return;
+              setMessages(prev => {
+                const next = [...prev, msg];
+                messagesRef.current = next;
+                return next;
+              });
+              return true;
             }
           }
         }
@@ -116,29 +130,36 @@ export function useConversation(options?: UseConversationOptions): UseConversati
       const msg = err instanceof Error ? err.message : 'Request failed';
       setError(msg);
       console.error(err);
+      return false;
     } finally {
       setIsLoading(false);
     }
   }, [isLoading, options]);
 
   const loadConversation = useCallback((conv: ConversationData) => {
-    setMessages(conv.messages || []);
+    const next = conv.messages || [];
+    messagesRef.current = next;
+    setMessages(next);
     setError(null);
     setIsLoading(false);
   }, []);
 
   const clear = useCallback(() => {
+    messagesRef.current = [];
     setMessages([]);
     setIsLoading(false);
     setError(null);
   }, []);
 
   const reconcileMessages = useCallback((newMessages: MessageData[]) => {
+    messagesRef.current = newMessages;
     setMessages(newMessages);
   }, []);
 
+  const getMessages = useCallback(() => messagesRef.current, []);
+
   return {
     messages, isLoading, conversationStarted, error,
-    submit, clear, loadConversation, reconcileMessages,
+    submit, clear, loadConversation, reconcileMessages, getMessages,
   };
 }
