@@ -251,8 +251,8 @@ const Header: React.FC<HeaderProps> = ({
                       data-testid="settings-search-max-results"
                       aria-valuetext={`${searchSettings.maxResults} results`}
                       style={{
-                        background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${((searchSettings.maxResults - 3) / 7) * 100}%, var(--border-subtle) ${((searchSettings.maxResults - 3) / 7) * 100}%, var(--border-subtle) 100%)`,
-                      }}
+                        '--range-progress': `${(((searchSettings.maxResults ?? 3) - 3) / 7) * 100}%`,
+                      } as React.CSSProperties}
                     />
                     <span className="settings-dropdown-sub-value">{searchSettings.maxResults}</span>
                   </div>

@@ -829,6 +829,7 @@ html {
   height: 4px;
   border: 0;
   border-radius: var(--radius-pill);
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--range-progress, 0%), var(--border-subtle) var(--range-progress, 0%), var(--border-subtle) 100%);
   cursor: pointer;
 }
 
