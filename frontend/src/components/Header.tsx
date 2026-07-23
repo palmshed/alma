@@ -198,7 +198,7 @@ const Header: React.FC<HeaderProps> = ({
                         key={p.color}
                         className={`accent-swatch${accentColor === p.color ? ' active' : ''}`}
                         style={{ background: p.color }}
-                        onClick={() => { onAccentChange?.(p.color); setShowAccentPicker(false); close(); }}
+                        onClick={() => { onAccentChange?.(p.color); setShowAccentPicker(false); }}
                         aria-label={`Set accent to ${p.color}`}
                         type="button"
                       />
