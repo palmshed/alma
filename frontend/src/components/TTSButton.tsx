@@ -27,16 +27,17 @@ const TTSButton: React.FC<TTSButtonProps> = ({ text }) => {
   if (!text.trim()) return null;
 
   return (
-    <div className="response-actions">
+    <div className="response-actions" data-testid="tts-container">
       <button
         onClick={handleTTS}
         disabled={isLoading}
         className={`btn btn--ghost message-tts-btn ${isLoading ? 'loading' : ''}`}
+        data-testid="tts-button"
       >
         {isLoading ? 'Generating...' : 'Listen'}
       </button>
       {audioUrl && (
-        <audio controls className="audio-player" style={{ display: 'block' }}>
+        <audio controls className="audio-player" style={{ display: 'block' }} data-testid="tts-audio">
           <source src={audioUrl} type="audio/mp3" />
         </audio>
       )}

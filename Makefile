@@ -21,6 +21,9 @@ run:
 run-static:
 	uv run python backend/static_app.py
 
+verify-e2e:
+	uv run python -m backend.verify e2e
+
 run-all:
 	@echo "Starting both interfaces..."
 	uv run python backend/static_app.py &

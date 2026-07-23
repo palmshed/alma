@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -59,7 +59,7 @@ class MailMessage:
 
     id: Optional[str] = None
     status: MailStatus = MailStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: Optional[datetime] = None
     retry_count: int = 0
 
@@ -70,7 +70,7 @@ class MailResult:
     status: MailStatus
     provider: str
     provider_message_id: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     retry_count: int = 0
     error: Optional[str] = None
 

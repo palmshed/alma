@@ -39,6 +39,10 @@ function markModelUnavailable(model, retryAfter) {
 }
 
 var MODE_ICONS = {
+  auto: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
+  code: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
   canvas: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M12 2l10 5-10 5L2 7Z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>',
   thinking: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063A2 2 0 0 0 14.063 15.5l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>',
   web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>',
@@ -46,11 +50,38 @@ var MODE_ICONS = {
 };
 
 var MODE_LABELS = {
+  auto: 'Auto',
+  chat: 'Chat',
+  search: 'Search',
+  code: 'Code',
   canvas: 'Canvas',
   thinking: 'Thinking',
   web: 'Web',
   images: 'Images',
 };
+
+function renderSourceCardsHTML(sources) {
+  if (!sources || !sources.length) return '';
+  var html = '<div class="source-cards-container">';
+  html += '<div class="source-cards-header">';
+  html += '<svg class="source-cards-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>';
+  html += '<span>Sources</span></div>';
+  html += '<div class="source-cards-grid">';
+  for (var i = 0; i < sources.length; i++) {
+    var s = sources[i];
+    var domain = s.domain || (s.url ? s.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : 'web');
+    html += '<a href="' + s.url + '" target="_blank" rel="noopener noreferrer" class="source-card">';
+    html += '<div class="source-card-top"><span class="source-card-domain">' + domain + '</span>';
+    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>';
+    html += '<div class="source-card-title">' + (s.title || '') + '</div>';
+    if (s.snippet) {
+      html += '<div class="source-card-snippet">' + s.snippet + '</div>';
+    }
+    html += '</a>';
+  }
+  html += '</div></div>';
+  return html;
+}
 
 function setMode(value) {
   currentMode = value;
@@ -447,9 +478,10 @@ function handleSubmit() {
 }
 
 function handleTextGen(prompt, style) {
+  const isSearchMode = ['search', 'auto', 'code', 'web'].includes(currentMode) || style === 'search' || style === 'url-context';
   const endpoint =
     style === 'thinking' ? '/api/generate-with-thinking'
-    : style === 'url-context' ? '/api/generate-with-url-context'
+    : isSearchMode ? '/api/search'
     : '/api/generate';
 
   /* Include full conversation history for context */
@@ -462,7 +494,7 @@ function handleTextGen(prompt, style) {
     return fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: prompt, messages: messages, model: model }),
+      body: JSON.stringify({ prompt: prompt, messages: messages, model: model, mode: currentMode }),
     });
   }
 
@@ -496,6 +528,8 @@ function handleTextGen(prompt, style) {
         role: 'assistant',
         content: data.response || '',
         thinking: thinkingText || undefined,
+        sources: data.sources || undefined,
+        search_steps: data.search_steps || undefined,
         timestamp: new Date().toISOString(),
         model: actualModel,
         ...(style === 'thinking' && thinkingText ? { thinking_duration_sec: elapsed } : {}),
@@ -1032,6 +1066,9 @@ function renderConversation() {
         }
       }
       html += '<div class="response-container">' + (m.content ? marked.parse(m.content) : '') + '</div>';
+      if (m.sources && m.sources.length > 0) {
+        html += renderSourceCardsHTML(m.sources);
+      }
     }
   });
   scroll.innerHTML = html;

@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
-// SPDX-License-Identifier: MIT
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
@@ -16,11 +14,13 @@ import Sidebar from './components/Sidebar';
 import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import FooterPage from './pages/FooterPage';
+import SourceCards from './components/SourceCards';
+import SearchProgress from './components/SearchProgress';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
 import { api } from './services/api';
-import { AttachmentData, ConversationData, ModelAvailability } from './types';
+import { AttachmentData, ConversationData, ModelAvailability, SearchSettings } from './types';
 
 const PLACEHOLDERS = [
   'Ask anything...',
@@ -43,8 +43,23 @@ function removeStorage(key: string): void {
 }
 
 function App() {
-  const [mode, setMode] = useState('canvas');
+  const [mode, setMode] = useState('search');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
+  const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
+    try {
+      const stored = localStorage.getItem('alma_search_settings');
+      const defaults = { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true, showSuggestions: false };
+      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
+    } catch {
+      return { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true, showSuggestions: false };
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('alma_search_settings', JSON.stringify(searchSettings));
+    } catch { /* noop */ }
+  }, [searchSettings]);
   const initialStored = getStorage(STORAGE_ACTIVE_CONV);
   const [restoring, setRestoring] = useState(!!initialStored);
   const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
@@ -90,6 +105,7 @@ function App() {
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const lastPromptRef = useRef<string>('');
@@ -235,7 +251,8 @@ function App() {
     };
 
     /* Update the interface before waiting for Vercel to persist the conversation. */
-    const generation = submit(text, mode, messages, atts, actualModel);
+    const currentMsgs = getMessages();
+    const generation = submit(text, mode, currentMsgs, atts, actualModel);
     const existingConversation = activeConversationRef.current;
     const savedConversation = existingConversation
       ? Promise.resolve({
@@ -376,7 +393,21 @@ function App() {
   if (restoring) {
     return (
       <div className="app-container">
-        <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={false} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
+        <Header
+          theme={theme}
+          onThemeToggle={handleThemeToggle}
+          onMenuToggle={() => setSidebarOpen(true)}
+          showTitle={false}
+          onNewChat={handleNewChat}
+          accentColor={accentColor}
+          onAccentChange={setAccentColor}
+          showSuggestions={searchSettings.showSuggestions}
+          onShowSuggestionsChange={(v) => setSearchSettings(prev => ({ ...prev, showSuggestions: v }))}
+          onShowShortcuts={() => setShowShortcuts(true)}
+          onShowAbout={() => setShowDisclaimer(true)}
+          searchSettings={searchSettings}
+          onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+        />
       </div>
     );
   }
@@ -387,7 +418,21 @@ function App() {
 
   return (
     <div className="app-container">
-      <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
+      <Header
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
+        onMenuToggle={() => setSidebarOpen(true)}
+        showTitle={conversationStarted}
+        onNewChat={handleNewChat}
+        accentColor={accentColor}
+        onAccentChange={setAccentColor}
+        showSuggestions={searchSettings.showSuggestions}
+        onShowSuggestionsChange={(v) => setSearchSettings(prev => ({ ...prev, showSuggestions: v }))}
+        onShowShortcuts={() => setShowShortcuts(true)}
+        onShowAbout={() => setShowDisclaimer(true)}
+        searchSettings={searchSettings}
+        onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+      />
 
       <input
         type="file"
@@ -439,7 +484,7 @@ function App() {
             </div>
           }
           suggestions={
-            !input && suggestions.length > 0 ? (
+            searchSettings.showSuggestions && !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
                   <Chip key={s} label={s} onClick={() => { setInput(s); document.querySelector<HTMLTextAreaElement>('.composer-textarea')?.focus(); }} />
@@ -518,8 +563,11 @@ function App() {
                         <ImageContainer imageUrl={msg.image} />
                       ) : (
                         <ResponseContainer content={msg.content}>
-                          {i === messages.length - 1 && <TTSButton text={msg.content} />}
+                          <TTSButton text={msg.content} />
                         </ResponseContainer>
+                      )}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <SourceCards sources={msg.sources} />
                       )}
                     </React.Fragment>
                   );
@@ -528,7 +576,11 @@ function App() {
               })}
               {isLoading && (
                 <div className="conversation-loading">
-                  <LoadingDots label="Generating" />
+                  {['search', 'auto', 'code', 'web'].includes(mode) ? (
+                    <SearchProgress />
+                  ) : (
+                    <LoadingDots label="Generating" />
+                  )}
                 </div>
               )}
               {error && !isLoading && (
@@ -626,16 +678,6 @@ function App() {
         onNavigate={handleNavigate}
       />
 
-      {!conversationStarted && (
-        <div className="landing-footer-hint" onClick={() => setShowDisclaimer(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setShowDisclaimer(true); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4"/>
-            <path d="M12 8h.01"/>
-          </svg>
-        </div>
-      )}
-
       {showDisclaimer && (
         <>
           <div className="dialog-overlay" onClick={() => setShowDisclaimer(false)} />
@@ -647,6 +689,27 @@ function App() {
             </p>
             <div className="dialog-actions">
               <button className="btn btn--primary dialog-btn dialog-btn--confirm" onClick={() => setShowDisclaimer(false)} type="button">Got it</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {showShortcuts && (
+        <>
+          <div className="dialog-overlay" onClick={() => setShowShortcuts(false)} />
+          <div className="dialog" role="dialog" aria-modal="true">
+            <p className="dialog-title">Keyboard Shortcuts</p>
+            <div className="dialog-description">
+              <table className="shortcuts-table">
+                <tbody>
+                  <tr><td>New conversation</td><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td></tr>
+                  <tr><td>Submit message</td><td><kbd>Enter</kbd></td></tr>
+                  <tr><td>Close sidebar</td><td><kbd>Esc</kbd></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="dialog-actions">
+              <button className="btn btn--primary dialog-btn dialog-btn--confirm" onClick={() => setShowShortcuts(false)} type="button">Close</button>
             </div>
           </div>
         </>

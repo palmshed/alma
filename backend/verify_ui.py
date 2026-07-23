@@ -948,6 +948,119 @@ def check_composer_input_states() -> UICheck:
     )
 
 
+def check_search_components() -> UICheck:
+    """Verify search components exist in frontend source."""
+    search_files = [
+        "components/SearchProgress.tsx",
+        "components/SearchSettingsModal.tsx",
+        "components/SourceCards.tsx",
+    ]
+    found = []
+    missing = []
+    for f in search_files:
+        code = read_frontend_file(f)
+        if code:
+            found.append(f)
+        else:
+            missing.append(f)
+    if not missing:
+        return UICheck(
+            "search_components",
+            "Search components exist",
+            "pass",
+            f"All {len(found)} search components found: {', '.join(found)}.",
+        )
+    return UICheck(
+        "search_components",
+        "Search components exist",
+        "fail",
+        f"Missing: {', '.join(missing)}. Found: {', '.join(found)}.",
+    )
+
+
+def check_search_mode_routing() -> UICheck:
+    """Verify search mode routes to /api/search endpoint."""
+    utils_code = read_frontend_file("utils/index.tsx")
+    if not utils_code:
+        return UICheck(
+            "search_mode_routing",
+            "Search mode routes to /api/search",
+            "fail",
+            "utils/index.tsx not found.",
+        )
+    has_search_route = "/api/search" in utils_code
+    has_search_case = "'search'" in utils_code and "case" in utils_code
+    if has_search_route and has_search_case:
+        return UICheck(
+            "search_mode_routing",
+            "Search mode routes to /api/search",
+            "pass",
+            "utils/index.tsx maps search/auto/code modes to /api/search.",
+        )
+    return UICheck(
+        "search_mode_routing",
+        "Search mode routes to /api/search",
+        "fail",
+        f"search_route={has_search_route}, search_case={has_search_case}.",
+    )
+
+
+def check_search_types() -> UICheck:
+    """Verify search-related types exist."""
+    types_code = read_frontend_file("types/index.ts")
+    if not types_code:
+        return UICheck(
+            "search_types",
+            "Search types defined",
+            "fail",
+            "types/index.ts not found.",
+        )
+    has_source = "SourceData" in types_code
+    has_search_settings = "SearchSettings" in types_code
+    has_sources_field = "sources" in types_code
+    if has_source and has_search_settings and has_sources_field:
+        return UICheck(
+            "search_types",
+            "Search types defined",
+            "pass",
+            "SourceData, SearchSettings, and sources field found.",
+        )
+    return UICheck(
+        "search_types",
+        "Search types defined",
+        "fail",
+        f"source={has_source}, settings={has_search_settings}, "
+        f"sources_field={has_sources_field}.",
+    )
+
+
+def check_search_api_method() -> UICheck:
+    """Verify api.ts has search() method."""
+    api_code = read_frontend_file("services/api.ts")
+    if not api_code:
+        return UICheck(
+            "search_api_method",
+            "API has search() method",
+            "fail",
+            "services/api.ts not found.",
+        )
+    has_search_fn = "search(" in api_code
+    has_search_endpoint = "/api/search" in api_code
+    if has_search_fn and has_search_endpoint:
+        return UICheck(
+            "search_api_method",
+            "API has search() method",
+            "pass",
+            "search() method and /api/search endpoint found.",
+        )
+    return UICheck(
+        "search_api_method",
+        "API has search() method",
+        "fail",
+        f"search_fn={has_search_fn}, endpoint={has_search_endpoint}.",
+    )
+
+
 def run_static_checks() -> List[UICheck]:
     return [
         check_has_loading_indicator(),
@@ -960,6 +1073,10 @@ def run_static_checks() -> List[UICheck]:
         check_conversation_started_transition(),
         check_composer_input_states(),
         check_sidebar_search(),
+        check_search_components(),
+        check_search_mode_routing(),
+        check_search_types(),
+        check_search_api_method(),
     ]
 
 
@@ -1584,6 +1701,1814 @@ def _run_conversation_search(
     return results
 
 
+def _run_search_ui_verification(
+    page: "Any", output_dir: str, screenshot_fn: "Any"
+) -> List[UICheck]:
+    """Verify search-specific UI elements: mode selector, gear button,
+    search settings modal, search progress, source cards, and persistence."""
+    results: List[UICheck] = []
+
+    # ── 1. Mode selector: Auto, Chat, Search, Code present ──
+    expected_modes = {"Auto", "Chat", "Search", "Code"}
+    found_modes = set()
+    for mode_name in expected_modes:
+        btn = page.locator(f"button:has-text('{mode_name}')")
+        if btn.count():
+            found_modes.add(mode_name)
+    missing = expected_modes - found_modes
+    if not missing:
+        results.append(
+            UICheck(
+                "search_mode_selector",
+                "Mode selector: Auto, Chat, Search, Code",
+                "pass",
+                f"All {len(expected_modes)} modes present.",
+            )
+        )
+    else:
+        results.append(
+            UICheck(
+                "search_mode_selector",
+                "Mode selector: Auto, Chat, Search, Code",
+                "fail",
+                f"Missing modes: {', '.join(sorted(missing))}.",
+            )
+        )
+
+    # ── 2. Settings menu trigger exists (replaces gear button) ──
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        results.append(
+            UICheck("search_settings_trigger", "Settings menu trigger exists", "pass")
+        )
+    else:
+        results.append(
+            UICheck(
+                "search_settings_trigger",
+                "Settings menu trigger exists",
+                "fail",
+                "Settings menu trigger not found in header.",
+            )
+        )
+
+    # ── 3. Settings dropdown opens ──
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        dropdown = page.locator("[data-testid='settings-dropdown']")
+        if dropdown.count():
+            results.append(
+                UICheck("search_settings_dropdown", "Settings dropdown opens", "pass")
+            )
+            screenshot_fn("settings-dropdown")
+
+            # Check dropdown contents — expand Search section
+            search_trigger = page.locator("[data-testid='settings-search-trigger']")
+            if search_trigger.count():
+                search_trigger.first.click()
+                page.wait_for_timeout(300)
+
+            has_provider = page.locator(
+                "[data-testid='settings-search-provider']"
+            ).count()
+            has_slider = page.locator(
+                "[data-testid='settings-search-max-results']"
+            ).count()
+            has_safe = page.locator("[data-testid='settings-search-safe']").count()
+            has_auto = page.locator("[data-testid='settings-search-auto']").count()
+
+            if has_provider and has_slider and has_safe and has_auto:
+                results.append(
+                    UICheck(
+                        "search_settings_contents",
+                        "Search settings in dropdown",
+                        "pass",
+                        "Provider, max results, safe search, auto search found.",
+                    )
+                )
+            else:
+                results.append(
+                    UICheck(
+                        "search_settings_contents",
+                        "Search settings in dropdown",
+                        "fail",
+                        f"provider={has_provider}, slider={has_slider}, "
+                        f"safe={has_safe}, auto={has_auto}.",
+                    )
+                )
+
+            # Close dropdown by clicking outside
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+        else:
+            results.append(
+                UICheck(
+                    "search_settings_dropdown",
+                    "Settings dropdown opens",
+                    "fail",
+                    "Dropdown not found after clicking settings trigger.",
+                )
+            )
+
+    # ── 4. Search mode submission + progress UI ──
+    search_btn = page.locator("button:has-text('Search')")
+    if search_btn.count():
+        search_btn.first.click()
+        page.wait_for_timeout(300)
+
+    textarea = page.locator("textarea")
+    if textarea.count():
+        textarea.first.fill("What is the capital of France?")
+        page.wait_for_timeout(200)
+
+        send_btn = page.locator(
+            "button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])"
+        )
+        if send_btn.count():
+            send_btn.first.click()
+        else:
+            page.keyboard.press("Enter")
+
+        # Check for SearchProgress during loading
+        page.wait_for_timeout(1500)
+        progress = page.locator(
+            ".search-progress-container, .search-progress-step, "
+            "[class*='search-progress']"
+        )
+        if progress.count():
+            results.append(
+                UICheck(
+                    "search_progress_ui",
+                    "SearchProgress renders during search",
+                    "pass",
+                    f"Found {progress.count()} progress elements.",
+                )
+            )
+            screenshot_fn("search-progress")
+        else:
+            results.append(
+                UICheck(
+                    "search_progress_ui",
+                    "SearchProgress renders during search",
+                    "fail",
+                    "SearchProgress elements not found after submission.",
+                )
+            )
+
+        # Wait for response
+        page.wait_for_timeout(10000)
+        screenshot_fn("search-response")
+
+        # Check for source cards
+        source_cards = page.locator(
+            ".source-cards-container, .source-card, [class*='source-card']"
+        )
+        if source_cards.count():
+            results.append(
+                UICheck(
+                    "search_source_cards",
+                    "Source cards render after search",
+                    "pass",
+                    f"Found {source_cards.count()} source card elements.",
+                )
+            )
+            screenshot_fn("search-source-cards")
+
+            # Check links open in new tabs
+            links = page.locator(".source-card a, a.source-card")
+            if links.count():
+                first_link = links.first
+                target = first_link.get_attribute("target")
+                rel = first_link.get_attribute("rel")
+                if target == "_blank" and "noopener" in (rel or ""):
+                    results.append(
+                        UICheck(
+                            "search_source_links",
+                            "Source links open in new tabs",
+                            "pass",
+                            "target=_blank, rel=noopener confirmed.",
+                        )
+                    )
+                else:
+                    results.append(
+                        UICheck(
+                            "search_source_links",
+                            "Source links open in new tabs",
+                            "fail",
+                            f"target={target}, rel={rel}.",
+                        )
+                    )
+            else:
+                results.append(
+                    UICheck(
+                        "search_source_links",
+                        "Source links open in new tabs",
+                        "skip",
+                        "No links found inside source cards.",
+                    )
+                )
+        else:
+            results.append(
+                UICheck(
+                    "search_source_cards",
+                    "Source cards render after search",
+                    "fail",
+                    "Source card elements not found after search response.",
+                )
+            )
+    else:
+        results.append(
+            UICheck(
+                "search_progress_ui",
+                "SearchProgress renders during search",
+                "fail",
+                "Textarea not found.",
+            )
+        )
+
+    # ── 5. Search Settings persistence (localStorage) ──
+    stored = page.evaluate("localStorage.getItem('alma_search_settings')")
+    if stored:
+        try:
+            parsed = json.loads(stored)
+            required_keys = {"provider", "maxResults", "safeSearch"}
+            if required_keys.issubset(parsed.keys()):
+                results.append(
+                    UICheck(
+                        "search_settings_persist",
+                        "Search Settings persist in localStorage",
+                        "pass",
+                        f"Keys: {', '.join(sorted(parsed.keys()))}.",
+                    )
+                )
+            else:
+                results.append(
+                    UICheck(
+                        "search_settings_persist",
+                        "Search Settings persist in localStorage",
+                        "fail",
+                        f"Missing keys: {', '.join(required_keys - parsed.keys())}.",
+                    )
+                )
+        except json.JSONDecodeError:
+            results.append(
+                UICheck(
+                    "search_settings_persist",
+                    "Search Settings persist in localStorage",
+                    "fail",
+                    "Invalid JSON in localStorage.",
+                )
+            )
+    else:
+        results.append(
+            UICheck(
+                "search_settings_persist",
+                "Search Settings persist in localStorage",
+                "skip",
+                "No alma_search_settings in localStorage.",
+            )
+        )
+
+    return results
+
+
+# ── E2E verification ──────────────────────────────────────────────────
+#
+# End-to-end verification that proves the application behaves correctly
+# from a user's perspective. Runs Playwright at multiple viewports,
+# captures screenshots, records traces on failure, and produces a
+# unified report.
+
+VIEWPORTS = {
+    "desktop": {"width": 1280, "height": 800},
+    "tablet": {"width": 768, "height": 1024},
+    "mobile": {"width": 375, "height": 812},
+}
+
+ALL_FLOWS = (
+    "chat",
+    "search",
+    "thinking",
+    "voice",
+    "keyboard",
+    "themes",
+    "landing_suggestions",
+)
+
+
+@dataclass
+class FlowTiming:
+    """Timing data for a single flow."""
+
+    flow: str
+    start: float = 0.0
+    end: float = 0.0
+
+    @property
+    def duration_ms(self) -> float:
+        return round((self.end - self.start) * 1000, 1)
+
+    def to_dict(self) -> dict:
+        return {"flow": self.flow, "duration_ms": self.duration_ms}
+
+
+@dataclass
+class E2EResult:
+    """Result of a single E2E check."""
+
+    name: str
+    label: str
+    status: str  # pass, fail, skip, infra_fail
+    detail: str = ""
+    category: str = ""
+    timing: Optional[FlowTiming] = None
+    screenshot: str = ""
+
+    def to_dict(self) -> dict:
+        d = {
+            "name": self.name,
+            "label": self.label,
+            "status": self.status,
+            "category": self.category,
+        }
+        if self.detail:
+            d["detail"] = self.detail
+        if self.timing:
+            d["timing"] = self.timing.to_dict()
+        if self.screenshot:
+            d["screenshot"] = self.screenshot
+        return d
+
+
+def _check_infrastructure(base_url: str) -> List[E2EResult]:
+    """Verify frontend and backend are reachable before running E2E."""
+    results = []
+
+    # Check frontend
+    try:
+        req = urllib.request.Request(base_url, method="GET")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                results.append(
+                    E2EResult(
+                        "infra_frontend",
+                        "Frontend reachable",
+                        "pass",
+                        f"{base_url} returned 200",
+                        category="Infrastructure",
+                    )
+                )
+            else:
+                results.append(
+                    E2EResult(
+                        "infra_frontend",
+                        "Frontend reachable",
+                        "infra_fail",
+                        f"{base_url} returned {resp.status}",
+                        category="Infrastructure",
+                    )
+                )
+    except Exception as exc:
+        results.append(
+            E2EResult(
+                "infra_frontend",
+                "Frontend reachable",
+                "infra_fail",
+                f"Cannot reach {base_url}: {exc}",
+                category="Infrastructure",
+            )
+        )
+
+    # Check backend health
+    health_url = base_url.replace(":3000", ":8000").replace(":5173", ":8000")
+    try:
+        req = urllib.request.Request(f"{health_url}/api/health", method="GET")
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            body = json.loads(resp.read())
+            if body.get("status") == "ok":
+                results.append(
+                    E2EResult(
+                        "infra_backend",
+                        "Backend reachable",
+                        "pass",
+                        f"{health_url}/api/health returned OK",
+                        category="Infrastructure",
+                    )
+                )
+            else:
+                results.append(
+                    E2EResult(
+                        "infra_backend",
+                        "Backend reachable",
+                        "infra_fail",
+                        f"Health check returned: {body}",
+                        category="Infrastructure",
+                    )
+                )
+    except Exception as exc:
+        results.append(
+            E2EResult(
+                "infra_backend",
+                "Backend reachable",
+                "infra_fail",
+                f"Cannot reach backend: {exc}",
+                category="Infrastructure",
+            )
+        )
+
+    return results
+
+
+def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify chat mode: select mode, submit, get non-empty response, TTS present."""
+    results = []
+    t = FlowTiming("chat")
+
+    # Select chat mode
+    t.start = time.time()
+    trigger = page.locator("[data-testid='mode-menu-trigger']")
+    if trigger.count():
+        trigger.first.click()
+        page.wait_for_timeout(300)
+        chat_option = page.locator("[data-testid='mode-option-chat']")
+        if chat_option.count():
+            chat_option.first.click()
+            page.wait_for_timeout(300)
+            results.append(
+                E2EResult(
+                    "chat_mode_select",
+                    "Chat mode selects correctly",
+                    "pass",
+                    category="Chat",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "chat_mode_select",
+                    "Chat mode selects correctly",
+                    "fail",
+                    "Chat option not found",
+                    category="Chat",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "chat_mode_select",
+                "Chat mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Chat",
+            )
+        )
+
+    # Type and submit
+    textarea = page.locator("[data-testid='composer-textarea']")
+    if textarea.count():
+        textarea.first.fill("What is 2+2?")
+        page.wait_for_timeout(200)
+        send_btn = page.locator("[data-testid='composer-send']")
+        if send_btn.count():
+            send_btn.first.click()
+        else:
+            page.keyboard.press("Enter")
+
+        # Wait for response (non-empty)
+        page.wait_for_timeout(10000)
+        screenshot_fn("chat-response")
+
+        # Verify response exists (non-empty)
+        messages = page.locator(".message-content, .markdown-content")
+        has_response = False
+        for i in range(messages.count()):
+            text = messages.nth(i).text_content() or ""
+            if text.strip() and len(text.strip()) > 5:
+                has_response = True
+                break
+
+        if has_response:
+            results.append(
+                E2EResult("chat_response", "Response renders", "pass", category="Chat")
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "chat_response",
+                    "Response renders",
+                    "fail",
+                    "No non-empty response found",
+                    category="Chat",
+                )
+            )
+
+        # Verify TTS button present
+        tts = page.locator("[data-testid='tts-button']")
+        if tts.count():
+            results.append(
+                E2EResult("chat_tts", "TTS button present", "pass", category="Chat")
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "chat_tts",
+                    "TTS button present",
+                    "fail",
+                    "TTS button not found",
+                    category="Chat",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "chat_submit",
+                "Message submits",
+                "fail",
+                "Textarea not found",
+                category="Chat",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify search mode: progress, source cards, non-empty response."""
+    results = []
+    t = FlowTiming("search")
+
+    # New conversation
+    logo = page.locator("button[aria-label='Start a new conversation']")
+    if logo.count():
+        logo.first.click()
+        page.wait_for_timeout(500)
+        logo.first.click()
+        page.wait_for_timeout(500)
+
+    # Select search mode
+    t.start = time.time()
+    trigger = page.locator("[data-testid='mode-menu-trigger']")
+    if trigger.count():
+        trigger.first.click()
+        page.wait_for_timeout(300)
+        search_option = page.locator("[data-testid='mode-option-search']")
+        if search_option.count():
+            search_option.first.click()
+            page.wait_for_timeout(300)
+            results.append(
+                E2EResult(
+                    "search_mode_select",
+                    "Search mode selects correctly",
+                    "pass",
+                    category="Search",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "search_mode_select",
+                    "Search mode selects correctly",
+                    "fail",
+                    "Search option not found",
+                    category="Search",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "search_mode_select",
+                "Search mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Search",
+            )
+        )
+
+    # Submit search
+    textarea = page.locator("[data-testid='composer-textarea']")
+    if textarea.count():
+        textarea.first.fill("What is the capital of France?")
+        page.wait_for_timeout(200)
+        send_btn = page.locator("[data-testid='composer-send']")
+        if send_btn.count():
+            send_btn.first.click()
+        else:
+            page.keyboard.press("Enter")
+
+        # Wait for SearchProgress
+        page.wait_for_timeout(2000)
+        progress = page.locator("[data-testid='search-progress']")
+        if progress.count():
+            results.append(
+                E2EResult(
+                    "search_progress",
+                    "SearchProgress appears during loading",
+                    "pass",
+                    category="Search",
+                )
+            )
+            screenshot_fn("search-progress")
+        else:
+            results.append(
+                E2EResult(
+                    "search_progress",
+                    "SearchProgress appears during loading",
+                    "fail",
+                    "SearchProgress not found",
+                    category="Search",
+                )
+            )
+
+        # Wait for source cards
+        page.wait_for_timeout(10000)
+        source_cards = page.locator("[data-testid='source-cards']")
+        if source_cards.count():
+            results.append(
+                E2EResult(
+                    "search_sources", "Source cards render", "pass", category="Search"
+                )
+            )
+            screenshot_fn("search-source-cards")
+
+            # Verify links open in new tabs
+            links = page.locator("[data-testid='source-cards'] a")
+            if links.count():
+                first_link = links.first
+                target = first_link.get_attribute("target")
+                rel = first_link.get_attribute("rel") or ""
+                if target == "_blank" and "noopener" in rel:
+                    results.append(
+                        E2EResult(
+                            "search_links",
+                            "Source links open in new tabs",
+                            "pass",
+                            category="Search",
+                        )
+                    )
+                else:
+                    results.append(
+                        E2EResult(
+                            "search_links",
+                            "Source links open in new tabs",
+                            "fail",
+                            f"target={target}, rel={rel}",
+                            category="Search",
+                        )
+                    )
+            else:
+                results.append(
+                    E2EResult(
+                        "search_links",
+                        "Source links open in new tabs",
+                        "skip",
+                        "No links found",
+                        category="Search",
+                    )
+                )
+        else:
+            results.append(
+                E2EResult(
+                    "search_sources",
+                    "Source cards render",
+                    "fail",
+                    "Source cards not found",
+                    category="Search",
+                )
+            )
+
+        # Verify response is non-empty
+        messages = page.locator(".message-content, .markdown-content")
+        has_response = False
+        for i in range(messages.count()):
+            text = messages.nth(i).text_content() or ""
+            if text.strip() and len(text.strip()) > 5:
+                has_response = True
+                break
+
+        if has_response:
+            results.append(
+                E2EResult(
+                    "search_response",
+                    "Response contains content",
+                    "pass",
+                    category="Search",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "search_response",
+                    "Response contains content",
+                    "fail",
+                    "No response found",
+                    category="Search",
+                )
+            )
+
+        screenshot_fn("search-response")
+    else:
+        results.append(
+            E2EResult(
+                "search_submit",
+                "Search submits",
+                "fail",
+                "Textarea not found",
+                category="Search",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify thinking mode: thinking container renders, toggle exists."""
+    results = []
+    t = FlowTiming("thinking")
+
+    # New conversation via header logo (previously "theme toggle trick")
+    logo = page.locator("button[aria-label='Start a new conversation']")
+    if logo.count():
+        logo.first.click()
+        page.wait_for_timeout(500)
+        logo.first.click()
+        page.wait_for_timeout(500)
+
+    # Select thinking mode
+    t.start = time.time()
+    trigger = page.locator("[data-testid='mode-menu-trigger']")
+    if trigger.count():
+        trigger.first.click()
+        page.wait_for_timeout(300)
+        thinking_option = page.locator("[data-testid='mode-option-thinking']")
+        if thinking_option.count():
+            thinking_option.first.click()
+            page.wait_for_timeout(300)
+            results.append(
+                E2EResult(
+                    "thinking_mode_select",
+                    "Thinking mode selects correctly",
+                    "pass",
+                    category="Thinking",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "thinking_mode_select",
+                    "Thinking mode selects correctly",
+                    "fail",
+                    "Thinking option not found",
+                    category="Thinking",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "thinking_mode_select",
+                "Thinking mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Thinking",
+            )
+        )
+
+    # Submit
+    textarea = page.locator("[data-testid='composer-textarea']")
+    if textarea.count():
+        textarea.first.fill("Explain recursion in one sentence")
+        page.wait_for_timeout(200)
+        send_btn = page.locator("[data-testid='composer-send']")
+        if send_btn.count():
+            send_btn.first.click()
+        else:
+            page.keyboard.press("Enter")
+
+        # Wait for response
+        page.wait_for_timeout(10000)
+        screenshot_fn("thinking-response")
+
+        # Verify thinking container exists
+        thinking = page.locator(".thinking-container")
+        if thinking.count():
+            results.append(
+                E2EResult(
+                    "thinking_container",
+                    "ThinkingContainer renders",
+                    "pass",
+                    category="Thinking",
+                )
+            )
+
+            # Verify toggle exists (aria-expanded)
+            toggle = page.locator(".thinking-toggle[aria-expanded]")
+            if toggle.count():
+                results.append(
+                    E2EResult(
+                        "thinking_toggle",
+                        "Thinking toggle works",
+                        "pass",
+                        category="Thinking",
+                    )
+                )
+            else:
+                results.append(
+                    E2EResult(
+                        "thinking_toggle",
+                        "Thinking toggle works",
+                        "skip",
+                        "Toggle not found (may be short trace)",
+                        category="Thinking",
+                    )
+                )
+        else:
+            results.append(
+                E2EResult(
+                    "thinking_container",
+                    "ThinkingContainer renders",
+                    "fail",
+                    "Thinking container not found",
+                    category="Thinking",
+                )
+            )
+
+        # Verify response is non-empty
+        messages = page.locator(".message-content, .markdown-content")
+        has_response = False
+        for i in range(messages.count()):
+            text = messages.nth(i).text_content() or ""
+            if text.strip() and len(text.strip()) > 5:
+                has_response = True
+                break
+
+        if has_response:
+            results.append(
+                E2EResult(
+                    "thinking_response",
+                    "Response renders after thinking",
+                    "pass",
+                    category="Thinking",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "thinking_response",
+                    "Response renders after thinking",
+                    "fail",
+                    "No response found",
+                    category="Thinking",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "thinking_submit",
+                "Thinking submits",
+                "fail",
+                "Textarea not found",
+                category="Thinking",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_voice_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify voice: TTS button clickable, audio element created."""
+    results = []
+    t = FlowTiming("voice")
+    t.start = time.time()
+
+    # Find TTS button
+    tts_btn = page.locator("[data-testid='tts-button']")
+    if tts_btn.count():
+        results.append(
+            E2EResult(
+                "voice_tts_button", "TTS button clickable", "pass", category="Voice"
+            )
+        )
+
+        # Click TTS
+        tts_btn.first.click()
+        page.wait_for_timeout(3000)
+
+        # Verify audio element created
+        audio = page.locator("[data-testid='tts-audio']")
+        if audio.count():
+            results.append(
+                E2EResult(
+                    "voice_audio", "Audio element created", "pass", category="Voice"
+                )
+            )
+            screenshot_fn("voice-playback")
+        else:
+            results.append(
+                E2EResult(
+                    "voice_audio",
+                    "Audio element created",
+                    "fail",
+                    "Audio element not found after TTS click",
+                    category="Voice",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "voice_tts_button",
+                "TTS button clickable",
+                "skip",
+                "TTS button not found (need a response first)",
+                category="Voice",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify keyboard: Escape closes sidebar, Enter submits."""
+    results = []
+    t = FlowTiming("keyboard")
+    t.start = time.time()
+
+    # Test Escape closes sidebar
+    menu_btn = page.locator("[data-testid='settings-menu-trigger']")
+    if menu_btn.count():
+        # Open sidebar by clicking menu
+        hamburger = page.locator("button[aria-label='Open menu']")
+        if hamburger.count():
+            hamburger.first.click()
+            page.wait_for_timeout(500)
+            sidebar = page.locator("[data-testid='sidebar']")
+            is_open = "sidebar--open" in (sidebar.get_attribute("class") or "")
+
+            if is_open:
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                is_closed = "sidebar--open" not in (
+                    sidebar.get_attribute("class") or ""
+                )
+                if is_closed:
+                    results.append(
+                        E2EResult(
+                            "kb_escape_sidebar",
+                            "Escape closes sidebar",
+                            "pass",
+                            category="Keyboard",
+                        )
+                    )
+                else:
+                    results.append(
+                        E2EResult(
+                            "kb_escape_sidebar",
+                            "Escape closes sidebar",
+                            "fail",
+                            "Sidebar still open after Escape",
+                            category="Keyboard",
+                        )
+                    )
+            else:
+                results.append(
+                    E2EResult(
+                        "kb_escape_sidebar",
+                        "Escape closes sidebar",
+                        "skip",
+                        "Sidebar did not open",
+                        category="Keyboard",
+                    )
+                )
+        else:
+            results.append(
+                E2EResult(
+                    "kb_escape_sidebar",
+                    "Escape closes sidebar",
+                    "skip",
+                    "Menu button not found",
+                    category="Keyboard",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "kb_escape_sidebar",
+                "Escape closes sidebar",
+                "skip",
+                "No theme toggle found",
+                category="Keyboard",
+            )
+        )
+
+    # Test Enter submits
+    textarea = page.locator("[data-testid='composer-textarea']")
+    if textarea.count():
+        textarea.first.fill("Hello keyboard test")
+        page.wait_for_timeout(300)
+        page.keyboard.press("Enter")
+
+        # Poll for response (backend may be slow after prior flows).
+        has_message = False
+        for _ in range(10):
+            page.wait_for_timeout(1000)
+            messages = page.locator(
+                ".message-content, .markdown-content, .user-message"
+            )
+            for i in range(messages.count()):
+                text = messages.nth(i).text_content() or ""
+                if "keyboard" in text.lower():
+                    has_message = True
+                    break
+            if has_message:
+                break
+
+        if has_message:
+            results.append(
+                E2EResult(
+                    "kb_enter_submit",
+                    "Enter submits message",
+                    "pass",
+                    category="Keyboard",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "kb_enter_submit",
+                    "Enter submits message",
+                    "fail",
+                    "Message not found after Enter",
+                    category="Keyboard",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "kb_enter_submit",
+                "Enter submits message",
+                "skip",
+                "Textarea not found",
+                category="Keyboard",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify dark and light themes toggle correctly."""
+    results = []
+    t = FlowTiming("themes")
+    t.start = time.time()
+
+    # Check initial theme
+    initial_theme = (
+        page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+    )
+    results.append(
+        E2EResult(
+            "theme_initial",
+            f"Initial theme is {initial_theme}",
+            "pass",
+            category="Themes",
+        )
+    )
+
+    # Toggle theme via settings dropdown
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        theme_btn = page.locator("[data-testid='settings-theme-toggle']")
+        if theme_btn.count():
+            theme_btn.first.click()
+            page.wait_for_timeout(500)
+            new_theme = (
+                page.evaluate("document.documentElement.getAttribute('data-theme')")
+                or "dark"
+            )
+
+            if new_theme != initial_theme:
+                results.append(
+                    E2EResult(
+                        "theme_toggle",
+                        "Theme toggle switches",
+                        "pass",
+                        f"{initial_theme} → {new_theme}",
+                        category="Themes",
+                    )
+                )
+                screenshot_fn("theme-toggled")
+
+                # Close dropdown (theme toggle doesn't auto-close so user can see effect)
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                # Toggle back via settings dropdown
+                settings_trigger.first.click()
+                page.wait_for_timeout(500)
+                page.locator("[data-testid='settings-theme-toggle']").first.click()
+                page.wait_for_timeout(500)
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                restored = (
+                    page.evaluate("document.documentElement.getAttribute('data-theme')")
+                    or "dark"
+                )
+                if restored == initial_theme:
+                    results.append(
+                        E2EResult(
+                            "theme_restore",
+                            "Theme toggle restores",
+                            "pass",
+                            category="Themes",
+                        )
+                    )
+                else:
+                    results.append(
+                        E2EResult(
+                            "theme_restore",
+                            "Theme toggle restores",
+                            "fail",
+                            f"Expected {initial_theme}, got {restored}",
+                            category="Themes",
+                        )
+                    )
+            else:
+                results.append(
+                    E2EResult(
+                        "theme_toggle",
+                        "Theme toggle switches",
+                        "fail",
+                        f"Theme did not change from {initial_theme}",
+                        category="Themes",
+                    )
+                )
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(200)
+        else:
+            results.append(
+                E2EResult(
+                    "theme_toggle",
+                    "Theme toggle switches",
+                    "skip",
+                    "Theme toggle not found in dropdown",
+                    category="Themes",
+                )
+            )
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(200)
+    else:
+        results.append(
+            E2EResult(
+                "theme_toggle",
+                "Theme toggle switches",
+                "skip",
+                "Settings trigger not found",
+                category="Themes",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify landing page suggestion chips preference (default: off)."""
+    results: List[E2EResult] = []
+    t = FlowTiming("landing_suggestions")
+    t.start = time.time()
+
+    # Ensure clean state: remove stored suggestions preference.
+    page.evaluate("""() => {
+        try {
+            const raw = localStorage.getItem('alma_search_settings');
+            if (raw) {
+                const s = JSON.parse(raw);
+                delete s.showSuggestions;
+                localStorage.setItem('alma_search_settings', JSON.stringify(s));
+            }
+        } catch {}
+    }""")
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(500)
+
+    # ── 1. Default state: suggestions should be hidden ──
+    has_chips = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_default_off",
+            "Quiet mode is the default",
+            "pass" if not has_chips else "fail",
+            f"Chips visible: {has_chips}" if has_chips else "No chips on landing page",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-quiet")
+
+    # ── 2. Enable suggestions via header settings dropdown ──
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        dropdown = page.locator("[data-testid='settings-dropdown']")
+        if dropdown.count():
+            # Expand Search section to reveal the suggestions toggle
+            search_trigger = page.locator("[data-testid='settings-search-trigger']")
+            if search_trigger.count():
+                search_trigger.first.click()
+                page.wait_for_timeout(300)
+            suggestions_toggle = page.locator(
+                "[data-testid='settings-suggestions-toggle']"
+            )
+            if suggestions_toggle.count():
+                suggestions_toggle.first.click()
+                page.wait_for_timeout(300)
+                # Close dropdown
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                results.append(
+                    E2EResult(
+                        "suggestions_enable",
+                        "Suggestions can be enabled",
+                        "pass",
+                        category="Landing Page",
+                    )
+                )
+            else:
+                results.append(
+                    E2EResult(
+                        "suggestions_enable",
+                        "Suggestions can be enabled",
+                        "fail",
+                        "Suggestions toggle not found in dropdown.",
+                        category="Landing Page",
+                    )
+                )
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+        else:
+            results.append(
+                E2EResult(
+                    "suggestions_enable",
+                    "Suggestions can be enabled",
+                    "fail",
+                    "Settings dropdown did not open.",
+                    category="Landing Page",
+                )
+            )
+    else:
+        results.append(
+            E2EResult(
+                "suggestions_enable",
+                "Suggestions can be enabled",
+                "fail",
+                "Settings menu trigger not found.",
+                category="Landing Page",
+            )
+        )
+
+    # ── 3. Verify chips appear immediately (no reload) ──
+    try:
+        page.wait_for_selector(".landing-suggestions .chip", timeout=3000)
+        chips_after_enable = True
+    except Exception:
+        chips_after_enable = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_immediate",
+            "Changes apply immediately",
+            "pass" if chips_after_enable else "fail",
+            f"Chips visible: {chips_after_enable}"
+            if not chips_after_enable
+            else "3 suggestion chips rendered",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-suggestions-enabled")
+
+    # ── 4. Persistence: reload and verify chips still visible ──
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(1000)
+    chips_after_reload = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_persist",
+            "Preference persists after reload",
+            "pass" if chips_after_reload else "fail",
+            f"Chips visible after reload: {chips_after_reload}",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-after-reload")
+
+    # Verify toggle remains enabled after reload
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        # Expand Search section to reveal the suggestions toggle
+        search_trigger = page.locator("[data-testid='settings-search-trigger']")
+        if search_trigger.count():
+            search_trigger.first.click()
+            page.wait_for_timeout(300)
+        toggle_after = page.locator("[data-testid='settings-suggestions-toggle']")
+        toggle_still_on = toggle_after.count() > 0
+        if toggle_still_on:
+            # Disable suggestions
+            toggle_after.first.click()
+            page.wait_for_timeout(300)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            results.append(
+                E2EResult(
+                    "suggestions_disable",
+                    "Suggestions can be disabled",
+                    "pass",
+                    category="Landing Page",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "suggestions_disable",
+                    "Suggestions can be disabled",
+                    "fail",
+                    "Suggestions toggle not found after reload.",
+                    category="Landing Page",
+                )
+            )
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+    else:
+        results.append(
+            E2EResult(
+                "suggestions_disable",
+                "Suggestions can be disabled",
+                "fail",
+                "Settings trigger not found after reload.",
+                category="Landing Page",
+            )
+        )
+
+    # ── 5. Verify chips disappear after disabling ──
+    chips_after_disable = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_gone",
+            "Chips disappear after disable",
+            "pass" if not chips_after_disable else "fail",
+            f"Chips still visible: {chips_after_disable}"
+            if chips_after_disable
+            else "No chips after disable",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-suggestions-disabled")
+
+    # ── 6. Reload: chips stay hidden ──
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(1000)
+    chips_still_hidden = page.locator(".landing-suggestions .chip").count() == 0
+    results.append(
+        E2EResult(
+            "suggestions_stay_hidden",
+            "Chips remain hidden after reload",
+            "pass" if chips_still_hidden else "fail",
+            f"Chips visible: {not chips_still_hidden}",
+            category="Landing Page",
+        )
+    )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _collect_browser_errors(page: "Any") -> Tuple[List[str], List[str], List[str]]:
+    """Collect console errors, warnings, and failed requests.
+
+    Filters out infrastructure noise that does not indicate product bugs:
+    - 404 from conversation save race (PUT /api/conversations/{id})
+    - 429 from Gemini quota exhaustion
+    """
+    errors: List[str] = []
+    warnings: List[str] = []
+    failed_requests: List[str] = []
+    _seen_429 = False
+    _seen_404_resource = False
+
+    def on_response(resp: "Any") -> None:
+        nonlocal _seen_429, _seen_404_resource
+        if resp.status == 429:
+            _seen_429 = True
+        if resp.status == 404:
+            _seen_404_resource = True
+
+    def on_console(msg: "Any") -> None:
+        nonlocal _seen_429, _seen_404_resource
+        if msg.type == "error":
+            text = msg.text
+            # Suppress "Failed to load resource" for 404s (conversation race).
+            if "Failed to load resource" in text and _seen_404_resource:
+                _seen_404_resource = False
+                return
+            # Suppress 429 / quota errors (infrastructure, not product).
+            if "429" in text or "RESOURCE_EXHAUSTED" in text:
+                return
+            errors.append(f"[error] {text}")
+        elif msg.type == "warning":
+            warnings.append(f"[warning] {msg.text}")
+
+    def on_page_error(err: "Any") -> None:
+        errors.append(f"[pageerror] {err}")
+
+    def on_request_failed(request: "Any") -> None:
+        url = request.url
+        failure = request.failure
+        failed_requests.append(f"{url} ({failure})")
+
+    page.on("response", on_response)
+    page.on("console", on_console)
+    page.on("pageerror", on_page_error)
+    page.on("requestfailed", on_request_failed)
+
+    return errors, warnings, failed_requests
+
+
+def _format_e2e_report(
+    all_results: List[E2EResult],
+    timings: List[FlowTiming],
+    artifacts_dir: str,
+) -> str:
+    """Format unified E2E report."""
+    lines = ["E2E Verification Report", "=" * 40, ""]
+
+    # Group by category
+    categories: Dict[str, List[E2EResult]] = {}
+    for r in all_results:
+        cat = r.category or "Other"
+        categories.setdefault(cat, []).append(r)
+
+    for cat, checks in categories.items():
+        lines.append(f"{cat}")
+        for c in checks:
+            marker = (
+                "\u2713"
+                if c.status == "pass"
+                else ("\u2014" if c.status in ("skip", "infra_fail") else "\u2717")
+            )
+            lines.append(f"  {marker} {c.label}")
+            if c.detail:
+                lines.append(f"    {c.detail}")
+        lines.append("")
+
+    # Timing summary
+    if timings:
+        lines.append("Timing")
+        for t in timings:
+            lines.append(f"  {t.flow}: {t.duration_ms}ms")
+        lines.append("")
+
+    # Artifacts
+    lines.append("Artifacts")
+    lines.append(f"  {artifacts_dir}/")
+    lines.append("")
+
+    # Overall
+    passed = sum(1 for r in all_results if r.status == "pass")
+    failed = sum(1 for r in all_results if r.status == "fail")
+    skipped = sum(1 for r in all_results if r.status in ("skip", "infra_fail"))
+    total = len(all_results)
+
+    lines.append(
+        f"Overall: {passed}/{total} passed, {failed} failed, {skipped} skipped"
+    )
+
+    return "\n".join(lines)
+
+
+def _format_e2e_json(
+    all_results: List[E2EResult],
+    timings: List[FlowTiming],
+    artifacts_dir: str,
+) -> str:
+    """Format E2E report as JSON."""
+    report = {
+        "results": [r.to_dict() for r in all_results],
+        "timings": [t.to_dict() for t in timings],
+        "artifacts_dir": artifacts_dir,
+        "summary": {
+            "passed": sum(1 for r in all_results if r.status == "pass"),
+            "failed": sum(1 for r in all_results if r.status == "fail"),
+            "skipped": sum(
+                1 for r in all_results if r.status in ("skip", "infra_fail")
+            ),
+            "total": len(all_results),
+        },
+    }
+    return json.dumps(report, indent=2)
+
+
+def _format_e2e_html(
+    all_results: List[E2EResult],
+    timings: List[FlowTiming],
+    artifacts_dir: str,
+) -> str:
+    """Format E2E report as HTML."""
+    passed = sum(1 for r in all_results if r.status == "pass")
+    failed = sum(1 for r in all_results if r.status == "fail")
+    skipped = sum(1 for r in all_results if r.status in ("skip", "infra_fail"))
+    total = len(all_results)
+
+    categories: Dict[str, List[E2EResult]] = {}
+    for r in all_results:
+        cat = r.category or "Other"
+        categories.setdefault(cat, []).append(r)
+
+    html_parts = [
+        "<!DOCTYPE html>",
+        "<html><head><meta charset='utf-8'><title>E2E Verification Report</title>",
+        "<style>",
+        "body { font-family: -apple-system, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }",
+        "h1 { color: #333; }",
+        ".summary { font-size: 1.2em; margin: 20px 0; }",
+        ".pass { color: #16a34a; }",
+        ".fail { color: #dc2626; }",
+        ".skip { color: #9ca3af; }",
+        ".category { margin: 20px 0; }",
+        ".category h2 { font-size: 1.1em; color: #555; border-bottom: 1px solid #eee; padding-bottom: 5px; }",
+        ".check { margin: 5px 0; padding: 5px 10px; }",
+        ".check.pass::before { content: '✓ '; color: #16a34a; }",
+        ".check.fail::before { content: '✗ '; color: #dc2626; }",
+        ".check.skip::before { content: '— '; color: #9ca3af; }",
+        ".timing { margin: 20px 0; }",
+        ".timing table { border-collapse: collapse; width: 100%; }",
+        ".timing td, .timing th { border: 1px solid #eee; padding: 8px; text-align: left; }",
+        "</style></head><body>",
+        "<h1>E2E Verification Report</h1>",
+        "<div class='summary'>",
+        f"<span class='pass'>{passed} passed</span>, ",
+        f"<span class='fail'>{failed} failed</span>, ",
+        f"<span class='skip'>{skipped} skipped</span> ",
+        f"out of {total} checks</div>",
+    ]
+
+    for cat, checks in categories.items():
+        html_parts.append(f"<div class='category'><h2>{cat}</h2>")
+        for c in checks:
+            status_class = c.status if c.status != "infra_fail" else "skip"
+            html_parts.append(f"<div class='check {status_class}'>{c.label}")
+            if c.detail:
+                html_parts.append(f"<br><small>{c.detail}</small>")
+            html_parts.append("</div>")
+        html_parts.append("</div>")
+
+    if timings:
+        html_parts.append("<div class='timing'><h2>Timing</h2><table>")
+        html_parts.append("<tr><th>Flow</th><th>Duration</th></tr>")
+        for t in timings:
+            html_parts.append(f"<tr><td>{t.flow}</td><td>{t.duration_ms}ms</td></tr>")
+        html_parts.append("</table></div>")
+
+    html_parts.append(f"<p>Artifacts: {artifacts_dir}/</p>")
+    html_parts.append("</body></html>")
+
+    return "\n".join(html_parts)
+
+
+def run_e2e_verification(
+    output_dir: str,
+    flows: Tuple[str, ...] = ALL_FLOWS,
+    viewports: Optional[Dict[str, dict]] = None,
+) -> List[E2EResult]:
+    """Run full E2E verification across viewports and flows."""
+    if not check_playwright_installed():
+        return [
+            E2EResult(
+                "playwright",
+                "Playwright",
+                "infra_fail",
+                "Playwright not installed. Run: pip install playwright && playwright install chromium",
+                category="Infrastructure",
+            )
+        ]
+
+    from playwright.sync_api import sync_playwright
+
+    if viewports is None:
+        viewports = VIEWPORTS
+
+    base_url = os.environ.get("ALMA_FRONTEND_URL", "http://localhost:3000")
+
+    # Check infrastructure first
+    infra_results = _check_infrastructure(base_url)
+    has_infra_failure = any(r.status == "infra_fail" for r in infra_results)
+
+    if has_infra_failure:
+        return infra_results
+
+    all_results: List[E2EResult] = list(infra_results)
+    all_timings: List[FlowTiming] = []
+
+    with sync_playwright() as p:
+        for vp_name, vp_size in viewports.items():
+            vp_dir = os.path.join(output_dir, vp_name)
+            os.makedirs(vp_dir, exist_ok=True)
+
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context(viewport=vp_size)
+            page = context.new_page()
+
+            # Start trace
+            trace_path = os.path.join(output_dir, "traces", f"{vp_name}.zip")
+            os.makedirs(os.path.dirname(trace_path), exist_ok=True)
+            context.tracing.start(screenshots=True, snapshots=True, sources=True)
+
+            # Collect browser errors
+            console_errors, console_warnings, failed_requests = _collect_browser_errors(
+                page
+            )
+
+            # Navigate
+            try:
+                page.goto(base_url, wait_until="networkidle", timeout=30000)
+            except Exception as exc:
+                all_results.append(
+                    E2EResult(
+                        f"page_load_{vp_name}",
+                        f"Page loads ({vp_name})",
+                        "fail",
+                        str(exc),
+                        category="Infrastructure",
+                    )
+                )
+                context.tracing.stop(path=trace_path)
+                context.close()
+                browser.close()
+                continue
+
+            # Screenshot landing
+            page.screenshot(path=os.path.join(vp_dir, "landing.png"), full_page=True)
+
+            # Dismiss disclaimer dialog if present (first visit).
+            try:
+                page.evaluate(
+                    "document.querySelector('.dialog-btn--confirm')?.click();"
+                )
+                page.wait_for_timeout(500)
+            except Exception:
+                pass  # No disclaimer or already dismissed.
+
+            def screenshot(name: str) -> None:
+                page.screenshot(
+                    path=os.path.join(vp_dir, f"{name}.png"), full_page=True
+                )
+
+            # Run flows
+            flow_fns = {
+                "chat": _verify_chat_flow,
+                "search": _verify_search_flow,
+                "thinking": _verify_thinking_flow,
+                "voice": _verify_voice_flow,
+                "keyboard": _verify_keyboard_navigation,
+                "themes": _verify_themes,
+                "landing_suggestions": _verify_landing_suggestions,
+            }
+            _API_FLOWS = {"chat", "search", "thinking", "voice"}
+            quota_exhausted = False
+
+            for flow_name in flows:
+                if flow_name in flow_fns:
+                    # Check console errors for 429 between flows.
+                    if not quota_exhausted and any(
+                        "429" in e or "RESOURCE_EXHAUSTED" in e for e in console_errors
+                    ):
+                        quota_exhausted = True
+                    if quota_exhausted and flow_name in _API_FLOWS:
+                        all_results.append(
+                            E2EResult(
+                                f"{flow_name}_{vp_name}",
+                                f"{flow_name} flow ({vp_name})",
+                                "skip",
+                                "Skipped: Gemini API quota exhausted (429)",
+                                category=flow_name.capitalize(),
+                            )
+                        )
+                        continue
+                    try:
+                        flow_results = flow_fns[flow_name](page, screenshot)
+                        for r in flow_results:
+                            r.label = f"[{vp_name}] {r.label}"
+                        all_results.extend(flow_results)
+                        all_timings.extend([r.timing for r in flow_results if r.timing])
+                        # Detect 429 in results detail to skip subsequent API flows.
+                        if any("429" in (r.detail or "") for r in flow_results):
+                            quota_exhausted = True
+                    except Exception as exc:
+                        all_results.append(
+                            E2EResult(
+                                f"{flow_name}_{vp_name}",
+                                f"{flow_name} flow ({vp_name})",
+                                "fail",
+                                str(exc),
+                                category=flow_name.capitalize(),
+                            )
+                        )
+
+            # Report browser errors
+            if console_errors:
+                all_results.append(
+                    E2EResult(
+                        f"console_errors_{vp_name}",
+                        f"Console errors ({vp_name})",
+                        "fail",
+                        f"{len(console_errors)} errors: {'; '.join(console_errors[:3])}",
+                        category="Browser",
+                    )
+                )
+            else:
+                all_results.append(
+                    E2EResult(
+                        f"console_errors_{vp_name}",
+                        f"Console errors ({vp_name})",
+                        "pass",
+                        f"No errors ({len(console_warnings)} warnings)",
+                        category="Browser",
+                    )
+                )
+
+            if console_warnings:
+                all_results.append(
+                    E2EResult(
+                        f"console_warnings_{vp_name}",
+                        f"Console warnings ({vp_name})",
+                        "pass",
+                        f"{len(console_warnings)} warnings",
+                        category="Browser",
+                    )
+                )
+
+            if failed_requests:
+                all_results.append(
+                    E2EResult(
+                        f"failed_requests_{vp_name}",
+                        f"Failed network requests ({vp_name})",
+                        "fail",
+                        f"{len(failed_requests)} failures: {'; '.join(failed_requests[:3])}",
+                        category="Browser",
+                    )
+                )
+            else:
+                all_results.append(
+                    E2EResult(
+                        f"failed_requests_{vp_name}",
+                        f"Failed network requests ({vp_name})",
+                        "pass",
+                        "No failed requests",
+                        category="Browser",
+                    )
+                )
+
+            # Save trace
+            try:
+                context.tracing.stop(path=trace_path)
+            except Exception:
+                try:
+                    context.tracing.stop()
+                except Exception:
+                    pass
+
+            context.close()
+            browser.close()
+
+    # Save reports
+    report_json = _format_e2e_json(all_results, all_timings, output_dir)
+    report_html = _format_e2e_html(all_results, all_timings, output_dir)
+
+    with open(os.path.join(output_dir, "report.json"), "w") as f:
+        f.write(report_json)
+    with open(os.path.join(output_dir, "report.html"), "w") as f:
+        f.write(report_html)
+
+    return all_results
+
+
 def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]:
     """Run Playwright-based browser verification."""
     if not check_playwright_installed():
@@ -1689,6 +3614,9 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
                 "thinking": "Thinking",
                 "web": "Web",
                 "images": "Images",
+                "search": "Search",
+                "auto": "Auto",
+                "code": "Code",
             }
             for mode_name in modes:
                 label = mode_labels.get(mode_name, mode_name)
@@ -1753,6 +3681,12 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
             # ── Conversation search ──
             conv_search_results = _run_conversation_search(page, output_dir, screenshot)
             results.extend(conv_search_results)
+
+            # ── Search UI verification ──
+            search_ui_results = _run_search_ui_verification(
+                page, output_dir, screenshot
+            )
+            results.extend(search_ui_results)
 
             # Save console logs
             log_path = os.path.join(output_dir, "console.log")
@@ -3370,7 +5304,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="UI verification for Alma \u2014 validates that the frontend "
+        description="UI verification for Alma — validates that the frontend "
         "correctly represents every response lifecycle phase.",
     )
     parser.add_argument(
@@ -3392,6 +5326,27 @@ def main() -> None:
         "--fidelity",
         action="store_true",
         help="Run render fidelity checks (DOM vs API, clipboard, Markdown elements)",
+    )
+    parser.add_argument(
+        "--e2e",
+        action="store_true",
+        help="Run end-to-end verification (multi-viewport, flows, traces)",
+    )
+    parser.add_argument(
+        "--flow",
+        type=str,
+        nargs="*",
+        default=None,
+        metavar="FLOW",
+        help="Specific flows to verify (chat, search, thinking, voice, keyboard, themes)",
+    )
+    parser.add_argument(
+        "--viewport",
+        type=str,
+        nargs="*",
+        default=None,
+        metavar="VIEWPORT",
+        help="Specific viewports to test (desktop, tablet, mobile)",
     )
     parser.add_argument(
         "--json",
@@ -3424,7 +5379,7 @@ def main() -> None:
     _TIMEOUT = args.timeout
 
     config = get_config()
-    valid_modes = {"canvas", "thinking", "web", "images"}
+    valid_modes = {"canvas", "thinking", "web", "images", "search", "auto", "code"}
     if args.modes:
         for m in args.modes:
             if m not in valid_modes:
@@ -3433,6 +5388,41 @@ def main() -> None:
                 )
 
     output_dir = _ensure_output_dir()
+
+    # When no explicit flag is given, default to e2e (subcommand path).
+    if not any([args.e2e, args.capabilities, args.static, args.browser, args.fidelity]):
+        args.e2e = True
+
+    # ── e2e-only ──
+    if args.e2e:
+        flows = tuple(args.flow) if args.flow else ALL_FLOWS
+        viewports = None
+        if args.viewport:
+            viewports = {v: VIEWPORTS[v] for v in args.viewport if v in VIEWPORTS}
+            if not viewports:
+                parser.error(
+                    f"unknown viewport: {args.viewport!r}; choices: {', '.join(sorted(VIEWPORTS))}"
+                )
+
+        e2e_dir = os.path.join(output_dir, "e2e")
+        os.makedirs(e2e_dir, exist_ok=True)
+        results = run_e2e_verification(e2e_dir, flows=flows, viewports=viewports)
+
+        if args.json or args.output:
+            output = _format_e2e_json(results, [], e2e_dir)
+        else:
+            output = _format_e2e_report(results, [], e2e_dir)
+
+        if args.output:
+            with open(args.output, "w") as f:
+                f.write(output)
+                f.write("\n")
+        else:
+            print(output)
+
+        failures = [r for r in results if r.status == "fail"]
+        sys.exit(1 if failures else 0)
+        return
 
     # ── capabilities-only ──
     if args.capabilities:

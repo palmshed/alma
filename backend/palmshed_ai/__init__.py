@@ -64,8 +64,9 @@ def create_app():
     app.register_blueprint(attachments_bp)
     app.register_blueprint(conversations_bp)
 
-    # Apply rate limiting to API routes
-    limiter.limit("100/hour")(api_bp)
+    # Apply rate limiting to API routes unless in testing mode
+    if not app.config.get("TESTING") and os.environ.get("TESTING") != "1":
+        limiter.limit("100/hour")(api_bp)
 
     PAGES_DIR = os.path.join(app.template_folder, "pages")
 

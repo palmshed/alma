@@ -6,10 +6,12 @@
 
 from flask import Blueprint, request, jsonify, send_file, after_this_request, Response
 import os
+import json
 import tempfile
 import logging
 from typing import Any, cast, Dict, Tuple, Union
 from ..image_models import ImageStatus
+from ..search import SearchService
 from ..sdk import GeminiAI
 
 
@@ -30,6 +32,7 @@ def is_safe_path(base_path: str, target_path: str) -> bool:
 
 
 ai = GeminiAI()
+search_service = SearchService()
 api_bp = Blueprint("api", __name__)
 
 # Create directories for temporary files
@@ -40,12 +43,116 @@ TEMP_IMAGE_DIR = os.path.join(tempfile.gettempdir(), "generated_images")
 os.makedirs(TEMP_IMAGE_DIR, exist_ok=True)
 
 
+@api_bp.route("/api/search", methods=["POST"])
+@api_bp.route("/api/search/stream", methods=["POST"])
+def search_and_generate() -> Union[Response, Tuple[Response, int]]:
+    try:
+        data = cast(Dict[str, Any], request.get_json() or {})
+        prompt = data.get("prompt", "").strip()
+        messages = data.get("messages")
+        mode = data.get("mode", "auto")
+        provider = data.get("provider", "auto")
+        max_results = int(data.get("max_results", 5))
+        safe_search = bool(data.get("safe_search", True))
+        is_stream = bool(
+            data.get("stream")
+            or request.args.get("stream") == "true"
+            or request.path.endswith("/stream")
+            or "text/event-stream" in request.headers.get("Accept", "")
+        )
+
+        if not prompt and not messages:
+            return jsonify({"error": "No prompt provided"}), 400
+
+        user_query = prompt
+        if not user_query and messages:
+            for m in reversed(messages):
+                if m.get("role") == "user" and m.get("content"):
+                    user_query = m.get("content", "").strip()
+                    break
+
+        pipeline_result = search_service.execute_search_pipeline(
+            query=user_query,
+            messages=messages,
+            mode=mode,
+            provider_name=provider,
+            max_results=max_results,
+            safe_search=safe_search,
+        )
+
+        intent = pipeline_result.get("intent", "search")
+        sources = pipeline_result.get("sources", [])
+        steps = pipeline_result.get("search_steps", [])
+        grounded_context = pipeline_result.get("grounded_context", "")
+
+        if intent == "chat" or not grounded_context:
+            if messages:
+                full_response = ai.generate_chat(messages)
+            else:
+                full_response = ai.generate_text(user_query)
+        else:
+            system_instruction = (
+                "You are Alma, an intelligent coding and research assistant. "
+                "Answer the user's prompt grounded in the provided web search context. "
+                "Synthesize clear answers with relevant citations.\n\n"
+                f"SEARCH SOURCES:\n{grounded_context}\n"
+            )
+            if messages:
+                augmented = [{"role": "user", "content": system_instruction}] + list(
+                    messages
+                )
+                full_response = ai.generate_chat(augmented)
+            else:
+                full_response = ai.generate_text(
+                    f"{system_instruction}\nUSER REQUEST: {user_query}"
+                )
+
+        if is_stream:
+
+            def generate_sse():
+                try:
+                    for s in steps:
+                        yield f"data: {json.dumps({'type': 'step', 'step': s})}\n\n"
+                    if sources:
+                        yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+                    # Stream response in words / small chunks
+                    words = full_response.split(" ")
+                    for i, w in enumerate(words):
+                        chunk = w + (" " if i < len(words) - 1 else "")
+                        yield f"data: {json.dumps({'type': 'chunk', 'delta': chunk})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'intent': intent, 'metrics': pipeline_result.get('metrics', {})})}\n\n"
+                except GeneratorExit:
+                    logging.info(
+                        "Client disconnected / aborted stream via AbortController."
+                    )
+
+            return Response(generate_sse(), mimetype="text/event-stream")
+
+        return jsonify(
+            {
+                "response": full_response,
+                "sources": sources,
+                "search_steps": steps,
+                "intent": intent,
+                "metrics": pipeline_result.get("metrics", {}),
+            }
+        )
+
+    except Exception as e:
+        logging.error(f"Error in search_and_generate: {e}")
+        return _error_response(e)
+
+
 @api_bp.route("/api/generate", methods=["POST"])
 def generate_response() -> Union[Response, Tuple[Response, int]]:
     try:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        mode = data.get("mode")
+
+        if mode in ("search", "auto", "code") or data.get("search"):
+            return search_and_generate()
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400

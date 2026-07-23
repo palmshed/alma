@@ -3,9 +3,12 @@
 import type { ModeOption, ModelOption } from '../types';
 
 export const MODES: ModeOption[] = [
+  { value: 'auto', label: 'Auto', icon: 'zap' },
+  { value: 'chat', label: 'Chat', icon: 'message-square' },
+  { value: 'search', label: 'Search', icon: 'globe' },
+  { value: 'code', label: 'Code', icon: 'code' },
   { value: 'canvas', label: 'Canvas', icon: 'layers' },
   { value: 'thinking', label: 'Thinking', icon: 'sparkles' },
-  { value: 'web', label: 'Web', icon: 'globe' },
   { value: 'images', label: 'Images', icon: 'image' },
 ];
 
@@ -37,9 +40,12 @@ export function getModelLabel(value: string): string {
 }
 
 export const SUGGESTIONS: Record<string, string[]> = {
+  auto: ['Explain this code', 'Summarize this article', 'Generate release notes'],
+  chat: ['Explain this code', 'Summarize this article', 'Generate release notes'],
+  search: ['Search Wikipedia for quantum physics', 'Find latest AI research', 'Check GitHub trends'],
+  code: ['Explain this code', 'Refactor this function', 'Write unit tests for this module'],
   canvas: ['Summarize this article', 'Explain this code', 'Generate release notes'],
   thinking: ['Solve step by step: train distance problem', 'Explain the water cycle', 'Calculate compound interest'],
-  web: ['Search Wikipedia for quantum physics', 'Find latest AI research', 'Check GitHub trends'],
   images: ['A peaceful sunset over mountains', 'A futuristic city with neon lights', 'A cute robot with big eyes'],
 };
 
@@ -56,7 +62,10 @@ export const ACCENT_PRESETS = [
 export function getEndpoint(mode: string): string {
   switch (mode) {
     case 'thinking': return '/api/generate-with-thinking';
-    case 'web': return '/api/generate-with-url-context';
+    case 'web':
+    case 'search':
+    case 'auto':
+    case 'code': return '/api/search';
     default: return '/api/generate';
   }
 }

@@ -1,14 +1,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, Sparkles, Globe, Image } from 'lucide-react';
+import { Layers, Sparkles, Globe, Image, Zap, MessageSquare, Code } from 'lucide-react';
 import type { ModeOption } from '../types';
 import { findScrollParent } from '../utils/overflow';
 
 const ICONS: Record<string, React.ReactNode> = {
+  zap: <Zap size={15} strokeWidth={1.7} />,
+  'message-square': <MessageSquare size={15} strokeWidth={1.7} />,
+  globe: <Globe size={15} strokeWidth={1.7} />,
+  code: <Code size={15} strokeWidth={1.7} />,
   layers: <Layers size={15} strokeWidth={1.7} />,
   sparkles: <Sparkles size={15} strokeWidth={1.7} />,
-  globe: <Globe size={15} strokeWidth={1.7} />,
   image: <Image size={15} strokeWidth={1.7} />,
 };
 
@@ -61,7 +64,7 @@ const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled 
   }, []);
 
   return (
-    <div className="mode-menu" ref={menuRef}>
+    <div className="mode-menu" ref={menuRef} data-testid="mode-menu">
       <button
         className="mode-menu-trigger"
         onClick={() => setOpen(!open)}
@@ -69,6 +72,7 @@ const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled 
         type="button"
         aria-label={`Mode: ${active.label}`}
         aria-expanded={open}
+        data-testid="mode-menu-trigger"
       >
         {ICONS[active.icon]}
       </button>
@@ -84,6 +88,7 @@ const ModeMenu: React.FC<ModeMenuProps> = ({ options, value, onChange, disabled 
                 role="menuitemradio"
                 aria-checked={isActive}
                 type="button"
+                data-testid={`mode-option-${opt.value}`}
               >
                 <span className="mode-menu-item-icon">{ICONS[opt.icon]}</span>
                 <span className="mode-menu-item-label">{opt.label}</span>
