@@ -15,20 +15,15 @@ Validates:
 - Real-world Scenarios
 """
 
-import asyncio
 import json
-import logging
-import math
 import os
-import re
-import socket
 import sys
 import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 # Set environment for testing
 os.environ["TESTING"] = "1"
@@ -213,7 +208,7 @@ class SearchVerifier:
 
         tp = TimeoutProvider()
         try:
-            res = tp.search("test")
+            tp.search("test")
             self.record("Providers", "Timeout handling gracefully caught", "FAIL", (time.time() - t0) * 1000, error="Expected exception or empty list")
         except Exception:
             self.record("Providers", "Timeout handling gracefully caught", "PASS", (time.time() - t0) * 1000)

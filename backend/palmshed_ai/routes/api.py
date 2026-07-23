@@ -11,6 +11,7 @@ import tempfile
 import logging
 from typing import Any, cast, Dict, Tuple, Union
 from ..image_models import ImageStatus
+from ..search import SearchService
 from ..sdk import GeminiAI
 
 
@@ -29,8 +30,6 @@ def is_safe_path(base_path: str, target_path: str) -> bool:
     except ValueError:
         return False
 
-
-from ..search import SearchService
 
 ai = GeminiAI()
 search_service = SearchService()

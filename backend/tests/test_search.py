@@ -1,17 +1,11 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
-import pytest
 from palmshed_ai.search import (
     SearchResult,
     SearchService,
     SearchCache,
     FallbackSearchProvider,
-    TavilySearchProvider,
-    BraveSearchProvider,
-    ExaSearchProvider,
-    SerpApiSearchProvider,
-    SearxngSearchProvider,
 )
 
 
