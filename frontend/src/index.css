@@ -854,13 +854,7 @@ html {
 .settings-dropdown-range::-moz-range-track {
   height: 4px;
   border-radius: var(--radius-pill);
-  background: var(--border-subtle);
-}
-
-.settings-dropdown-range::-moz-range-progress {
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--accent);
+  background: transparent;
 }
 
 .settings-dropdown-range::-moz-range-thumb {
