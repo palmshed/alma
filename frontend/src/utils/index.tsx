@@ -40,9 +40,12 @@ export function getModelLabel(value: string): string {
 }
 
 export const SUGGESTIONS: Record<string, string[]> = {
+  auto: ['Explain this code', 'Summarize this article', 'Generate release notes'],
+  chat: ['Explain this code', 'Summarize this article', 'Generate release notes'],
+  search: ['Search Wikipedia for quantum physics', 'Find latest AI research', 'Check GitHub trends'],
+  code: ['Explain this code', 'Refactor this function', 'Write unit tests for this module'],
   canvas: ['Summarize this article', 'Explain this code', 'Generate release notes'],
   thinking: ['Solve step by step: train distance problem', 'Explain the water cycle', 'Calculate compound interest'],
-  web: ['Search Wikipedia for quantum physics', 'Find latest AI research', 'Check GitHub trends'],
   images: ['A peaceful sunset over mountains', 'A futuristic city with neon lights', 'A cute robot with big eyes'],
 };
 
