@@ -2171,14 +2171,9 @@ def _submit_message(page: "Any", text: str) -> None:
         if not is_disabled:
             send_btn.first.click()
         else:
-            # Button still disabled — use Enter key as fallback
-            textarea.first.click()
-            page.wait_for_timeout(200)
-            page.keyboard.press("Enter")
+            textarea.first.press("Enter")
     else:
-        textarea.first.click()
-        page.wait_for_timeout(200)
-        page.keyboard.press("Enter")
+        textarea.first.press("Enter")
     page.wait_for_timeout(300)
 
 
@@ -2233,8 +2228,13 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         _submit_message(page, "What is 2+2?")
         textarea_value_after = textarea.first.input_value()
 
-        # Wait for response (non-empty) — use longer timeout for CI
-        page.wait_for_timeout(15000)
+        # Wait for response (non-empty) dynamically — use longer timeout for CI
+        try:
+            page.locator(".message-content, .markdown-content").first.wait_for(
+                state="visible", timeout=15000
+            )
+        except Exception:
+            pass
         screenshot_fn("chat-response")
 
         # Debug: capture page state on failure
