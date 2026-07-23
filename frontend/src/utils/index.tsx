@@ -3,9 +3,12 @@
 import type { ModeOption, ModelOption } from '../types';
 
 export const MODES: ModeOption[] = [
+  { value: 'auto', label: 'Auto', icon: 'zap' },
+  { value: 'chat', label: 'Chat', icon: 'message-square' },
+  { value: 'search', label: 'Search', icon: 'globe' },
+  { value: 'code', label: 'Code', icon: 'code' },
   { value: 'canvas', label: 'Canvas', icon: 'layers' },
   { value: 'thinking', label: 'Thinking', icon: 'sparkles' },
-  { value: 'web', label: 'Web', icon: 'globe' },
   { value: 'images', label: 'Images', icon: 'image' },
 ];
 
@@ -56,7 +59,10 @@ export const ACCENT_PRESETS = [
 export function getEndpoint(mode: string): string {
   switch (mode) {
     case 'thinking': return '/api/generate-with-thinking';
-    case 'web': return '/api/generate-with-url-context';
+    case 'web':
+    case 'search':
+    case 'auto':
+    case 'code': return '/api/search';
     default: return '/api/generate';
   }
 }

@@ -1,5 +1,3 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
-// SPDX-License-Identifier: MIT
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
@@ -16,11 +14,14 @@ import Sidebar from './components/Sidebar';
 import LandingLayout from './layouts/LandingLayout';
 import ConversationLayout from './layouts/ConversationLayout';
 import FooterPage from './pages/FooterPage';
+import SourceCards from './components/SourceCards';
+import SearchProgress from './components/SearchProgress';
+import SearchSettingsModal from './components/SearchSettingsModal';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
 import { api } from './services/api';
-import { AttachmentData, ConversationData, ModelAvailability } from './types';
+import { AttachmentData, ConversationData, ModelAvailability, SearchSettings } from './types';
 
 const PLACEHOLDERS = [
   'Ask anything...',
@@ -43,8 +44,23 @@ function removeStorage(key: string): void {
 }
 
 function App() {
-  const [mode, setMode] = useState('canvas');
+  const [mode, setMode] = useState('search');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
+  const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
+    try {
+      const stored = localStorage.getItem('alma_search_settings');
+      return stored ? JSON.parse(stored) : { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true };
+    } catch {
+      return { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true };
+    }
+  });
+  const [showSearchSettings, setShowSearchSettings] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('alma_search_settings', JSON.stringify(searchSettings));
+    } catch { /* noop */ }
+  }, [searchSettings]);
   const initialStored = getStorage(STORAGE_ACTIVE_CONV);
   const [restoring, setRestoring] = useState(!!initialStored);
   const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
@@ -235,7 +251,8 @@ function App() {
     };
 
     /* Update the interface before waiting for Vercel to persist the conversation. */
-    const generation = submit(text, mode, messages, atts, actualModel);
+    const currentMsgs = getMessages();
+    const generation = submit(text, mode, currentMsgs, atts, actualModel);
     const existingConversation = activeConversationRef.current;
     const savedConversation = existingConversation
       ? Promise.resolve({
@@ -518,8 +535,11 @@ function App() {
                         <ImageContainer imageUrl={msg.image} />
                       ) : (
                         <ResponseContainer content={msg.content}>
-                          {i === messages.length - 1 && <TTSButton text={msg.content} />}
+                          <TTSButton text={msg.content} />
                         </ResponseContainer>
+                      )}
+                      {msg.sources && msg.sources.length > 0 && (
+                        <SourceCards sources={msg.sources} />
                       )}
                     </React.Fragment>
                   );
@@ -528,7 +548,11 @@ function App() {
               })}
               {isLoading && (
                 <div className="conversation-loading">
-                  <LoadingDots label="Generating" />
+                  {['search', 'auto', 'code', 'web'].includes(mode) ? (
+                    <SearchProgress />
+                  ) : (
+                    <LoadingDots label="Generating" />
+                  )}
                 </div>
               )}
               {error && !isLoading && (
@@ -581,11 +605,30 @@ function App() {
                     onChange={setMode}
                   />
                 )}
+                <button
+                  className="btn btn--ghost composer-settings-btn"
+                  onClick={() => setShowSearchSettings(true)}
+                  type="button"
+                  aria-label="Search Settings"
+                  title="Search Settings"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
+                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                </button>
               </div>
             </>
           }
         />
       )}
+
+      <SearchSettingsModal
+        isOpen={showSearchSettings}
+        onClose={() => setShowSearchSettings(false)}
+        settings={searchSettings}
+        onUpdate={(updated) => setSearchSettings(prev => ({ ...prev, ...updated }))}
+      />
 
       <div className={`sidebar-overlay${sidebarOpen ? ' sidebar-overlay--active' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar

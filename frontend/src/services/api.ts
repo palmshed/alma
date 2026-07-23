@@ -66,10 +66,30 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt, messages, model }).then(
+  generate(prompt: string, messages?: MessageData[], model?: string, mode?: string): Promise<string> {
+    return request<{ response: string }>('/api/generate', { prompt, messages, model, mode }).then(
       (d) => d.response,
     );
+  },
+
+  search(
+    prompt: string,
+    messages?: MessageData[],
+    options?: {
+      mode?: string;
+      provider?: string;
+      max_results?: number;
+      safe_search?: boolean;
+    },
+  ): Promise<import('../types').ApiSearchResult> {
+    return request<import('../types').ApiSearchResult>('/api/search', {
+      prompt,
+      messages,
+      mode: options?.mode || 'auto',
+      provider: options?.provider || 'auto',
+      max_results: options?.max_results ?? 5,
+      safe_search: options?.safe_search ?? true,
+    });
   },
 
   generateWithThinking(

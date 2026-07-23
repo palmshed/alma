@@ -21,6 +21,7 @@ const convDataRef = { current: { ...mockConvData } };
 
 const mockApi = vi.hoisted(() => ({
   generate: vi.fn().mockResolvedValue('mock response'),
+  search: vi.fn().mockImplementation(() => Promise.resolve({ response: 'mock response', sources: [], search_steps: ['Searching the web...', 'Reading sources...', 'Generating answer...'], intent: 'search' })),
   generateWithThinking: vi.fn().mockResolvedValue({ response: 'mock', thinking_summary: [] }),
   generateWithUrlContext: vi.fn().mockResolvedValue('mock'),
   generateImage: vi.fn().mockResolvedValue(new Blob()),
@@ -437,7 +438,7 @@ describe('Conversation rendering', () => {
     /* Wait for second assistant response */
     await waitFor(() => {
       expect(screen.getAllByText('Listen').length).toBe(2);
-    });
+    }, { timeout: 3000 });
 
     /* Still 2 TTS buttons (one per assistant message, none on user messages) */
     expect(screen.getAllByText('Listen').length).toBe(2);

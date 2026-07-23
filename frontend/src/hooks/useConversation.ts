@@ -48,18 +48,23 @@ export function useConversation(options?: UseConversationOptions): UseConversati
     });
 
     /* Build full conversation history for outbound request */
-    const history = convMessages
-      ? [...convMessages, userMsg]
-      : [userMsg];
+    const baseMessages = (convMessages && convMessages.length >= messagesRef.current.length)
+      ? convMessages
+      : messagesRef.current.slice(0, -1);
+    const history = [...baseMessages, userMsg];
 
     let usedFallback = false;
     let actualModel = model;
     const firstModel = model;
 
-    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number }> {
+    async function tryRequest(requestModel: string): Promise<{ responseText: string; thinkingText: string; durationMs: number; sourcesData?: any[]; stepsData?: string[]; intent?: string }> {
       const t0 = performance.now();
       let responseText: string;
       let thinkingText: string;
+      let sourcesData: any[] | undefined;
+      let stepsData: string[] | undefined;
+      let intent: string | undefined;
+
       if (mode === 'images') {
         const blob = await api.generateImage(text);
         const url = URL.createObjectURL(blob);
@@ -69,14 +74,18 @@ export function useConversation(options?: UseConversationOptions): UseConversati
         const result = await api.generateWithThinking(text, history, requestModel);
         responseText = result.response || '';
         thinkingText = result.thinking_summary?.map((s: string) => s.replace(/[,;:\s-]+$/, '')).join('\n') || '';
-      } else if (mode === 'web') {
-        responseText = await api.generateWithUrlContext(text, history, requestModel);
+      } else if (['search', 'auto', 'code', 'web'].includes(mode)) {
+        const searchRes = await api.search(text, history, { mode });
+        responseText = searchRes.response || '';
         thinkingText = '';
+        sourcesData = searchRes.sources;
+        stepsData = searchRes.search_steps;
+        intent = searchRes.intent;
       } else {
-        responseText = await api.generate(text, history, requestModel);
+        responseText = await api.generate(text, history, requestModel, mode);
         thinkingText = '';
       }
-      return { responseText, thinkingText, durationMs: performance.now() - t0 };
+      return { responseText, thinkingText, durationMs: performance.now() - t0, sourcesData, stepsData, intent };
     }
 
     try {
@@ -87,6 +96,9 @@ export function useConversation(options?: UseConversationOptions): UseConversati
           thinking: result.thinkingText || undefined,
           timestamp: new Date().toISOString(),
           model: actualModel,
+          sources: result.sourcesData || undefined,
+          search_steps: result.stepsData || undefined,
+          intent: result.intent,
           ...(mode === 'thinking' && result.durationMs ? { thinking_duration_sec: Math.round(result.durationMs / 1000) } : {}),
         };
         if (usedFallback && options?.autoMode) {

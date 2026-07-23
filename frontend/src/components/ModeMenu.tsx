@@ -1,14 +1,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
 import React, { useState, useRef, useEffect } from 'react';
-import { Layers, Sparkles, Globe, Image } from 'lucide-react';
+import { Layers, Sparkles, Globe, Image, Zap, MessageSquare, Code } from 'lucide-react';
 import type { ModeOption } from '../types';
 import { findScrollParent } from '../utils/overflow';
 
 const ICONS: Record<string, React.ReactNode> = {
+  zap: <Zap size={15} strokeWidth={1.7} />,
+  'message-square': <MessageSquare size={15} strokeWidth={1.7} />,
+  globe: <Globe size={15} strokeWidth={1.7} />,
+  code: <Code size={15} strokeWidth={1.7} />,
   layers: <Layers size={15} strokeWidth={1.7} />,
   sparkles: <Sparkles size={15} strokeWidth={1.7} />,
-  globe: <Globe size={15} strokeWidth={1.7} />,
   image: <Image size={15} strokeWidth={1.7} />,
 };
 

@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
+
 export interface AttachmentData {
   id: string;
   filename: string;
@@ -12,6 +13,28 @@ export interface AttachmentData {
 export interface ApiThinkingResult {
   response: string;
   thinking_summary: string[];
+}
+
+export interface SourceData {
+  title: string;
+  url: string;
+  snippet: string;
+  domain?: string;
+  published_date?: string;
+}
+
+export interface ApiSearchResult {
+  response: string;
+  sources: SourceData[];
+  search_steps: string[];
+  intent: string;
+}
+
+export interface SearchSettings {
+  provider: string; // 'auto' | 'tavily' | 'brave' | 'exa' | 'serpapi' | 'searxng'
+  maxResults: number; // 3 - 10
+  safeSearch: boolean;
+  autoSearch: boolean;
 }
 
 export interface ModeOption {
@@ -44,6 +67,9 @@ export interface MessageData {
   image?: string | null;
   attachments?: Record<string, unknown>[] | null;
   metadata?: Record<string, unknown> | null;
+  sources?: SourceData[] | null;
+  search_steps?: string[] | null;
+  intent?: string;
   thinking_duration_sec?: number;
 }
 
