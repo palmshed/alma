@@ -16,7 +16,6 @@ import ConversationLayout from './layouts/ConversationLayout';
 import FooterPage from './pages/FooterPage';
 import SourceCards from './components/SourceCards';
 import SearchProgress from './components/SearchProgress';
-import SearchSettingsModal from './components/SearchSettingsModal';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
 import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
@@ -55,7 +54,6 @@ function App() {
       return { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true, showSuggestions: false };
     }
   });
-  const [showSearchSettings, setShowSearchSettings] = useState(false);
 
   useEffect(() => {
     try {
@@ -107,6 +105,7 @@ function App() {
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [currentPage, setCurrentPage] = useState<string | null>(null);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const lastPromptRef = useRef<string>('');
@@ -394,7 +393,21 @@ function App() {
   if (restoring) {
     return (
       <div className="app-container">
-        <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={false} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
+        <Header
+          theme={theme}
+          onThemeToggle={handleThemeToggle}
+          onMenuToggle={() => setSidebarOpen(true)}
+          showTitle={false}
+          onNewChat={handleNewChat}
+          accentColor={accentColor}
+          onAccentChange={setAccentColor}
+          showSuggestions={searchSettings.showSuggestions}
+          onShowSuggestionsChange={(v) => setSearchSettings(prev => ({ ...prev, showSuggestions: v }))}
+          onShowShortcuts={() => setShowShortcuts(true)}
+          onShowAbout={() => setShowDisclaimer(true)}
+          searchSettings={searchSettings}
+          onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+        />
       </div>
     );
   }
@@ -405,7 +418,21 @@ function App() {
 
   return (
     <div className="app-container">
-      <Header theme={theme} onThemeToggle={handleThemeToggle} onMenuToggle={() => setSidebarOpen(true)} showTitle={conversationStarted} onNewChat={handleNewChat} accentColor={accentColor} onAccentChange={setAccentColor} />
+      <Header
+        theme={theme}
+        onThemeToggle={handleThemeToggle}
+        onMenuToggle={() => setSidebarOpen(true)}
+        showTitle={conversationStarted}
+        onNewChat={handleNewChat}
+        accentColor={accentColor}
+        onAccentChange={setAccentColor}
+        showSuggestions={searchSettings.showSuggestions}
+        onShowSuggestionsChange={(v) => setSearchSettings(prev => ({ ...prev, showSuggestions: v }))}
+        onShowShortcuts={() => setShowShortcuts(true)}
+        onShowAbout={() => setShowDisclaimer(true)}
+        searchSettings={searchSettings}
+        onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+      />
 
       <input
         type="file"
@@ -606,31 +633,11 @@ function App() {
                     onChange={setMode}
                   />
                 )}
-                <button
-                  className="btn btn--ghost composer-settings-btn"
-                  onClick={() => setShowSearchSettings(true)}
-                  type="button"
-                  aria-label="Search Settings"
-                  title="Search Settings"
-                  data-testid="search-settings-btn"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}>
-                    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                </button>
               </div>
             </>
           }
         />
       )}
-
-      <SearchSettingsModal
-        isOpen={showSearchSettings}
-        onClose={() => setShowSearchSettings(false)}
-        settings={searchSettings}
-        onUpdate={(updated) => setSearchSettings(prev => ({ ...prev, ...updated }))}
-      />
 
       <div className={`sidebar-overlay${sidebarOpen ? ' sidebar-overlay--active' : ''}`} onClick={() => setSidebarOpen(false)} />
       <Sidebar
@@ -671,16 +678,6 @@ function App() {
         onNavigate={handleNavigate}
       />
 
-      {!conversationStarted && (
-        <div className="landing-footer-hint" onClick={() => setShowDisclaimer(true)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setShowDisclaimer(true); }}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 16v-4"/>
-            <path d="M12 8h.01"/>
-          </svg>
-        </div>
-      )}
-
       {showDisclaimer && (
         <>
           <div className="dialog-overlay" onClick={() => setShowDisclaimer(false)} />
@@ -692,6 +689,27 @@ function App() {
             </p>
             <div className="dialog-actions">
               <button className="btn btn--primary dialog-btn dialog-btn--confirm" onClick={() => setShowDisclaimer(false)} type="button">Got it</button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {showShortcuts && (
+        <>
+          <div className="dialog-overlay" onClick={() => setShowShortcuts(false)} />
+          <div className="dialog" role="dialog" aria-modal="true">
+            <p className="dialog-title">Keyboard Shortcuts</p>
+            <div className="dialog-description">
+              <table className="shortcuts-table">
+                <tbody>
+                  <tr><td>New conversation</td><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td></tr>
+                  <tr><td>Submit message</td><td><kbd>Enter</kbd></td></tr>
+                  <tr><td>Close sidebar</td><td><kbd>Esc</kbd></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="dialog-actions">
+              <button className="btn btn--primary dialog-btn dialog-btn--confirm" onClick={() => setShowShortcuts(false)} type="button">Close</button>
             </div>
           </div>
         </>

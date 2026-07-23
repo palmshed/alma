@@ -757,5 +757,3 @@ class SearchService:
                 "fallback_chain": fallback_chain,
             },
         }
-
-

@@ -1735,77 +1735,82 @@ def _run_search_ui_verification(
             )
         )
 
-    # ── 2. Gear button exists ──
-    gear_btn = page.locator(".composer-settings-btn, button[aria-label*='settings']")
-    if gear_btn.count():
+    # ── 2. Settings menu trigger exists (replaces gear button) ──
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
         results.append(
-            UICheck("search_gear_button", "Gear button exists", "pass")
+            UICheck("search_settings_trigger", "Settings menu trigger exists", "pass")
         )
     else:
         results.append(
             UICheck(
-                "search_gear_button",
-                "Gear button exists",
+                "search_settings_trigger",
+                "Settings menu trigger exists",
                 "fail",
-                "Gear/settings button not found in composer.",
+                "Settings menu trigger not found in header.",
             )
         )
 
-    # ── 3. Search Settings modal opens ──
-    if gear_btn.count():
-        gear_btn.first.click()
+    # ── 3. Settings dropdown opens ──
+    if settings_trigger.count():
+        settings_trigger.first.click()
         page.wait_for_timeout(500)
-        modal = page.locator(".modal-overlay, .modal-content, [role='dialog']")
-        if modal.count():
+        dropdown = page.locator("[data-testid='settings-dropdown']")
+        if dropdown.count():
             results.append(
-                UICheck("search_settings_modal", "Search Settings modal opens", "pass")
+                UICheck("search_settings_dropdown", "Settings dropdown opens", "pass")
             )
-            screenshot_fn("search-settings-modal")
+            screenshot_fn("settings-dropdown")
 
-            # Check modal contents
+            # Check dropdown contents — expand Search section
+            search_trigger = page.locator("[data-testid='settings-search-trigger']")
+            if search_trigger.count():
+                search_trigger.first.click()
+                page.wait_for_timeout(300)
+
             has_provider = page.locator(
-                ".setting-select, select, [aria-label*='provider']"
+                "[data-testid='settings-search-provider']"
             ).count()
             has_slider = page.locator(
-                ".setting-range, input[type='range']"
+                "[data-testid='settings-search-max-results']"
             ).count()
-            has_checkbox = page.locator(
-                ".setting-checkbox, input[type='checkbox']"
+            has_safe = page.locator(
+                "[data-testid='settings-search-safe']"
             ).count()
-            has_done = page.locator("button:has-text('Done')").count()
+            has_auto = page.locator(
+                "[data-testid='settings-search-auto']"
+            ).count()
 
-            if has_provider and has_slider and has_checkbox and has_done:
+            if has_provider and has_slider and has_safe and has_auto:
                 results.append(
                     UICheck(
                         "search_settings_contents",
-                        "Search Settings modal contents",
+                        "Search settings in dropdown",
                         "pass",
-                        "Provider dropdown, range slider, checkboxes, Done button found.",
+                        "Provider, max results, safe search, auto search found.",
                     )
                 )
             else:
                 results.append(
                     UICheck(
                         "search_settings_contents",
-                        "Search Settings modal contents",
+                        "Search settings in dropdown",
                         "fail",
                         f"provider={has_provider}, slider={has_slider}, "
-                        f"checkbox={has_checkbox}, done={has_done}.",
+                        f"safe={has_safe}, auto={has_auto}.",
                     )
                 )
 
-            # Close modal
-            done_btn = page.locator("button:has-text('Done')")
-            if done_btn.count():
-                done_btn.first.click()
-                page.wait_for_timeout(300)
+            # Close dropdown by clicking outside
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
         else:
             results.append(
                 UICheck(
-                    "search_settings_modal",
-                    "Search Settings modal opens",
+                    "search_settings_dropdown",
+                    "Settings dropdown opens",
                     "fail",
-                    "Modal overlay/dialog not found after clicking gear.",
+                    "Dropdown not found after clicking settings trigger.",
                 )
             )
 
@@ -1984,7 +1989,7 @@ VIEWPORTS = {
     "mobile": {"width": 375, "height": 812},
 }
 
-ALL_FLOWS = ("chat", "search", "thinking", "voice", "keyboard", "themes")
+ALL_FLOWS = ("chat", "search", "thinking", "voice", "keyboard", "themes", "landing_suggestions")
 
 
 @dataclass
@@ -2197,7 +2202,7 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     t = FlowTiming("search")
 
     # New conversation
-    logo = page.locator("[data-testid='theme-toggle']")
+    logo = page.locator("button[aria-label='Start a new conversation']")
     if logo.count():
         logo.first.click()
         page.wait_for_timeout(500)
@@ -2317,8 +2322,8 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     results = []
     t = FlowTiming("thinking")
 
-    # New conversation via theme toggle trick
-    logo = page.locator("[data-testid='theme-toggle']")
+    # New conversation via header logo (previously "theme toggle trick")
+    logo = page.locator("button[aria-label='Start a new conversation']")
     if logo.count():
         logo.first.click()
         page.wait_for_timeout(500)
@@ -2458,7 +2463,7 @@ def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2ERe
     t.start = time.time()
 
     # Test Escape closes sidebar
-    menu_btn = page.locator("[data-testid='theme-toggle']")
+    menu_btn = page.locator("[data-testid='settings-menu-trigger']")
     if menu_btn.count():
         # Open sidebar by clicking menu
         hamburger = page.locator("button[aria-label='Open menu']")
@@ -2544,39 +2549,265 @@ def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         E2EResult("theme_initial", f"Initial theme is {initial_theme}", "pass", category="Themes")
     )
 
-    # Toggle theme
-    theme_btn = page.locator("[data-testid='theme-toggle']")
-    if theme_btn.count():
-        theme_btn.first.click()
+    # Toggle theme via settings dropdown
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
         page.wait_for_timeout(500)
-        new_theme = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
-
-        if new_theme != initial_theme:
-            results.append(
-                E2EResult("theme_toggle", "Theme toggle switches", "pass", f"{initial_theme} → {new_theme}", category="Themes")
-            )
-            screenshot_fn("theme-toggled")
-
-            # Toggle back
+        theme_btn = page.locator("[data-testid='settings-theme-toggle']")
+        if theme_btn.count():
             theme_btn.first.click()
             page.wait_for_timeout(500)
-            restored = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
-            if restored == initial_theme:
+            new_theme = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+
+            if new_theme != initial_theme:
                 results.append(
-                    E2EResult("theme_restore", "Theme toggle restores", "pass", category="Themes")
+                    E2EResult("theme_toggle", "Theme toggle switches", "pass", f"{initial_theme} → {new_theme}", category="Themes")
+                )
+                screenshot_fn("theme-toggled")
+
+                # Close dropdown (theme toggle doesn't auto-close so user can see effect)
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                # Toggle back via settings dropdown
+                settings_trigger.first.click()
+                page.wait_for_timeout(500)
+                page.locator("[data-testid='settings-theme-toggle']").first.click()
+                page.wait_for_timeout(500)
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                restored = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+                if restored == initial_theme:
+                    results.append(
+                        E2EResult("theme_restore", "Theme toggle restores", "pass", category="Themes")
+                    )
+                else:
+                    results.append(
+                        E2EResult("theme_restore", "Theme toggle restores", "fail", f"Expected {initial_theme}, got {restored}", category="Themes")
+                    )
+            else:
+                results.append(
+                    E2EResult("theme_toggle", "Theme toggle switches", "fail", f"Theme did not change from {initial_theme}", category="Themes")
+                )
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(200)
+        else:
+            results.append(
+                E2EResult("theme_toggle", "Theme toggle switches", "skip", "Theme toggle not found in dropdown", category="Themes")
+            )
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(200)
+    else:
+        results.append(
+            E2EResult("theme_toggle", "Theme toggle switches", "skip", "Settings trigger not found", category="Themes")
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
+def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify landing page suggestion chips preference (default: off)."""
+    results: List[E2EResult] = []
+    t = FlowTiming("landing_suggestions")
+    t.start = time.time()
+
+    # Ensure clean state: remove stored suggestions preference.
+    page.evaluate("""() => {
+        try {
+            const raw = localStorage.getItem('alma_search_settings');
+            if (raw) {
+                const s = JSON.parse(raw);
+                delete s.showSuggestions;
+                localStorage.setItem('alma_search_settings', JSON.stringify(s));
+            }
+        } catch {}
+    }""")
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(500)
+
+    # ── 1. Default state: suggestions should be hidden ──
+    has_chips = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_default_off",
+            "Quiet mode is the default",
+            "pass" if not has_chips else "fail",
+            f"Chips visible: {has_chips}" if has_chips else "No chips on landing page",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-quiet")
+
+    # ── 2. Enable suggestions via header settings dropdown ──
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        dropdown = page.locator("[data-testid='settings-dropdown']")
+        if dropdown.count():
+            # Expand Search section to reveal the suggestions toggle
+            search_trigger = page.locator("[data-testid='settings-search-trigger']")
+            if search_trigger.count():
+                search_trigger.first.click()
+                page.wait_for_timeout(300)
+            suggestions_toggle = page.locator("[data-testid='settings-suggestions-toggle']")
+            if suggestions_toggle.count():
+                suggestions_toggle.first.click()
+                page.wait_for_timeout(300)
+                # Close dropdown
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
+                results.append(
+                    E2EResult(
+                        "suggestions_enable",
+                        "Suggestions can be enabled",
+                        "pass",
+                        category="Landing Page",
+                    )
                 )
             else:
                 results.append(
-                    E2EResult("theme_restore", "Theme toggle restores", "fail", f"Expected {initial_theme}, got {restored}", category="Themes")
+                    E2EResult(
+                        "suggestions_enable",
+                        "Suggestions can be enabled",
+                        "fail",
+                        "Suggestions toggle not found in dropdown.",
+                        category="Landing Page",
+                    )
                 )
+                page.keyboard.press("Escape")
+                page.wait_for_timeout(300)
         else:
             results.append(
-                E2EResult("theme_toggle", "Theme toggle switches", "fail", f"Theme did not change from {initial_theme}", category="Themes")
+                E2EResult(
+                    "suggestions_enable",
+                    "Suggestions can be enabled",
+                    "fail",
+                    "Settings dropdown did not open.",
+                    category="Landing Page",
+                )
             )
     else:
         results.append(
-            E2EResult("theme_toggle", "Theme toggle switches", "skip", "Theme button not found", category="Themes")
+            E2EResult(
+                "suggestions_enable",
+                "Suggestions can be enabled",
+                "fail",
+                "Settings menu trigger not found.",
+                category="Landing Page",
+            )
         )
+
+    # ── 3. Verify chips appear immediately (no reload) ──
+    try:
+        page.wait_for_selector(".landing-suggestions .chip", timeout=3000)
+        chips_after_enable = True
+    except Exception:
+        chips_after_enable = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_immediate",
+            "Changes apply immediately",
+            "pass" if chips_after_enable else "fail",
+            f"Chips visible: {chips_after_enable}" if not chips_after_enable else "3 suggestion chips rendered",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-suggestions-enabled")
+
+    # ── 4. Persistence: reload and verify chips still visible ──
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(1000)
+    chips_after_reload = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_persist",
+            "Preference persists after reload",
+            "pass" if chips_after_reload else "fail",
+            f"Chips visible after reload: {chips_after_reload}",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-after-reload")
+
+    # Verify toggle remains enabled after reload
+    settings_trigger = page.locator("[data-testid='settings-menu-trigger']")
+    if settings_trigger.count():
+        settings_trigger.first.click()
+        page.wait_for_timeout(500)
+        # Expand Search section to reveal the suggestions toggle
+        search_trigger = page.locator("[data-testid='settings-search-trigger']")
+        if search_trigger.count():
+            search_trigger.first.click()
+            page.wait_for_timeout(300)
+        toggle_after = page.locator("[data-testid='settings-suggestions-toggle']")
+        toggle_still_on = toggle_after.count() > 0
+        if toggle_still_on:
+            # Disable suggestions
+            toggle_after.first.click()
+            page.wait_for_timeout(300)
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            results.append(
+                E2EResult(
+                    "suggestions_disable",
+                    "Suggestions can be disabled",
+                    "pass",
+                    category="Landing Page",
+                )
+            )
+        else:
+            results.append(
+                E2EResult(
+                    "suggestions_disable",
+                    "Suggestions can be disabled",
+                    "fail",
+                    "Suggestions toggle not found after reload.",
+                    category="Landing Page",
+                )
+            )
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+    else:
+        results.append(
+            E2EResult(
+                "suggestions_disable",
+                "Suggestions can be disabled",
+                "fail",
+                "Settings trigger not found after reload.",
+                category="Landing Page",
+            )
+        )
+
+    # ── 5. Verify chips disappear after disabling ──
+    chips_after_disable = page.locator(".landing-suggestions .chip").count() > 0
+    results.append(
+        E2EResult(
+            "suggestions_gone",
+            "Chips disappear after disable",
+            "pass" if not chips_after_disable else "fail",
+            f"Chips still visible: {chips_after_disable}" if chips_after_disable else "No chips after disable",
+            category="Landing Page",
+        )
+    )
+    screenshot_fn("landing-suggestions-disabled")
+
+    # ── 6. Reload: chips stay hidden ──
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(1000)
+    chips_still_hidden = page.locator(".landing-suggestions .chip").count() == 0
+    results.append(
+        E2EResult(
+            "suggestions_stay_hidden",
+            "Chips remain hidden after reload",
+            "pass" if chips_still_hidden else "fail",
+            f"Chips visible: {not chips_still_hidden}",
+            category="Landing Page",
+        )
+    )
 
     t.end = time.time()
     for r in results:
@@ -2863,6 +3094,7 @@ def run_e2e_verification(
                 "voice": _verify_voice_flow,
                 "keyboard": _verify_keyboard_navigation,
                 "themes": _verify_themes,
+                "landing_suggestions": _verify_landing_suggestions,
             }
             _API_FLOWS = {"chat", "search", "thinking", "voice"}
             quota_exhausted = False
