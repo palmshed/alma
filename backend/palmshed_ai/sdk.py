@@ -86,10 +86,22 @@ class GeminiAI:
     def _is_recoverable_api_error(e: Exception) -> bool:
         """Return True if the error is a Gemini API error that can fall back to synthetic.
 
-        Catches all API errors so the frontend always receives a response
-        instead of HTTP 500.  429/RESOURCE_EXHAUSTED errors also fall back
-        to synthetic text to keep the UI functional during quota exhaustion.
+        Catches all API/network errors so the frontend always receives a
+        response instead of HTTP 500.  Avoids swallowing programming errors
+        (TypeError, ValueError, etc.) to ensure they can be debugged.
         """
+        if isinstance(
+            e,
+            (
+                TypeError,
+                ValueError,
+                NameError,
+                AttributeError,
+                KeyError,
+                NotImplementedError,
+            ),
+        ):
+            return False
         return True
 
     def generate_text(self, prompt: str) -> str:
