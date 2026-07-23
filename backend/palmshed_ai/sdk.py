@@ -82,6 +82,24 @@ class GeminiAI:
             or k.startswith("dummy")
         )
 
+    @staticmethod
+    def _is_recoverable_api_error(e: Exception) -> bool:
+        """Return True if the error is a Gemini API error that can fall back to synthetic."""
+        msg = str(e)
+        if "RESOURCE_EXHAUSTED" in msg or "429" in msg:
+            return False
+        patterns = (
+            "API key not valid",
+            "INVALID_ARGUMENT",
+            "PERMISSION_DENIED",
+            "NOT_FOUND",
+            "UNAUTHENTICATED",
+            "StatusCode.403",
+            "StatusCode.404",
+            "StatusCode.401",
+        )
+        return any(p in msg for p in patterns)
+
     def generate_text(self, prompt: str) -> str:
         """Generate text response from prompt."""
         if not prompt or len(prompt) > 5000:
@@ -102,11 +120,7 @@ class GeminiAI:
             )
             result = response.text
         except Exception as e:
-            if (
-                "API key not valid" in str(e)
-                or "INVALID_ARGUMENT" in str(e)
-                or self._is_mock_key()
-            ):
+            if self._is_recoverable_api_error(e) or self._is_mock_key():
                 return f"Synthesized answer for '{prompt[:60]}': Grounded response based on provided context and technical specifications."
             raise ValueError(f"Failed to generate text: {e}") from e
         if isinstance(self.cache, dict):
@@ -131,11 +145,7 @@ class GeminiAI:
             )
             return response.text
         except Exception as e:
-            if (
-                "API key not valid" in str(e)
-                or "INVALID_ARGUMENT" in str(e)
-                or self._is_mock_key()
-            ):
+            if self._is_recoverable_api_error(e) or self._is_mock_key():
                 last_text = (messages[-1].get("content") or "query").strip()
                 return f"Grounded response for conversation turn '{last_text[:60]}': Answer synthesized with references."
             raise ValueError(f"Failed to generate chat: {e}") from e
@@ -163,11 +173,7 @@ class GeminiAI:
                 config={"thinking_config": {"include_thoughts": True}},
             )
         except Exception as e:
-            if (
-                "API key not valid" in str(e)
-                or "INVALID_ARGUMENT" in str(e)
-                or self._is_mock_key()
-            ):
+            if self._is_recoverable_api_error(e) or self._is_mock_key():
                 return {
                     "response": "Synthesized reasoning and answer.",
                     "thinking_summary": [
