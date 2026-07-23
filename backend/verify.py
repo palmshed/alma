@@ -1130,6 +1130,14 @@ def main() -> None:
         verify_ui.main()
         return
 
+    # Delegate to Search verifier when first arg is "search"
+    if len(sys.argv) > 1 and sys.argv[1] in ("search", "--search"):
+        from backend import verify_search
+
+        sys.argv.pop(1)  # remove "search" so verify_search gets the remaining args
+        verify_search.main()
+        return
+
     parser = argparse.ArgumentParser(
         description="Verify Alma platform and application endpoints end-to-end. "
         "Use 'ui' subcommand for UI verification: python -m backend.verify ui --help",
