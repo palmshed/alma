@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -23,8 +23,8 @@ class StorageObject:
     content_type: str = "application/octet-stream"
     etag: Optional[str] = None
     metadata: dict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    modified_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    modified_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     public_url: Optional[str] = None
 
 

@@ -29,8 +29,8 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content search-settings-modal" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} data-testid="search-settings-overlay">
+      <div className="modal-content search-settings-modal" onClick={(e) => e.stopPropagation()} data-testid="search-settings-modal">
         <div className="modal-header">
           <div className="modal-header-title">
             <Sliders size={18} />
@@ -52,6 +52,7 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
               className="setting-select"
               value={settings.provider}
               onChange={(e) => onUpdate({ provider: e.target.value })}
+              data-testid="search-provider-select"
             >
               {PROVIDERS.map((p) => (
                 <option key={p.value} value={p.value}>
@@ -74,6 +75,7 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
               value={settings.maxResults}
               onChange={(e) => onUpdate({ maxResults: parseInt(e.target.value, 10) })}
               className="setting-range"
+              data-testid="search-max-results"
             />
           </div>
 
@@ -91,6 +93,7 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
               className="setting-checkbox"
               checked={settings.safeSearch}
               onChange={(e) => onUpdate({ safeSearch: e.target.checked })}
+              data-testid="search-safe-toggle"
             />
           </div>
 
@@ -108,12 +111,13 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
               className="setting-checkbox"
               checked={settings.autoSearch}
               onChange={(e) => onUpdate({ autoSearch: e.target.checked })}
+              data-testid="search-auto-toggle"
             />
           </div>
         </div>
 
         <div className="modal-footer">
-          <button className="btn btn--primary" onClick={onClose}>
+          <button className="btn btn--primary" onClick={onClose} data-testid="search-settings-done">
             Done
           </button>
         </div>

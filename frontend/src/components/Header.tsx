@@ -96,6 +96,7 @@ const Header: React.FC<HeaderProps> = ({
             onClick={onThemeToggle}
             aria-label="Toggle theme"
             type="button"
+            data-testid="theme-toggle"
           >
             {theme === 'dark' ? (
               <Sun size={14} strokeWidth={1.7} />

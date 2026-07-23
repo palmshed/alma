@@ -12,7 +12,7 @@ const SourceCards: React.FC<SourceCardsProps> = ({ sources }) => {
   if (!sources || sources.length === 0) return null;
 
   return (
-    <div className="source-cards-container">
+    <div className="source-cards-container" data-testid="source-cards">
       <div className="source-cards-header">
         <Globe size={14} className="source-cards-header-icon" />
         <span className="source-cards-header-title">Sources</span>

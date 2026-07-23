@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
@@ -31,7 +31,7 @@ class Notification:
     priority: NotificationPriority = NotificationPriority.NORMAL
     metadata: dict = field(default_factory=dict)
     status: NotificationStatus = NotificationStatus.PENDING
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     sent_at: Optional[datetime] = None
     error: Optional[str] = None
 
@@ -42,7 +42,7 @@ class NotificationResult:
     channel: str
     status: NotificationStatus
     provider_message_id: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
 

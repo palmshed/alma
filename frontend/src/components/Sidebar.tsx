@@ -227,6 +227,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       className={`sidebar${isOpen ? ' sidebar--open' : ''}`}
       role="complementary"
       aria-label="Conversation history"
+      data-testid="sidebar"
     >
       <div className="sidebar-content">
         <div className="sidebar-header-row">
@@ -257,6 +258,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             aria-label="Search conversations"
+            data-testid="sidebar-search-input"
           />
           {searchQuery && (
             <button
@@ -294,6 +296,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   handleSelect(conv.id);
                 }
               }}
+              data-testid="sidebar-conversation-item"
             >
               <div className="sidebar-conversation-item-main">
                 {editingId === conv.id ? (
@@ -401,7 +404,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {confirmDeleteId && (
         <>
           <div className="sidebar-overlay-inline" onClick={handleCancelDelete} />
-          <div className="sidebar-dialog" ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+          <div className="sidebar-dialog" ref={deleteDialogRef} role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title" data-testid="delete-dialog">
             <p id="delete-dialog-title" className="sidebar-dialog-title">Delete conversation?</p>
             <p className="sidebar-dialog-description">
               This cannot be undone.

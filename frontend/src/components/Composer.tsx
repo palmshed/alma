@@ -71,6 +71,7 @@ const Composer: React.FC<ComposerProps> = ({
           rows={1}
           disabled={disabled}
           autoFocus={autoFocus}
+          data-testid="composer-textarea"
         />
 
         <div className="composer-actions">
@@ -80,6 +81,7 @@ const Composer: React.FC<ComposerProps> = ({
             disabled={!hasText || disabled || loading}
             type="submit"
             aria-label="Send message"
+            data-testid="composer-send"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
               <path d="M12 19V5"/>

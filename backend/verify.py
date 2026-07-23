@@ -1122,11 +1122,11 @@ def format_json(results: Dict[str, Any]) -> str:
 
 
 def main() -> None:
-    # Delegate to UI verifier when first arg is "ui"
-    if len(sys.argv) > 1 and sys.argv[1] == "ui":
+    # Delegate to E2E verifier when first arg is "e2e" or "ui" (backward compat)
+    if len(sys.argv) > 1 and sys.argv[1] in ("e2e", "ui"):
         from backend import verify_ui
 
-        sys.argv.pop(1)  # remove "ui" so verify_ui gets the remaining args
+        sys.argv.pop(1)  # remove "e2e"/"ui" so verify_ui gets the remaining args
         verify_ui.main()
         return
 
@@ -1140,7 +1140,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(
         description="Verify Alma platform and application endpoints end-to-end. "
-        "Use 'ui' subcommand for UI verification: python -m backend.verify ui --help",
+        "Use 'e2e' subcommand for browser verification: alma e2e --help",
     )
 
     group = parser.add_mutually_exclusive_group()

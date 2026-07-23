@@ -25,7 +25,7 @@ const SearchProgress: React.FC<SearchProgressProps> = ({
   activeStepIndex = 1,
 }) => {
   return (
-    <div className="search-progress-container">
+    <div className="search-progress-container" data-testid="search-progress">
       <div className="search-progress-steps">
         {steps.map((stepText, idx) => {
           const isDone = idx < activeStepIndex;
