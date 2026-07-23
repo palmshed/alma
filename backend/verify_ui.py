@@ -2119,6 +2119,33 @@ def _check_infrastructure(base_url: str) -> List[E2EResult]:
     return results
 
 
+def _dismiss_overlay(page: "Any") -> None:
+    """Dismiss any open dialog overlay so subsequent clicks are not blocked."""
+    try:
+        overlay = page.locator(".dialog-overlay")
+        if overlay.count() > 0:
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(500)
+    except Exception:
+        pass
+
+
+def _start_new_conversation(page: "Any") -> None:
+    """Click the logo to start a new conversation, handling the confirmation dialog."""
+    _dismiss_overlay(page)
+    logo = page.locator("button[aria-label='Start a new conversation']")
+    if logo.count():
+        logo.first.click()
+        page.wait_for_timeout(500)
+        confirm_btn = page.locator(
+            "button:has-text('New conversation'):not(:has-text('+'))"
+        )
+        if confirm_btn.count():
+            confirm_btn.first.click()
+            page.wait_for_timeout(500)
+        _dismiss_overlay(page)
+
+
 def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     """Verify chat mode: select mode, submit, get non-empty response, TTS present."""
     results = []
@@ -2241,12 +2268,7 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     t = FlowTiming("search")
 
     # New conversation
-    logo = page.locator("button[aria-label='Start a new conversation']")
-    if logo.count():
-        logo.first.click()
-        page.wait_for_timeout(500)
-        logo.first.click()
-        page.wait_for_timeout(500)
+    _start_new_conversation(page)
 
     # Select search mode
     t.start = time.time()
@@ -2432,12 +2454,7 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     t = FlowTiming("thinking")
 
     # New conversation via header logo (previously "theme toggle trick")
-    logo = page.locator("button[aria-label='Start a new conversation']")
-    if logo.count():
-        logo.first.click()
-        page.wait_for_timeout(500)
-        logo.first.click()
-        page.wait_for_timeout(500)
+    _start_new_conversation(page)
 
     # Select thinking mode
     t.start = time.time()
@@ -2642,6 +2659,7 @@ def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2ERe
     results = []
     t = FlowTiming("keyboard")
     t.start = time.time()
+    _dismiss_overlay(page)
 
     # Test Escape closes sidebar
     menu_btn = page.locator("[data-testid='settings-menu-trigger']")
@@ -2773,6 +2791,7 @@ def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     results = []
     t = FlowTiming("themes")
     t.start = time.time()
+    _dismiss_overlay(page)
 
     # Check initial theme
     initial_theme = (
@@ -2892,6 +2911,7 @@ def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2ERe
     results: List[E2EResult] = []
     t = FlowTiming("landing_suggestions")
     t.start = time.time()
+    _dismiss_overlay(page)
 
     # Ensure clean state: remove stored suggestions preference.
     page.evaluate("""() => {
