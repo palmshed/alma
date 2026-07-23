@@ -62,7 +62,7 @@ jobs:
 
       - name: Start frontend
         run: |
-          nohup npm run dev -- --host 0.0.0.0 > /tmp/frontend.log 2>&1 &
+          nohup npm run start -- --host 0.0.0.0 > /tmp/frontend.log 2>&1 &
           for i in $(seq 1 15); do
             if curl -s http://localhost:3000 > /dev/null 2>&1; then
               echo "Frontend up"
