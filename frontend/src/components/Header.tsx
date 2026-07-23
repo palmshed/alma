@@ -79,6 +79,7 @@ const Header: React.FC<HeaderProps> = ({
       const t = e.target as Node;
       if (triggerRef.current?.contains(t)) return;
       if (dropdownRef.current?.contains(t)) return;
+      if ((t as HTMLElement).closest?.('.dropdown-select-menu')) return;
       close();
     };
     const keyHandler = (e: KeyboardEvent) => {
