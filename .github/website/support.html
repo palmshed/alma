@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support ~ Alma</title>
+    <meta name="description" content="What broke, why it broke, and how we fixed it." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html">App</a></li>
+        <li><a href="./support.html" class="active">Support</a></li>
+        <li><a href="./download.html">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Support</h1>
+        <p>What broke, why it broke, and how we fixed it. If something is missing, <a href="https://github.com/palmshed/alma/issues">open an issue</a>.</p>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Environment</h2>
+        <p>Alma requires a Gemini API key. Set it before starting the backend.</p>
+        <pre><code>GEMINI_API_KEY=your-key-here</code></pre>
+        <p class="subtext">Get a key from <a href="https://aistudio.google.com/apikey">Google AI Studio</a>.</p>
+      </section>
+
+      <section>
+        <h2>Running locally</h2>
+        <pre><code>./scripts/run-dev.sh all</code></pre>
+        <p class="subtext">Starts both the Flask backend and Vite dev server.</p>
+      </section>
+
+      <section>
+        <h2>What we fixed</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Symptom</th>
+              <th>Root cause</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Symptom">HTTP 500 on all requests</td>
+              <td data-label="Root cause">SDK raised <code>ValueError</code> for 429 rate limits</td>
+              <td data-label="Fix">Catch all exceptions except programming errors. Return synthetic text for recoverable failures.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Empty responses from thinking mode</td>
+              <td data-label="Root cause"><code>generate_text_with_thinking</code> returned empty <code>response.text</code></td>
+              <td data-label="Fix">Added empty-response fallback across all API methods.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">E2E tests: every click blocked</td>
+              <td data-label="Root cause">Disclaimer dialog overlay covered the entire viewport</td>
+              <td data-label="Fix">Targeted <code>.disclaimer-dialog .dialog-btn--confirm</code> to dismiss it before interacting.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">E2E tests: textarea input lost</td>
+              <td data-label="Root cause"><code>_submit_message()</code> did not wait for disabled-button fallback</td>
+              <td data-label="Fix">Added <code>_submit_message()</code> helper with <code>.first.is_visible()</code> checks and Enter key fallback.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Search tests: progress indicator not found</td>
+              <td data-label="Root cause"><code>search_progress</code> not visible within 5s on slow CI</td>
+              <td data-label="Fix">Extended wait to 10s. Dynamic <code>wait_for</code> that checks if element exists first.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Suggestion tests: suggestions missing after reload</td>
+              <td data-label="Root cause"><code>alma_active_conversation</code> in localStorage caused restoring mode</td>
+              <td data-label="Fix">Clear localStorage before every reload in E2E tests.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Range slider different in Firefox vs Chromium</td>
+              <td data-label="Root cause">Different pseudo-elements: <code>::-moz-range-thumb</code> vs <code>::-webkit-slider-thumb</code></td>
+              <td data-label="Fix">Single CSS custom property <code>--range-progress</code> with browser-specific pseudo-elements.</td>
+            </tr>
+            <tr>
+              <td data-label="Symptom">Bot review: <code>.is_visible()</code> ambiguous</td>
+              <td data-label="Root cause">Playwright <code>is_visible()</code> on multi-element locator</td>
+              <td data-label="Fix">Applied <code>.first.is_visible()</code> for all Playwright visibility checks.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>The SDK problem</h2>
+        <p>The Gemini SDK (<code>google-genai</code>) has a method <code>_is_recoverable_api_error</code>. It was designed to catch rate limits and quota errors and return synthetic text instead of failing. The bug: it returned <code>False</code> for 429 and <code>RESOURCE_EXHAUSTED</code> errors, which are the most common recoverable errors.</p>
+        <p>The result: every rate limit caused a 500 error. Every quota exhaustion caused a 500 error. The user saw "Internal Server Error" with no context.</p>
+        <p>The fix was three lines. Change <code>return False</code> to <code>return True</code> for all exceptions. Then refine: return <code>False</code> for <code>TypeError</code>, <code>ValueError</code>, <code>NameError</code>, <code>AttributeError</code>, <code>KeyError</code>, <code>NotImplementedError</code>. These are programming errors, not API errors.</p>
+      </section>
+
+      <section>
+        <h2>Browser support</h2>
+        <p>Works in Chrome, Firefox, Safari, and Edge. The range slider works in Firefox and Chromium with separate pseudo-elements. The textarea auto-resizes in all browsers. The mobile sidebar works on iOS Safari and Android Chrome.</p>
+      </section>
+
+      <section>
+        <h2>Verification</h2>
+        <p>Before merging any change:</p>
+        <pre><code>uv run python -m backend.verify e2e
+# or
+make verify-e2e</code></pre>
+        <p class="subtext">Eighty-six tests. Zero failures. Every flow exercised automatically.</p>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
