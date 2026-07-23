@@ -18,6 +18,7 @@ _KNOWN_MESSAGE_KEYS = {
     "image",
     "attachments",
     "metadata",
+    "sources",
 }
 _KNOWN_CONVERSATION_KEYS = {
     "id",
@@ -42,6 +43,7 @@ class Message:
     image: str | None = None
     attachments: list[dict[str, Any]] | None = None
     metadata: dict[str, Any] | None = None
+    sources: list[dict[str, Any]] | None = None
     _extra: dict[str, Any] = field(default_factory=dict, repr=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,6 +60,8 @@ class Message:
             d["attachments"] = copy.deepcopy(self.attachments)
         if self.metadata:
             d["metadata"] = copy.deepcopy(self.metadata)
+        if self.sources is not None:
+            d["sources"] = copy.deepcopy(self.sources)
         d.update(self._extra)
         return d
 
@@ -73,6 +77,7 @@ class Message:
             image=d.get("image"),
             attachments=copy.deepcopy(d.get("attachments")),
             metadata=copy.deepcopy(d.get("metadata")),
+            sources=copy.deepcopy(d.get("sources")),
             _extra=extra,
         )
 
