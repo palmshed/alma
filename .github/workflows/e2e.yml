@@ -78,7 +78,8 @@ jobs:
       - name: Run E2E verification
         continue-on-error: true
         run: |
-          uv run python -m backend.verify e2e --json --output backend/verify-output
+          mkdir -p backend/verify-output/e2e
+          uv run python -m backend.verify e2e --json --output backend/verify-output/e2e/report.json
 
       - name: Upload screenshots
         if: always()
