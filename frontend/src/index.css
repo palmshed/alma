@@ -786,16 +786,18 @@ html {
 
 /* Search sub-section */
 .settings-dropdown-sub {
+  margin-top: var(--space-1);
   padding: 4px 10px 8px;
   border-top: 1px solid var(--border-subtle);
   max-height: 300px;
   overflow: hidden;
-  transition: max-height 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+  transition: max-height 0.2s ease, opacity 0.2s ease, margin 0.2s ease, padding 0.2s ease;
   opacity: 1;
 }
 
 .settings-dropdown-sub--collapsed {
   max-height: 0;
+  margin-top: 0;
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
