@@ -2155,6 +2155,8 @@ def _submit_message(page: "Any", text: str) -> None:
     textarea = page.locator("[data-testid='composer-textarea']")
     if not textarea.count():
         return
+    textarea.first.click()
+    page.wait_for_timeout(200)
     textarea.first.fill(text)
     page.wait_for_timeout(500)
     send_btn = page.locator("[data-testid='composer-send']")
@@ -2169,12 +2171,9 @@ def _submit_message(page: "Any", text: str) -> None:
         if not is_disabled:
             send_btn.first.click()
         else:
-            # Button still disabled — use Enter key as fallback
-            textarea.first.focus()
-            page.keyboard.press("Enter")
+            textarea.first.press("Enter")
     else:
-        textarea.first.focus()
-        page.keyboard.press("Enter")
+        textarea.first.press("Enter")
     page.wait_for_timeout(300)
 
 
@@ -2225,18 +2224,39 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     # Type and submit
     textarea = page.locator("[data-testid='composer-textarea']")
     if textarea.count():
+        textarea_value_before = textarea.first.input_value()
         _submit_message(page, "What is 2+2?")
+        textarea_value_after = textarea.first.input_value()
 
-        # Wait for response (non-empty)
-        page.wait_for_timeout(10000)
+        # Wait for response (non-empty) dynamically — use longer timeout for CI
+        try:
+            page.locator(".message-content, .markdown-content").first.wait_for(
+                state="visible", timeout=15000
+            )
+        except Exception:
+            pass
         screenshot_fn("chat-response")
 
         # Debug: capture page state on failure
         messages = page.locator(".message-content, .markdown-content")
-        debug_info = ""
+        user_msgs = page.locator(".user-message")
+        loading_el = page.locator(".conversation-loading")
+        error_el = page.locator(".response-container em")
+        debug_parts = []
+        debug_parts.append(f"textarea_before={repr(textarea_value_before)}")
+        debug_parts.append(f"textarea_after={repr(textarea_value_after)}")
+        debug_parts.append(f"assistant_msgs={messages.count()}")
+        debug_parts.append(f"user_msgs={user_msgs.count()}")
+        debug_parts.append(f"loading={loading_el.count()}")
+        debug_parts.append(f"error={error_el.count()}")
+        if error_el.count():
+            debug_parts.append(
+                f"error_text={repr(error_el.first.text_content()[:100])}"
+            )
         for i in range(messages.count()):
             text = messages.nth(i).text_content() or ""
-            debug_info += f"msg[{i}]: {repr(text[:200])}\n"
+            debug_parts.append(f"msg[{i}]={repr(text[:200])}")
+        debug_info = ", ".join(debug_parts)
 
         # Verify response exists (non-empty)
         has_response = False
@@ -2256,7 +2276,7 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                     "chat_response",
                     "Response renders",
                     "fail",
-                    f"No non-empty response found ({messages.count()} messages: {debug_info.strip()[:200]})",
+                    f"No non-empty response found ({debug_info})",
                     category="Chat",
                 )
             )
