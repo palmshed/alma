@@ -66,10 +66,13 @@ jobs:
           for i in $(seq 1 15); do
             if curl -s http://localhost:3000 > /dev/null 2>&1; then
               echo "Frontend up"
-              break
+              exit 0
             fi
             sleep 1
           done
+          echo "Frontend failed to start. Logs:"
+          cat /tmp/frontend.log
+          exit 1
         working-directory: frontend
 
       - name: Run E2E verification
