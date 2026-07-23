@@ -43,6 +43,9 @@ function removeStorage(key: string): void {
 }
 
 function App() {
+  const submitKeyLabel = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
+    ? 'Return'
+    : 'Enter';
   const [mode, setMode] = useState('search');
   const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
@@ -703,7 +706,7 @@ function App() {
               <table className="shortcuts-table">
                 <tbody>
                   <tr><td>New conversation</td><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td></tr>
-                  <tr><td>Submit message</td><td><kbd>Enter</kbd></td></tr>
+                  <tr><td>Submit message</td><td><kbd>{submitKeyLabel}</kbd></td></tr>
                   <tr><td>Close sidebar</td><td><kbd>Esc</kbd></td></tr>
                 </tbody>
               </table>
