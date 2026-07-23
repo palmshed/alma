@@ -79,6 +79,7 @@ const Header: React.FC<HeaderProps> = ({
       const t = e.target as Node;
       if (triggerRef.current?.contains(t)) return;
       if (dropdownRef.current?.contains(t)) return;
+      if (t instanceof Element && t.closest('.dropdown-select-menu')) return;
       close();
     };
     const keyHandler = (e: KeyboardEvent) => {
@@ -197,7 +198,7 @@ const Header: React.FC<HeaderProps> = ({
                         key={p.color}
                         className={`accent-swatch${accentColor === p.color ? ' active' : ''}`}
                         style={{ background: p.color }}
-                        onClick={() => { onAccentChange?.(p.color); setShowAccentPicker(false); close(); }}
+                        onClick={() => { onAccentChange?.(p.color); setShowAccentPicker(false); }}
                         aria-label={`Set accent to ${p.color}`}
                         type="button"
                       />
@@ -249,6 +250,10 @@ const Header: React.FC<HeaderProps> = ({
                       onChange={(e) => onSearchSettingsChange({ maxResults: parseInt(e.target.value, 10) })}
                       className="settings-dropdown-range"
                       data-testid="settings-search-max-results"
+                      aria-valuetext={`${searchSettings.maxResults ?? 3} results`}
+                      style={{
+                        '--range-progress': `${(((searchSettings.maxResults ?? 3) - 3) / 7) * 100}%`,
+                      } as React.CSSProperties}
                     />
                     <span className="settings-dropdown-sub-value">{searchSettings.maxResults}</span>
                   </div>

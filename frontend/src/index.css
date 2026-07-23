@@ -786,16 +786,18 @@ html {
 
 /* Search sub-section */
 .settings-dropdown-sub {
+  margin-top: var(--space-1);
   padding: 4px 10px 8px;
   border-top: 1px solid var(--border-subtle);
   max-height: 300px;
   overflow: hidden;
-  transition: max-height 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
+  transition: max-height 0.2s ease, opacity 0.2s ease, margin 0.2s ease, padding 0.2s ease;
   opacity: 1;
 }
 
 .settings-dropdown-sub--collapsed {
   max-height: 0;
+  margin-top: 0;
   opacity: 0;
   padding-top: 0;
   padding-bottom: 0;
@@ -823,8 +825,52 @@ html {
 }
 
 .settings-dropdown-range {
+  appearance: none;
+  -webkit-appearance: none;
   flex: 1;
-  height: 3px;
+  height: 4px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--range-progress, 0%), var(--border-subtle) var(--range-progress, 0%), var(--border-subtle) 100%);
+  cursor: pointer;
+}
+
+.settings-dropdown-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+.settings-dropdown-range::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.settings-dropdown-range::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+.settings-dropdown-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.settings-dropdown-range:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .settings-dropdown-sub-toggle {
@@ -2090,7 +2136,7 @@ a.attachment-chip:hover {
   padding: 0.75rem 1rem;
   background: var(--surface);
   border-radius: var(--radius-card);
-  border: 1px solid var(--border-subtle);
+  border: var(--border-width) solid var(--border-subtle);
 }
 
 .source-cards-header {
@@ -2118,7 +2164,7 @@ a.attachment-chip:hover {
   flex-direction: column;
   padding: 0.75rem;
   background: var(--bg);
-  border: 1px solid var(--border-subtle);
+  border: var(--border-width) solid var(--border-subtle);
   border-radius: 12px;
   text-decoration: none;
   color: var(--text);

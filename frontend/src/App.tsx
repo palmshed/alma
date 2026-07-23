@@ -31,6 +31,9 @@ const PLACEHOLDERS = [
 ];
 
 const STORAGE_ACTIVE_CONV = 'alma_active_conversation';
+const SUBMIT_KEY_LABEL = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent)
+  ? 'Return'
+  : 'Enter';
 
 function getStorage(key: string): string | null {
   try { return localStorage.getItem(key); } catch { return null; }
@@ -703,7 +706,7 @@ function App() {
               <table className="shortcuts-table">
                 <tbody>
                   <tr><td>New conversation</td><td><kbd>Ctrl</kbd>+<kbd>N</kbd></td></tr>
-                  <tr><td>Submit message</td><td><kbd>Enter</kbd></td></tr>
+                  <tr><td>Submit message</td><td><kbd>{SUBMIT_KEY_LABEL}</kbd></td></tr>
                   <tr><td>Close sidebar</td><td><kbd>Esc</kbd></td></tr>
                 </tbody>
               </table>
