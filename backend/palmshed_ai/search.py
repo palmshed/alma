@@ -251,9 +251,7 @@ class SearxngSearchProvider(SearchProvider):
 
     def __init__(self, base_url: Optional[str] = None):
         self.base_url = (
-            base_url
-            or os.environ.get("SEARXNG_URL", "")
-            or "http://localhost:8080"
+            base_url or os.environ.get("SEARXNG_URL", "") or "http://localhost:8080"
         ).rstrip("/")
 
     def search(
@@ -324,7 +322,9 @@ class FallbackSearchProvider(SearchProvider):
                     # Handle DuckDuckGo redirect link
                     actual_url = link
                     if "uddg=" in link:
-                        parsed = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
+                        parsed = urllib.parse.parse_qs(
+                            urllib.parse.urlparse(link).query
+                        )
                         actual_url = parsed.get("uddg", [link])[0]
 
                     if title and actual_url and actual_url.startswith("http"):
@@ -396,9 +396,7 @@ class SearchService:
             return ExaSearchProvider()
         elif name == "serpapi" and os.environ.get("SERPAPI_API_KEY"):
             return SerpApiSearchProvider()
-        elif name == "searxng" and (
-            os.environ.get("SEARXNG_URL") or name == "searxng"
-        ):
+        elif name == "searxng" and (os.environ.get("SEARXNG_URL") or name == "searxng"):
             return SearxngSearchProvider()
 
         # Automatic provider selection hierarchy
@@ -434,7 +432,9 @@ class SearchService:
             "hey alma",
             "compose a poem",
         ]
-        if any(q_lower.startswith(c) for c in chat_triggers) and not any(k in q_lower for k in ["latest", "news", "weather", "documentation", "http"]):
+        if any(q_lower.startswith(c) for c in chat_triggers) and not any(
+            k in q_lower for k in ["latest", "news", "weather", "documentation", "http"]
+        ):
             return "chat"
 
         # Code keywords
@@ -460,7 +460,9 @@ class SearchService:
         ]
         if any(k in q_lower for k in code_keywords):
             # Check if query specifically asks for latest external docs
-            if any(k in q_lower for k in ["latest", "news", "version 2026", "new release"]):
+            if any(
+                k in q_lower for k in ["latest", "news", "version 2026", "new release"]
+            ):
                 return "search"
             return "code"
 
@@ -495,9 +497,7 @@ class SearchService:
 
         return "chat"
 
-    def rewrite_query(
-        self, query: str, messages: Optional[List[dict]] = None
-    ) -> str:
+    def rewrite_query(self, query: str, messages: Optional[List[dict]] = None) -> str:
         """Step 1: Clean and optimize query for search engine retrieval."""
         clean_q = re.sub(r"\s+", " ", query.strip())
 
@@ -543,16 +543,38 @@ class SearchService:
             deduped.append(r)
         return deduped
 
-    def rank_results(self, results: List[SearchResult], query: str, intent: str = "search") -> List[SearchResult]:
+    def rank_results(
+        self, results: List[SearchResult], query: str, intent: str = "search"
+    ) -> List[SearchResult]:
         """Rank results prioritizing local repo -> official docs -> repos -> vendor docs -> community -> blogs."""
         official_docs = [
-            "docs.python.org", "developer.mozilla.org", "react.dev", "go.dev",
-            "kubernetes.io", "doc.rust-lang.org", "postgresql.org", "mysql.com",
-            "docs.github.com", "archlinux.org", "docs.oracle.com"
+            "docs.python.org",
+            "developer.mozilla.org",
+            "react.dev",
+            "go.dev",
+            "kubernetes.io",
+            "doc.rust-lang.org",
+            "postgresql.org",
+            "mysql.com",
+            "docs.github.com",
+            "archlinux.org",
+            "docs.oracle.com",
         ]
         official_repos = ["github.com", "gitlab.com", "bitbucket.org"]
-        vendor_docs = ["aws.amazon.com", "cloud.google.com", "learn.microsoft.com", "docs.stripe.com", "vercel.com"]
-        community_sites = ["stackoverflow.com", "pypi.org", "crates.io", "wikipedia.org", "dev.to"]
+        vendor_docs = [
+            "aws.amazon.com",
+            "cloud.google.com",
+            "learn.microsoft.com",
+            "docs.stripe.com",
+            "vercel.com",
+        ]
+        community_sites = [
+            "stackoverflow.com",
+            "pypi.org",
+            "crates.io",
+            "wikipedia.org",
+            "dev.to",
+        ]
 
         def get_score(res: SearchResult) -> float:
             dom = (res.domain or "").lower()
@@ -560,12 +582,19 @@ class SearchService:
             title = (res.title or "").lower()
 
             # Priority 1 for Code Mode: Local Repository
-            if (intent == "code" or "local" in intent) and ("local://" in url or "local" in dom or "local" in title):
+            if (intent == "code" or "local" in intent) and (
+                "local://" in url or "local" in dom or "local" in title
+            ):
                 return 200.0
 
             score = 0.0
             # Priority 2: Official Documentation
-            if any(d in dom for d in official_docs) or url.startswith("https://docs.") or "/docs/" in url or "doc." in dom:
+            if (
+                any(d in dom for d in official_docs)
+                or url.startswith("https://docs.")
+                or "/docs/" in url
+                or "doc." in dom
+            ):
                 score = 100.0
             # Priority 3: Official Repositories
             elif any(d in dom for d in official_repos):
@@ -701,7 +730,11 @@ class SearchService:
             fallback_chain = ["cache"]
         else:
             search_start = time.time()
-            providers_to_try = [provider_name] if provider_name != "auto" else ["tavily", "brave", "exa", "serpapi", "searxng"]
+            providers_to_try = (
+                [provider_name]
+                if provider_name != "auto"
+                else ["tavily", "brave", "exa", "serpapi", "searxng"]
+            )
             if "fallback" not in providers_to_try:
                 providers_to_try.append("fallback")
 
@@ -717,7 +750,9 @@ class SearchService:
                         provider_used = p_name
                         break
                 except Exception as e:
-                    logging.warning(f"Search provider '{p_name}' failed or rate limited (429): {e}. Trying next provider...")
+                    logging.warning(
+                        f"Search provider '{p_name}' failed or rate limited (429): {e}. Trying next provider..."
+                    )
 
             search_time_ms = round((time.time() - search_start) * 1000, 2)
             deduped = self.deduplicate(raw_results)

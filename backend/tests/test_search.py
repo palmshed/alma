@@ -37,7 +37,10 @@ def test_search_cache_ttl():
 
 def test_intent_router():
     service = SearchService()
-    assert service.route_intent("Write a Python function to sort array", mode="auto") == "code"
+    assert (
+        service.route_intent("Write a Python function to sort array", mode="auto")
+        == "code"
+    )
     assert service.route_intent("What is the weather today?", mode="auto") == "search"
     assert service.route_intent("tell me a story", mode="chat") == "chat"
     assert service.route_intent("anything", mode="search") == "search"
@@ -45,7 +48,10 @@ def test_intent_router():
 
 def test_query_rewriter():
     service = SearchService()
-    assert service.rewrite_query("Please search for Alma AI architecture") == "Alma AI architecture"
+    assert (
+        service.rewrite_query("Please search for Alma AI architecture")
+        == "Alma AI architecture"
+    )
     assert service.rewrite_query("find me latest news on AI") == "latest news on AI"
 
 

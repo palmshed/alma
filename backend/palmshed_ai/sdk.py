@@ -76,7 +76,11 @@ class GeminiAI:
         if not self.api_key:
             return True
         k = self.api_key.lower()
-        return k in ("dummy", "mock", "mock_key", "mock_key_for_verification") or k.startswith("mock") or k.startswith("dummy")
+        return (
+            k in ("dummy", "mock", "mock_key", "mock_key_for_verification")
+            or k.startswith("mock")
+            or k.startswith("dummy")
+        )
 
     def generate_text(self, prompt: str) -> str:
         """Generate text response from prompt."""
@@ -98,7 +102,11 @@ class GeminiAI:
             )
             result = response.text
         except Exception as e:
-            if "API key not valid" in str(e) or "INVALID_ARGUMENT" in str(e) or self._is_mock_key():
+            if (
+                "API key not valid" in str(e)
+                or "INVALID_ARGUMENT" in str(e)
+                or self._is_mock_key()
+            ):
                 return f"Synthesized answer for '{prompt[:60]}': Grounded response based on provided context and technical specifications."
             raise ValueError(f"Failed to generate text: {e}") from e
         if isinstance(self.cache, dict):
@@ -123,7 +131,11 @@ class GeminiAI:
             )
             return response.text
         except Exception as e:
-            if "API key not valid" in str(e) or "INVALID_ARGUMENT" in str(e) or self._is_mock_key():
+            if (
+                "API key not valid" in str(e)
+                or "INVALID_ARGUMENT" in str(e)
+                or self._is_mock_key()
+            ):
                 last_text = (messages[-1].get("content") or "query").strip()
                 return f"Grounded response for conversation turn '{last_text[:60]}': Answer synthesized with references."
             raise ValueError(f"Failed to generate chat: {e}") from e
@@ -135,7 +147,11 @@ class GeminiAI:
         if self._is_mock_key():
             return {
                 "response": "Synthesized reasoning and answer.",
-                "thinking_summary": ["Analyze context", "Verify sources", "Format response"],
+                "thinking_summary": [
+                    "Analyze context",
+                    "Verify sources",
+                    "Format response",
+                ],
             }
         contents = self._build_contents(messages)
         if not contents:
@@ -147,10 +163,18 @@ class GeminiAI:
                 config={"thinking_config": {"include_thoughts": True}},
             )
         except Exception as e:
-            if "API key not valid" in str(e) or "INVALID_ARGUMENT" in str(e) or self._is_mock_key():
+            if (
+                "API key not valid" in str(e)
+                or "INVALID_ARGUMENT" in str(e)
+                or self._is_mock_key()
+            ):
                 return {
                     "response": "Synthesized reasoning and answer.",
-                    "thinking_summary": ["Analyze context", "Verify sources", "Format response"],
+                    "thinking_summary": [
+                        "Analyze context",
+                        "Verify sources",
+                        "Format response",
+                    ],
                 }
             raise ValueError(f"Failed to generate chat with thinking: {e}") from e
 

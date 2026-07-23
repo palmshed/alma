@@ -1774,12 +1774,8 @@ def _run_search_ui_verification(
             has_slider = page.locator(
                 "[data-testid='settings-search-max-results']"
             ).count()
-            has_safe = page.locator(
-                "[data-testid='settings-search-safe']"
-            ).count()
-            has_auto = page.locator(
-                "[data-testid='settings-search-auto']"
-            ).count()
+            has_safe = page.locator("[data-testid='settings-search-safe']").count()
+            has_auto = page.locator("[data-testid='settings-search-auto']").count()
 
             if has_provider and has_slider and has_safe and has_auto:
                 results.append(
@@ -1989,7 +1985,15 @@ VIEWPORTS = {
     "mobile": {"width": 375, "height": 812},
 }
 
-ALL_FLOWS = ("chat", "search", "thinking", "voice", "keyboard", "themes", "landing_suggestions")
+ALL_FLOWS = (
+    "chat",
+    "search",
+    "thinking",
+    "voice",
+    "keyboard",
+    "themes",
+    "landing_suggestions",
+)
 
 
 @dataclass
@@ -2131,15 +2135,32 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             chat_option.first.click()
             page.wait_for_timeout(300)
             results.append(
-                E2EResult("chat_mode_select", "Chat mode selects correctly", "pass", category="Chat")
+                E2EResult(
+                    "chat_mode_select",
+                    "Chat mode selects correctly",
+                    "pass",
+                    category="Chat",
+                )
             )
         else:
             results.append(
-                E2EResult("chat_mode_select", "Chat mode selects correctly", "fail", "Chat option not found", category="Chat")
+                E2EResult(
+                    "chat_mode_select",
+                    "Chat mode selects correctly",
+                    "fail",
+                    "Chat option not found",
+                    category="Chat",
+                )
             )
     else:
         results.append(
-            E2EResult("chat_mode_select", "Chat mode selects correctly", "fail", "Mode trigger not found", category="Chat")
+            E2EResult(
+                "chat_mode_select",
+                "Chat mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Chat",
+            )
         )
 
     # Type and submit
@@ -2172,7 +2193,13 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             )
         else:
             results.append(
-                E2EResult("chat_response", "Response renders", "fail", "No non-empty response found", category="Chat")
+                E2EResult(
+                    "chat_response",
+                    "Response renders",
+                    "fail",
+                    "No non-empty response found",
+                    category="Chat",
+                )
             )
 
         # Verify TTS button present
@@ -2183,11 +2210,23 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             )
         else:
             results.append(
-                E2EResult("chat_tts", "TTS button present", "fail", "TTS button not found", category="Chat")
+                E2EResult(
+                    "chat_tts",
+                    "TTS button present",
+                    "fail",
+                    "TTS button not found",
+                    category="Chat",
+                )
             )
     else:
         results.append(
-            E2EResult("chat_submit", "Message submits", "fail", "Textarea not found", category="Chat")
+            E2EResult(
+                "chat_submit",
+                "Message submits",
+                "fail",
+                "Textarea not found",
+                category="Chat",
+            )
         )
 
     t.end = time.time()
@@ -2220,15 +2259,32 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             search_option.first.click()
             page.wait_for_timeout(300)
             results.append(
-                E2EResult("search_mode_select", "Search mode selects correctly", "pass", category="Search")
+                E2EResult(
+                    "search_mode_select",
+                    "Search mode selects correctly",
+                    "pass",
+                    category="Search",
+                )
             )
         else:
             results.append(
-                E2EResult("search_mode_select", "Search mode selects correctly", "fail", "Search option not found", category="Search")
+                E2EResult(
+                    "search_mode_select",
+                    "Search mode selects correctly",
+                    "fail",
+                    "Search option not found",
+                    category="Search",
+                )
             )
     else:
         results.append(
-            E2EResult("search_mode_select", "Search mode selects correctly", "fail", "Mode trigger not found", category="Search")
+            E2EResult(
+                "search_mode_select",
+                "Search mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Search",
+            )
         )
 
     # Submit search
@@ -2247,12 +2303,23 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         progress = page.locator("[data-testid='search-progress']")
         if progress.count():
             results.append(
-                E2EResult("search_progress", "SearchProgress appears during loading", "pass", category="Search")
+                E2EResult(
+                    "search_progress",
+                    "SearchProgress appears during loading",
+                    "pass",
+                    category="Search",
+                )
             )
             screenshot_fn("search-progress")
         else:
             results.append(
-                E2EResult("search_progress", "SearchProgress appears during loading", "fail", "SearchProgress not found", category="Search")
+                E2EResult(
+                    "search_progress",
+                    "SearchProgress appears during loading",
+                    "fail",
+                    "SearchProgress not found",
+                    category="Search",
+                )
             )
 
         # Wait for source cards
@@ -2260,7 +2327,9 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         source_cards = page.locator("[data-testid='source-cards']")
         if source_cards.count():
             results.append(
-                E2EResult("search_sources", "Source cards render", "pass", category="Search")
+                E2EResult(
+                    "search_sources", "Source cards render", "pass", category="Search"
+                )
             )
             screenshot_fn("search-source-cards")
 
@@ -2272,19 +2341,42 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                 rel = first_link.get_attribute("rel") or ""
                 if target == "_blank" and "noopener" in rel:
                     results.append(
-                        E2EResult("search_links", "Source links open in new tabs", "pass", category="Search")
+                        E2EResult(
+                            "search_links",
+                            "Source links open in new tabs",
+                            "pass",
+                            category="Search",
+                        )
                     )
                 else:
                     results.append(
-                        E2EResult("search_links", "Source links open in new tabs", "fail", f"target={target}, rel={rel}", category="Search")
+                        E2EResult(
+                            "search_links",
+                            "Source links open in new tabs",
+                            "fail",
+                            f"target={target}, rel={rel}",
+                            category="Search",
+                        )
                     )
             else:
                 results.append(
-                    E2EResult("search_links", "Source links open in new tabs", "skip", "No links found", category="Search")
+                    E2EResult(
+                        "search_links",
+                        "Source links open in new tabs",
+                        "skip",
+                        "No links found",
+                        category="Search",
+                    )
                 )
         else:
             results.append(
-                E2EResult("search_sources", "Source cards render", "fail", "Source cards not found", category="Search")
+                E2EResult(
+                    "search_sources",
+                    "Source cards render",
+                    "fail",
+                    "Source cards not found",
+                    category="Search",
+                )
             )
 
         # Verify response is non-empty
@@ -2298,17 +2390,34 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
 
         if has_response:
             results.append(
-                E2EResult("search_response", "Response contains content", "pass", category="Search")
+                E2EResult(
+                    "search_response",
+                    "Response contains content",
+                    "pass",
+                    category="Search",
+                )
             )
         else:
             results.append(
-                E2EResult("search_response", "Response contains content", "fail", "No response found", category="Search")
+                E2EResult(
+                    "search_response",
+                    "Response contains content",
+                    "fail",
+                    "No response found",
+                    category="Search",
+                )
             )
 
         screenshot_fn("search-response")
     else:
         results.append(
-            E2EResult("search_submit", "Search submits", "fail", "Textarea not found", category="Search")
+            E2EResult(
+                "search_submit",
+                "Search submits",
+                "fail",
+                "Textarea not found",
+                category="Search",
+            )
         )
 
     t.end = time.time()
@@ -2341,15 +2450,32 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             thinking_option.first.click()
             page.wait_for_timeout(300)
             results.append(
-                E2EResult("thinking_mode_select", "Thinking mode selects correctly", "pass", category="Thinking")
+                E2EResult(
+                    "thinking_mode_select",
+                    "Thinking mode selects correctly",
+                    "pass",
+                    category="Thinking",
+                )
             )
         else:
             results.append(
-                E2EResult("thinking_mode_select", "Thinking mode selects correctly", "fail", "Thinking option not found", category="Thinking")
+                E2EResult(
+                    "thinking_mode_select",
+                    "Thinking mode selects correctly",
+                    "fail",
+                    "Thinking option not found",
+                    category="Thinking",
+                )
             )
     else:
         results.append(
-            E2EResult("thinking_mode_select", "Thinking mode selects correctly", "fail", "Mode trigger not found", category="Thinking")
+            E2EResult(
+                "thinking_mode_select",
+                "Thinking mode selects correctly",
+                "fail",
+                "Mode trigger not found",
+                category="Thinking",
+            )
         )
 
     # Submit
@@ -2371,22 +2497,44 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         thinking = page.locator(".thinking-container")
         if thinking.count():
             results.append(
-                E2EResult("thinking_container", "ThinkingContainer renders", "pass", category="Thinking")
+                E2EResult(
+                    "thinking_container",
+                    "ThinkingContainer renders",
+                    "pass",
+                    category="Thinking",
+                )
             )
 
             # Verify toggle exists (aria-expanded)
             toggle = page.locator(".thinking-toggle[aria-expanded]")
             if toggle.count():
                 results.append(
-                    E2EResult("thinking_toggle", "Thinking toggle works", "pass", category="Thinking")
+                    E2EResult(
+                        "thinking_toggle",
+                        "Thinking toggle works",
+                        "pass",
+                        category="Thinking",
+                    )
                 )
             else:
                 results.append(
-                    E2EResult("thinking_toggle", "Thinking toggle works", "skip", "Toggle not found (may be short trace)", category="Thinking")
+                    E2EResult(
+                        "thinking_toggle",
+                        "Thinking toggle works",
+                        "skip",
+                        "Toggle not found (may be short trace)",
+                        category="Thinking",
+                    )
                 )
         else:
             results.append(
-                E2EResult("thinking_container", "ThinkingContainer renders", "fail", "Thinking container not found", category="Thinking")
+                E2EResult(
+                    "thinking_container",
+                    "ThinkingContainer renders",
+                    "fail",
+                    "Thinking container not found",
+                    category="Thinking",
+                )
             )
 
         # Verify response is non-empty
@@ -2400,15 +2548,32 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
 
         if has_response:
             results.append(
-                E2EResult("thinking_response", "Response renders after thinking", "pass", category="Thinking")
+                E2EResult(
+                    "thinking_response",
+                    "Response renders after thinking",
+                    "pass",
+                    category="Thinking",
+                )
             )
         else:
             results.append(
-                E2EResult("thinking_response", "Response renders after thinking", "fail", "No response found", category="Thinking")
+                E2EResult(
+                    "thinking_response",
+                    "Response renders after thinking",
+                    "fail",
+                    "No response found",
+                    category="Thinking",
+                )
             )
     else:
         results.append(
-            E2EResult("thinking_submit", "Thinking submits", "fail", "Textarea not found", category="Thinking")
+            E2EResult(
+                "thinking_submit",
+                "Thinking submits",
+                "fail",
+                "Textarea not found",
+                category="Thinking",
+            )
         )
 
     t.end = time.time()
@@ -2427,7 +2592,9 @@ def _verify_voice_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     tts_btn = page.locator("[data-testid='tts-button']")
     if tts_btn.count():
         results.append(
-            E2EResult("voice_tts_button", "TTS button clickable", "pass", category="Voice")
+            E2EResult(
+                "voice_tts_button", "TTS button clickable", "pass", category="Voice"
+            )
         )
 
         # Click TTS
@@ -2438,16 +2605,30 @@ def _verify_voice_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         audio = page.locator("[data-testid='tts-audio']")
         if audio.count():
             results.append(
-                E2EResult("voice_audio", "Audio element created", "pass", category="Voice")
+                E2EResult(
+                    "voice_audio", "Audio element created", "pass", category="Voice"
+                )
             )
             screenshot_fn("voice-playback")
         else:
             results.append(
-                E2EResult("voice_audio", "Audio element created", "fail", "Audio element not found after TTS click", category="Voice")
+                E2EResult(
+                    "voice_audio",
+                    "Audio element created",
+                    "fail",
+                    "Audio element not found after TTS click",
+                    category="Voice",
+                )
             )
     else:
         results.append(
-            E2EResult("voice_tts_button", "TTS button clickable", "skip", "TTS button not found (need a response first)", category="Voice")
+            E2EResult(
+                "voice_tts_button",
+                "TTS button clickable",
+                "skip",
+                "TTS button not found (need a response first)",
+                category="Voice",
+            )
         )
 
     t.end = time.time()
@@ -2476,26 +2657,57 @@ def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2ERe
             if is_open:
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(300)
-                is_closed = "sidebar--open" not in (sidebar.get_attribute("class") or "")
+                is_closed = "sidebar--open" not in (
+                    sidebar.get_attribute("class") or ""
+                )
                 if is_closed:
                     results.append(
-                        E2EResult("kb_escape_sidebar", "Escape closes sidebar", "pass", category="Keyboard")
+                        E2EResult(
+                            "kb_escape_sidebar",
+                            "Escape closes sidebar",
+                            "pass",
+                            category="Keyboard",
+                        )
                     )
                 else:
                     results.append(
-                        E2EResult("kb_escape_sidebar", "Escape closes sidebar", "fail", "Sidebar still open after Escape", category="Keyboard")
+                        E2EResult(
+                            "kb_escape_sidebar",
+                            "Escape closes sidebar",
+                            "fail",
+                            "Sidebar still open after Escape",
+                            category="Keyboard",
+                        )
                     )
             else:
                 results.append(
-                    E2EResult("kb_escape_sidebar", "Escape closes sidebar", "skip", "Sidebar did not open", category="Keyboard")
+                    E2EResult(
+                        "kb_escape_sidebar",
+                        "Escape closes sidebar",
+                        "skip",
+                        "Sidebar did not open",
+                        category="Keyboard",
+                    )
                 )
         else:
             results.append(
-                E2EResult("kb_escape_sidebar", "Escape closes sidebar", "skip", "Menu button not found", category="Keyboard")
+                E2EResult(
+                    "kb_escape_sidebar",
+                    "Escape closes sidebar",
+                    "skip",
+                    "Menu button not found",
+                    category="Keyboard",
+                )
             )
     else:
         results.append(
-            E2EResult("kb_escape_sidebar", "Escape closes sidebar", "skip", "No theme toggle found", category="Keyboard")
+            E2EResult(
+                "kb_escape_sidebar",
+                "Escape closes sidebar",
+                "skip",
+                "No theme toggle found",
+                category="Keyboard",
+            )
         )
 
     # Test Enter submits
@@ -2509,7 +2721,9 @@ def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2ERe
         has_message = False
         for _ in range(10):
             page.wait_for_timeout(1000)
-            messages = page.locator(".message-content, .markdown-content, .user-message")
+            messages = page.locator(
+                ".message-content, .markdown-content, .user-message"
+            )
             for i in range(messages.count()):
                 text = messages.nth(i).text_content() or ""
                 if "keyboard" in text.lower():
@@ -2520,15 +2734,32 @@ def _verify_keyboard_navigation(page: "Any", screenshot_fn: "Any") -> List[E2ERe
 
         if has_message:
             results.append(
-                E2EResult("kb_enter_submit", "Enter submits message", "pass", category="Keyboard")
+                E2EResult(
+                    "kb_enter_submit",
+                    "Enter submits message",
+                    "pass",
+                    category="Keyboard",
+                )
             )
         else:
             results.append(
-                E2EResult("kb_enter_submit", "Enter submits message", "fail", "Message not found after Enter", category="Keyboard")
+                E2EResult(
+                    "kb_enter_submit",
+                    "Enter submits message",
+                    "fail",
+                    "Message not found after Enter",
+                    category="Keyboard",
+                )
             )
     else:
         results.append(
-            E2EResult("kb_enter_submit", "Enter submits message", "skip", "Textarea not found", category="Keyboard")
+            E2EResult(
+                "kb_enter_submit",
+                "Enter submits message",
+                "skip",
+                "Textarea not found",
+                category="Keyboard",
+            )
         )
 
     t.end = time.time()
@@ -2544,9 +2775,16 @@ def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     t.start = time.time()
 
     # Check initial theme
-    initial_theme = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+    initial_theme = (
+        page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+    )
     results.append(
-        E2EResult("theme_initial", f"Initial theme is {initial_theme}", "pass", category="Themes")
+        E2EResult(
+            "theme_initial",
+            f"Initial theme is {initial_theme}",
+            "pass",
+            category="Themes",
+        )
     )
 
     # Toggle theme via settings dropdown
@@ -2558,11 +2796,20 @@ def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         if theme_btn.count():
             theme_btn.first.click()
             page.wait_for_timeout(500)
-            new_theme = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+            new_theme = (
+                page.evaluate("document.documentElement.getAttribute('data-theme')")
+                or "dark"
+            )
 
             if new_theme != initial_theme:
                 results.append(
-                    E2EResult("theme_toggle", "Theme toggle switches", "pass", f"{initial_theme} → {new_theme}", category="Themes")
+                    E2EResult(
+                        "theme_toggle",
+                        "Theme toggle switches",
+                        "pass",
+                        f"{initial_theme} → {new_theme}",
+                        category="Themes",
+                    )
                 )
                 screenshot_fn("theme-toggled")
 
@@ -2576,30 +2823,62 @@ def _verify_themes(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                 page.wait_for_timeout(500)
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(300)
-                restored = page.evaluate("document.documentElement.getAttribute('data-theme')") or "dark"
+                restored = (
+                    page.evaluate("document.documentElement.getAttribute('data-theme')")
+                    or "dark"
+                )
                 if restored == initial_theme:
                     results.append(
-                        E2EResult("theme_restore", "Theme toggle restores", "pass", category="Themes")
+                        E2EResult(
+                            "theme_restore",
+                            "Theme toggle restores",
+                            "pass",
+                            category="Themes",
+                        )
                     )
                 else:
                     results.append(
-                        E2EResult("theme_restore", "Theme toggle restores", "fail", f"Expected {initial_theme}, got {restored}", category="Themes")
+                        E2EResult(
+                            "theme_restore",
+                            "Theme toggle restores",
+                            "fail",
+                            f"Expected {initial_theme}, got {restored}",
+                            category="Themes",
+                        )
                     )
             else:
                 results.append(
-                    E2EResult("theme_toggle", "Theme toggle switches", "fail", f"Theme did not change from {initial_theme}", category="Themes")
+                    E2EResult(
+                        "theme_toggle",
+                        "Theme toggle switches",
+                        "fail",
+                        f"Theme did not change from {initial_theme}",
+                        category="Themes",
+                    )
                 )
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(200)
         else:
             results.append(
-                E2EResult("theme_toggle", "Theme toggle switches", "skip", "Theme toggle not found in dropdown", category="Themes")
+                E2EResult(
+                    "theme_toggle",
+                    "Theme toggle switches",
+                    "skip",
+                    "Theme toggle not found in dropdown",
+                    category="Themes",
+                )
             )
             page.keyboard.press("Escape")
             page.wait_for_timeout(200)
     else:
         results.append(
-            E2EResult("theme_toggle", "Theme toggle switches", "skip", "Settings trigger not found", category="Themes")
+            E2EResult(
+                "theme_toggle",
+                "Theme toggle switches",
+                "skip",
+                "Settings trigger not found",
+                category="Themes",
+            )
         )
 
     t.end = time.time()
@@ -2653,7 +2932,9 @@ def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2ERe
             if search_trigger.count():
                 search_trigger.first.click()
                 page.wait_for_timeout(300)
-            suggestions_toggle = page.locator("[data-testid='settings-suggestions-toggle']")
+            suggestions_toggle = page.locator(
+                "[data-testid='settings-suggestions-toggle']"
+            )
             if suggestions_toggle.count():
                 suggestions_toggle.first.click()
                 page.wait_for_timeout(300)
@@ -2712,7 +2993,9 @@ def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2ERe
             "suggestions_immediate",
             "Changes apply immediately",
             "pass" if chips_after_enable else "fail",
-            f"Chips visible: {chips_after_enable}" if not chips_after_enable else "3 suggestion chips rendered",
+            f"Chips visible: {chips_after_enable}"
+            if not chips_after_enable
+            else "3 suggestion chips rendered",
             category="Landing Page",
         )
     )
@@ -2789,7 +3072,9 @@ def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2ERe
             "suggestions_gone",
             "Chips disappear after disable",
             "pass" if not chips_after_disable else "fail",
-            f"Chips still visible: {chips_after_disable}" if chips_after_disable else "No chips after disable",
+            f"Chips still visible: {chips_after_disable}"
+            if chips_after_disable
+            else "No chips after disable",
             category="Landing Page",
         )
     )
@@ -2884,7 +3169,8 @@ def _format_e2e_report(
         lines.append(f"{cat}")
         for c in checks:
             marker = (
-                "\u2713" if c.status == "pass"
+                "\u2713"
+                if c.status == "pass"
                 else ("\u2014" if c.status in ("skip", "infra_fail") else "\u2717")
             )
             lines.append(f"  {marker} {c.label}")
@@ -2910,7 +3196,9 @@ def _format_e2e_report(
     skipped = sum(1 for r in all_results if r.status in ("skip", "infra_fail"))
     total = len(all_results)
 
-    lines.append(f"Overall: {passed}/{total} passed, {failed} failed, {skipped} skipped")
+    lines.append(
+        f"Overall: {passed}/{total} passed, {failed} failed, {skipped} skipped"
+    )
 
     return "\n".join(lines)
 
@@ -2928,7 +3216,9 @@ def _format_e2e_json(
         "summary": {
             "passed": sum(1 for r in all_results if r.status == "pass"),
             "failed": sum(1 for r in all_results if r.status == "fail"),
-            "skipped": sum(1 for r in all_results if r.status in ("skip", "infra_fail")),
+            "skipped": sum(
+                1 for r in all_results if r.status in ("skip", "infra_fail")
+            ),
             "total": len(all_results),
         },
     }
@@ -3051,7 +3341,9 @@ def run_e2e_verification(
             context.tracing.start(screenshots=True, snapshots=True, sources=True)
 
             # Collect browser errors
-            console_errors, console_warnings, failed_requests = _collect_browser_errors(page)
+            console_errors, console_warnings, failed_requests = _collect_browser_errors(
+                page
+            )
 
             # Navigate
             try:
@@ -3084,7 +3376,9 @@ def run_e2e_verification(
                 pass  # No disclaimer or already dismissed.
 
             def screenshot(name: str) -> None:
-                page.screenshot(path=os.path.join(vp_dir, f"{name}.png"), full_page=True)
+                page.screenshot(
+                    path=os.path.join(vp_dir, f"{name}.png"), full_page=True
+                )
 
             # Run flows
             flow_fns = {

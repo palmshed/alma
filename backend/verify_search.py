@@ -27,7 +27,9 @@ from typing import Any, Dict, List, Optional
 
 # Set environment for testing
 os.environ["TESTING"] = "1"
-os.environ["GEMINI_API_KEY"] = os.environ.get("GEMINI_API_KEY", "mock_key_for_verification")
+os.environ["GEMINI_API_KEY"] = os.environ.get(
+    "GEMINI_API_KEY", "mock_key_for_verification"
+)
 
 from palmshed_ai import create_app
 from palmshed_ai.search import (
@@ -97,7 +99,13 @@ class SearchVerifier:
         )
         t_chat = (time.time() - t0) * 1000
         if res_chat["intent"] == "chat" and len(res_chat["sources"]) == 0:
-            self.record("Search Modes", "Chat mode never invokes search provider", "PASS", t_chat, res_chat["metrics"])
+            self.record(
+                "Search Modes",
+                "Chat mode never invokes search provider",
+                "PASS",
+                t_chat,
+                res_chat["metrics"],
+            )
         else:
             self.record(
                 "Search Modes",
@@ -114,7 +122,13 @@ class SearchVerifier:
         )
         t_search = (time.time() - t0) * 1000
         if res_search["intent"] == "search" and len(res_search["sources"]) > 0:
-            self.record("Search Modes", "Search mode invokes provider", "PASS", t_search, res_search["metrics"])
+            self.record(
+                "Search Modes",
+                "Search mode invokes provider",
+                "PASS",
+                t_search,
+                res_search["metrics"],
+            )
         else:
             self.record(
                 "Search Modes",
@@ -126,11 +140,20 @@ class SearchVerifier:
 
         # Auto mode searches only when appropriate
         t0 = time.time()
-        res_auto_chat = self.service.execute_search_pipeline("Write me a poem about dogs", mode="auto")
-        res_auto_search = self.service.execute_search_pipeline("Latest weather in Tokyo today", mode="auto")
+        res_auto_chat = self.service.execute_search_pipeline(
+            "Write me a poem about dogs", mode="auto"
+        )
+        res_auto_search = self.service.execute_search_pipeline(
+            "Latest weather in Tokyo today", mode="auto"
+        )
         t_auto = (time.time() - t0) * 1000
         if res_auto_chat["intent"] == "chat" and res_auto_search["intent"] == "search":
-            self.record("Search Modes", "Auto mode searches only when appropriate", "PASS", t_auto)
+            self.record(
+                "Search Modes",
+                "Auto mode searches only when appropriate",
+                "PASS",
+                t_auto,
+            )
         else:
             self.record(
                 "Search Modes",
@@ -143,14 +166,41 @@ class SearchVerifier:
         # Code mode prioritizes: local repository -> official documentation -> GitHub -> general web
         t0 = time.time()
         sample_results = [
-            SearchResult("General blog post", "https://techblog.example.com/post", "blog snippet", "techblog.example.com"),
-            SearchResult("GitHub Repo", "https://github.com/rust-lang/rust", "rust repo", "github.com"),
-            SearchResult("Official Rust Docs", "https://doc.rust-lang.org/book/", "official rust docs", "doc.rust-lang.org"),
-            SearchResult("Local Repository Code", "local://alma/backend/search.py", "local implementation", "local"),
+            SearchResult(
+                "General blog post",
+                "https://techblog.example.com/post",
+                "blog snippet",
+                "techblog.example.com",
+            ),
+            SearchResult(
+                "GitHub Repo",
+                "https://github.com/rust-lang/rust",
+                "rust repo",
+                "github.com",
+            ),
+            SearchResult(
+                "Official Rust Docs",
+                "https://doc.rust-lang.org/book/",
+                "official rust docs",
+                "doc.rust-lang.org",
+            ),
+            SearchResult(
+                "Local Repository Code",
+                "local://alma/backend/search.py",
+                "local implementation",
+                "local",
+            ),
         ]
-        ranked = self.service.rank_results(sample_results, "Rust 2024 edition code", intent="code")
+        ranked = self.service.rank_results(
+            sample_results, "Rust 2024 edition code", intent="code"
+        )
         t_code = (time.time() - t0) * 1000
-        expected_order = ["local", "doc.rust-lang.org", "github.com", "techblog.example.com"]
+        expected_order = [
+            "local",
+            "doc.rust-lang.org",
+            "github.com",
+            "techblog.example.com",
+        ]
         actual_order = [r.domain for r in ranked]
         if actual_order == expected_order:
             self.record(
@@ -187,39 +237,80 @@ class SearchVerifier:
         init_ok = all(isinstance(p, SearchProvider) for p in providers.values())
         t_init = (time.time() - t0) * 1000
         if init_ok:
-            self.record("Providers", "Provider initialization for all 5 providers + fallback", "PASS", t_init)
+            self.record(
+                "Providers",
+                "Provider initialization for all 5 providers + fallback",
+                "PASS",
+                t_init,
+            )
         else:
-            self.record("Providers", "Provider initialization", "FAIL", t_init, error="Provider class mismatch")
+            self.record(
+                "Providers",
+                "Provider initialization",
+                "FAIL",
+                t_init,
+                error="Provider class mismatch",
+            )
 
         # Verify successful search via Fallback / Mock
         t0 = time.time()
         fb_results = providers["Fallback"].search("Python asyncio", max_results=3)
         t_search = (time.time() - t0) * 1000
         if len(fb_results) > 0 and all(isinstance(r, SearchResult) for r in fb_results):
-            self.record("Providers", "Successful search execution", "PASS", t_search, {"results_count": len(fb_results)})
+            self.record(
+                "Providers",
+                "Successful search execution",
+                "PASS",
+                t_search,
+                {"results_count": len(fb_results)},
+            )
         else:
-            self.record("Providers", "Successful search execution", "FAIL", t_search, error="Search returned no valid results")
+            self.record(
+                "Providers",
+                "Successful search execution",
+                "FAIL",
+                t_search,
+                error="Search returned no valid results",
+            )
 
         # Verify timeout handling
         t0 = time.time()
+
         class TimeoutProvider(SearchProvider):
-            def search(self, query: str, max_results: int = 5, safe_search: bool = True) -> List[SearchResult]:
+            def search(
+                self, query: str, max_results: int = 5, safe_search: bool = True
+            ) -> List[SearchResult]:
                 raise urllib.error.URLError("Connection timed out")
 
         tp = TimeoutProvider()
         try:
             tp.search("test")
-            self.record("Providers", "Timeout handling gracefully caught", "FAIL", (time.time() - t0) * 1000, error="Expected exception or empty list")
+            self.record(
+                "Providers",
+                "Timeout handling gracefully caught",
+                "FAIL",
+                (time.time() - t0) * 1000,
+                error="Expected exception or empty list",
+            )
         except Exception:
-            self.record("Providers", "Timeout handling gracefully caught", "PASS", (time.time() - t0) * 1000)
+            self.record(
+                "Providers",
+                "Timeout handling gracefully caught",
+                "PASS",
+                (time.time() - t0) * 1000,
+            )
 
         # Verify 429 Rate Limit handling and automatic failover to next provider
         t0 = time.time()
+
         class RateLimitedProvider(SearchProvider):
-            def search(self, query: str, max_results: int = 5, safe_search: bool = True) -> List[SearchResult]:
+            def search(
+                self, query: str, max_results: int = 5, safe_search: bool = True
+            ) -> List[SearchResult]:
                 raise Exception("HTTP 429 Too Many Requests")
 
         service_failover = SearchService()
+
         # Mock get_provider to simulate 429 on tavily and success on brave
         def mock_get_provider(name: str):
             if name == "tavily":
@@ -227,15 +318,23 @@ class SearchVerifier:
             return FallbackSearchProvider()
 
         service_failover.get_provider = mock_get_provider
-        res_failover = service_failover.execute_search_pipeline("test query", mode="search", provider_name="auto")
+        res_failover = service_failover.execute_search_pipeline(
+            "test query", mode="search", provider_name="auto"
+        )
         t_failover = (time.time() - t0) * 1000
-        if res_failover["metrics"]["provider"] == "brave" or res_failover["metrics"]["provider"] == "fallback":
+        if (
+            res_failover["metrics"]["provider"] == "brave"
+            or res_failover["metrics"]["provider"] == "fallback"
+        ):
             self.record(
                 "Providers",
                 "429 rate limit handling & automatic failover to next provider",
                 "PASS",
                 t_failover,
-                {"failover_provider": res_failover["metrics"]["provider"], "chain": res_failover["metrics"]["fallback_chain"]},
+                {
+                    "failover_provider": res_failover["metrics"]["provider"],
+                    "chain": res_failover["metrics"]["fallback_chain"],
+                },
             )
         else:
             self.record(
@@ -249,12 +348,16 @@ class SearchVerifier:
         # Verify graceful failure when every provider is unavailable
         t0 = time.time()
         service_all_fail = SearchService()
+
         def mock_all_fail(name: str):
             return RateLimitedProvider()
+
         service_all_fail.get_provider = mock_all_fail
 
         try:
-            res_all_fail = service_all_fail.execute_search_pipeline("test query", mode="search", provider_name="auto")
+            res_all_fail = service_all_fail.execute_search_pipeline(
+                "test query", mode="search", provider_name="auto"
+            )
             t_all_fail = (time.time() - t0) * 1000
             if res_all_fail["sources"] == []:
                 self.record(
@@ -265,9 +368,21 @@ class SearchVerifier:
                     {"sources_count": 0},
                 )
             else:
-                self.record("Providers", "Graceful failure when every provider is unavailable", "FAIL", t_all_fail, error="Expected empty sources list")
+                self.record(
+                    "Providers",
+                    "Graceful failure when every provider is unavailable",
+                    "FAIL",
+                    t_all_fail,
+                    error="Expected empty sources list",
+                )
         except Exception as e:
-            self.record("Providers", "Graceful failure when every provider is unavailable", "FAIL", (time.time() - t0) * 1000, error=f"Unhandled crash: {e}")
+            self.record(
+                "Providers",
+                "Graceful failure when every provider is unavailable",
+                "FAIL",
+                (time.time() - t0) * 1000,
+                error=f"Unhandled crash: {e}",
+            )
 
     # ── 3. Ranking ────────────────────────────────────────────────────
 
@@ -276,17 +391,50 @@ class SearchVerifier:
 
         t0 = time.time()
         candidates = [
-            SearchResult("Blog Post on Python", "https://myblog.com/python-tips", "blog snippet", "myblog.com"),
-            SearchResult("Community Q&A", "https://stackoverflow.com/questions/123", "so snippet", "stackoverflow.com"),
-            SearchResult("Vendor AWS Docs", "https://aws.amazon.com/blogs/aws/sdk", "aws snippet", "aws.amazon.com"),
-            SearchResult("Official Python Docs", "https://docs.python.org/3/tutorial/", "python docs snippet", "docs.python.org"),
-            SearchResult("Official CPython Repo", "https://github.com/python/cpython", "cpython repo snippet", "github.com"),
+            SearchResult(
+                "Blog Post on Python",
+                "https://myblog.com/python-tips",
+                "blog snippet",
+                "myblog.com",
+            ),
+            SearchResult(
+                "Community Q&A",
+                "https://stackoverflow.com/questions/123",
+                "so snippet",
+                "stackoverflow.com",
+            ),
+            SearchResult(
+                "Vendor AWS Docs",
+                "https://aws.amazon.com/blogs/aws/sdk",
+                "aws snippet",
+                "aws.amazon.com",
+            ),
+            SearchResult(
+                "Official Python Docs",
+                "https://docs.python.org/3/tutorial/",
+                "python docs snippet",
+                "docs.python.org",
+            ),
+            SearchResult(
+                "Official CPython Repo",
+                "https://github.com/python/cpython",
+                "cpython repo snippet",
+                "github.com",
+            ),
         ]
 
-        ranked = self.service.rank_results(candidates, "Python tutorial", intent="search")
+        ranked = self.service.rank_results(
+            candidates, "Python tutorial", intent="search"
+        )
         t_rank = (time.time() - t0) * 1000
 
-        expected_order = ["docs.python.org", "github.com", "aws.amazon.com", "stackoverflow.com", "myblog.com"]
+        expected_order = [
+            "docs.python.org",
+            "github.com",
+            "aws.amazon.com",
+            "stackoverflow.com",
+            "myblog.com",
+        ]
         actual_order = [r.domain for r in ranked]
 
         if actual_order == expected_order:
@@ -310,9 +458,16 @@ class SearchVerifier:
         t0 = time.time()
         dup_candidates = [
             SearchResult("Page A", "https://example.com/foo", "snip 1", "example.com"),
-            SearchResult("Page A Dup", "https://example.com/foo/", "snip 2", "example.com"),
+            SearchResult(
+                "Page A Dup", "https://example.com/foo/", "snip 2", "example.com"
+            ),
             SearchResult("Page B", "https://example.com/bar", "snip 3", "example.com"),
-            SearchResult("Page C Domain Overflow", "https://example.com/baz", "snip 4", "example.com"), # 3rd for example.com
+            SearchResult(
+                "Page C Domain Overflow",
+                "https://example.com/baz",
+                "snip 4",
+                "example.com",
+            ),  # 3rd for example.com
             SearchResult("Other Page", "https://other.com/page", "snip 5", "other.com"),
         ]
         deduped = self.service.deduplicate(dup_candidates)
@@ -321,9 +476,21 @@ class SearchVerifier:
         deduped_urls = [r.url for r in deduped]
         # Should have at most 2 for example.com and no duplicate exact URLs
         if len(deduped) == 3 and "https://other.com/page" in deduped_urls:
-            self.record("Ranking", "Duplicate URLs and domain limit (>2 per domain) deduplicated", "PASS", t_dedup, {"deduped_count": len(deduped)})
+            self.record(
+                "Ranking",
+                "Duplicate URLs and domain limit (>2 per domain) deduplicated",
+                "PASS",
+                t_dedup,
+                {"deduped_count": len(deduped)},
+            )
         else:
-            self.record("Ranking", "Duplicate URLs and domain limit deduplicated", "FAIL", t_dedup, error=f"Unexpected deduped count: {len(deduped)} ({deduped_urls})")
+            self.record(
+                "Ranking",
+                "Duplicate URLs and domain limit deduplicated",
+                "FAIL",
+                t_dedup,
+                error=f"Unexpected deduped count: {len(deduped)} ({deduped_urls})",
+            )
 
     # ── 4. Cache ──────────────────────────────────────────────────────
 
@@ -346,14 +513,28 @@ class SearchVerifier:
         hit_ok = res2["metrics"]["cache_hit"] is True
 
         if miss_ok and hit_ok:
-            self.record("Cache", "First request cache miss & repeated request cache hit", "PASS", t_hit, {"miss_ms": t_miss, "hit_ms": t_hit})
+            self.record(
+                "Cache",
+                "First request cache miss & repeated request cache hit",
+                "PASS",
+                t_hit,
+                {"miss_ms": t_miss, "hit_ms": t_hit},
+            )
         else:
-            self.record("Cache", "Cache miss and hit", "FAIL", t_hit, error=f"miss_ok={miss_ok}, hit_ok={hit_ok}")
+            self.record(
+                "Cache",
+                "Cache miss and hit",
+                "FAIL",
+                t_hit,
+                error=f"miss_ok={miss_ok}, hit_ok={hit_ok}",
+            )
 
         # Cache expiration check
         t0 = time.time()
         short_cache = SearchCache(ttl_seconds=1)
-        short_cache.set("expire_key", [SearchResult("Title", "https://exp.com", "snip")])
+        short_cache.set(
+            "expire_key", [SearchResult("Title", "https://exp.com", "snip")]
+        )
         expired_before = short_cache.get("expire_key") is not None
         time.sleep(1.1)
         expired_after = short_cache.get("expire_key") is None
@@ -362,7 +543,13 @@ class SearchVerifier:
         if expired_before and expired_after:
             self.record("Cache", "Cache TTL expiration", "PASS", t_exp)
         else:
-            self.record("Cache", "Cache TTL expiration", "FAIL", t_exp, error=f"before={expired_before}, after={expired_after}")
+            self.record(
+                "Cache",
+                "Cache TTL expiration",
+                "FAIL",
+                t_exp,
+                error=f"before={expired_before}, after={expired_after}",
+            )
 
         # Follow-up questions reuse retrieved sources
         t0 = time.time()
@@ -371,15 +558,35 @@ class SearchVerifier:
             {
                 "role": "assistant",
                 "content": "Python 3.12 was released in 2023.",
-                "sources": [{"title": "Python Release Schedule", "url": "https://python.org/downloads", "snippet": "Release schedules", "domain": "python.org"}],
+                "sources": [
+                    {
+                        "title": "Python Release Schedule",
+                        "url": "https://python.org/downloads",
+                        "snippet": "Release schedules",
+                        "domain": "python.org",
+                    }
+                ],
             },
         ]
-        res_followup = service.execute_search_pipeline("tell me more", messages=messages, mode="auto")
+        res_followup = service.execute_search_pipeline(
+            "tell me more", messages=messages, mode="auto"
+        )
         t_followup = (time.time() - t0) * 1000
         if res_followup.get("reused") is True and len(res_followup["sources"]) == 1:
-            self.record("Cache", "Follow-up questions reuse retrieved sources", "PASS", t_followup)
+            self.record(
+                "Cache",
+                "Follow-up questions reuse retrieved sources",
+                "PASS",
+                t_followup,
+            )
         else:
-            self.record("Cache", "Follow-up questions reuse retrieved sources", "FAIL", t_followup, error=f"Reused flag: {res_followup.get('reused')}")
+            self.record(
+                "Cache",
+                "Follow-up questions reuse retrieved sources",
+                "FAIL",
+                t_followup,
+                error=f"Reused flag: {res_followup.get('reused')}",
+            )
 
     # ── 5. API Endpoints ──────────────────────────────────────────────
 
@@ -388,12 +595,29 @@ class SearchVerifier:
 
         # /api/search
         t0 = time.time()
-        resp = self.client.post("/api/search", json={"prompt": "Latest Rust news", "mode": "search"})
+        resp = self.client.post(
+            "/api/search", json={"prompt": "Latest Rust news", "mode": "search"}
+        )
         t_api = (time.time() - t0) * 1000
-        if resp.status_code == 200 and "response" in resp.json and "sources" in resp.json:
-            self.record("API", "/api/search endpoint returns response, sources, search_steps", "PASS", t_api)
+        if (
+            resp.status_code == 200
+            and "response" in resp.json
+            and "sources" in resp.json
+        ):
+            self.record(
+                "API",
+                "/api/search endpoint returns response, sources, search_steps",
+                "PASS",
+                t_api,
+            )
         else:
-            self.record("API", "/api/search endpoint", "FAIL", t_api, error=f"Status: {resp.status_code}, Body: {resp.text[:100]}")
+            self.record(
+                "API",
+                "/api/search endpoint",
+                "FAIL",
+                t_api,
+                error=f"Status: {resp.status_code}, Body: {resp.text[:100]}",
+            )
 
         # Search inside conversations
         t0 = time.time()
@@ -410,7 +634,13 @@ class SearchVerifier:
         if resp_conv.status_code == 200 and len(resp_conv.json.get("sources", [])) > 0:
             self.record("API", "Search inside conversations context", "PASS", t_conv)
         else:
-            self.record("API", "Search inside conversations context", "FAIL", t_conv, error=f"Status: {resp_conv.status_code}")
+            self.record(
+                "API",
+                "Search inside conversations context",
+                "FAIL",
+                t_conv,
+                error=f"Status: {resp_conv.status_code}",
+            )
 
         # Streaming responses (SSE)
         t0 = time.time()
@@ -421,10 +651,26 @@ class SearchVerifier:
         )
         t_stream = (time.time() - t0) * 1000
         stream_body = resp_stream.data.decode("utf-8")
-        if resp_stream.status_code == 200 and "data: " in stream_body and '"type": "chunk"' in stream_body:
-            self.record("API", "Streaming responses via text/event-stream (SSE)", "PASS", t_stream, {"stream_bytes": len(stream_body)})
+        if (
+            resp_stream.status_code == 200
+            and "data: " in stream_body
+            and '"type": "chunk"' in stream_body
+        ):
+            self.record(
+                "API",
+                "Streaming responses via text/event-stream (SSE)",
+                "PASS",
+                t_stream,
+                {"stream_bytes": len(stream_body)},
+            )
         else:
-            self.record("API", "Streaming responses via text/event-stream", "FAIL", t_stream, error=f"Status: {resp_stream.status_code}, Body snippet: {stream_body[:150]}")
+            self.record(
+                "API",
+                "Streaming responses via text/event-stream",
+                "FAIL",
+                t_stream,
+                error=f"Status: {resp_stream.status_code}, Body snippet: {stream_body[:150]}",
+            )
 
         # Cancellation via AbortController simulation
         t0 = time.time()
@@ -439,14 +685,28 @@ class SearchVerifier:
             stream_resp.close()
         t_abort = (time.time() - t0) * 1000
         if first_chunk is not None:
-            self.record("API", "Request cancellation via AbortController gracefully handled", "PASS", t_abort)
+            self.record(
+                "API",
+                "Request cancellation via AbortController gracefully handled",
+                "PASS",
+                t_abort,
+            )
         else:
-            self.record("API", "Request cancellation via AbortController", "FAIL", t_abort, error="No chunk returned before abort")
+            self.record(
+                "API",
+                "Request cancellation via AbortController",
+                "FAIL",
+                t_abort,
+                error="No chunk returned before abort",
+            )
 
         # Concurrent requests
         t0 = time.time()
+
         def send_req(i):
-            return self.client.post("/api/search", json={"prompt": f"Concurrent query {i}", "mode": "chat"})
+            return self.client.post(
+                "/api/search", json={"prompt": f"Concurrent query {i}", "mode": "chat"}
+            )
 
         with ThreadPoolExecutor(max_workers=10) as executor:
             futures = [executor.submit(send_req, i) for i in range(10)]
@@ -455,27 +715,62 @@ class SearchVerifier:
 
         all_200 = all(r.status_code == 200 for r in results)
         if all_200:
-            self.record("API", "10 concurrent search requests executed without error", "PASS", t_conc, {"total_requests": 10})
+            self.record(
+                "API",
+                "10 concurrent search requests executed without error",
+                "PASS",
+                t_conc,
+                {"total_requests": 10},
+            )
         else:
-            self.record("API", "Concurrent requests", "FAIL", t_conc, error=f"Not all returned 200: {[r.status_code for r in results]}")
+            self.record(
+                "API",
+                "Concurrent requests",
+                "FAIL",
+                t_conc,
+                error=f"Not all returned 200: {[r.status_code for r in results]}",
+            )
 
         # Malformed requests
         t0 = time.time()
-        resp_malformed = self.client.post("/api/search", data="invalid json string{", content_type="application/json")
+        resp_malformed = self.client.post(
+            "/api/search", data="invalid json string{", content_type="application/json"
+        )
         t_malformed = (time.time() - t0) * 1000
         if resp_malformed.status_code in (400, 500):
-            self.record("API", "Malformed JSON requests return 400 error", "PASS", t_malformed)
+            self.record(
+                "API", "Malformed JSON requests return 400 error", "PASS", t_malformed
+            )
         else:
-            self.record("API", "Malformed JSON requests", "FAIL", t_malformed, error=f"Got status {resp_malformed.status_code}")
+            self.record(
+                "API",
+                "Malformed JSON requests",
+                "FAIL",
+                t_malformed,
+                error=f"Got status {resp_malformed.status_code}",
+            )
 
         # Empty queries
         t0 = time.time()
-        resp_empty = self.client.post("/api/search", json={"prompt": "   ", "messages": []})
+        resp_empty = self.client.post(
+            "/api/search", json={"prompt": "   ", "messages": []}
+        )
         t_empty = (time.time() - t0) * 1000
         if resp_empty.status_code == 400 and "error" in resp_empty.json:
-            self.record("API", "Empty queries return HTTP 400 with error message", "PASS", t_empty)
+            self.record(
+                "API",
+                "Empty queries return HTTP 400 with error message",
+                "PASS",
+                t_empty,
+            )
         else:
-            self.record("API", "Empty queries return HTTP 400", "FAIL", t_empty, error=f"Got status {resp_empty.status_code}")
+            self.record(
+                "API",
+                "Empty queries return HTTP 400",
+                "FAIL",
+                t_empty,
+                error=f"Got status {resp_empty.status_code}",
+            )
 
     # ── 6. Frontend Verification ──────────────────────────────────────
 
@@ -485,16 +780,22 @@ class SearchVerifier:
         frontend_src_dir = os.path.join(os.path.dirname(__file__), "../frontend/src")
 
         app_tsx_path = os.path.join(frontend_src_dir, "App.tsx")
-        search_progress_path = os.path.join(frontend_src_dir, "components/SearchProgress.tsx")
+        search_progress_path = os.path.join(
+            frontend_src_dir, "components/SearchProgress.tsx"
+        )
         source_cards_path = os.path.join(frontend_src_dir, "components/SourceCards.tsx")
-        search_modal_path = os.path.join(frontend_src_dir, "components/SearchSettingsModal.tsx")
+        search_modal_path = os.path.join(
+            frontend_src_dir, "components/SearchSettingsModal.tsx"
+        )
         mode_menu_path = os.path.join(frontend_src_dir, "components/ModeMenu.tsx")
 
         has_mode_selector = os.path.exists(mode_menu_path) or (
-            os.path.exists(app_tsx_path) and "searchSettings" in open(app_tsx_path, "r", encoding="utf-8").read()
+            os.path.exists(app_tsx_path)
+            and "searchSettings" in open(app_tsx_path, "r", encoding="utf-8").read()
         )
         has_progress_states = os.path.exists(search_progress_path) and (
-            "Searching the web" in open(search_progress_path, "r", encoding="utf-8").read()
+            "Searching the web"
+            in open(search_progress_path, "r", encoding="utf-8").read()
         )
         has_source_cards = os.path.exists(source_cards_path) and (
             "source-card" in open(source_cards_path, "r", encoding="utf-8").read()
@@ -514,20 +815,43 @@ class SearchVerifier:
         }
 
         if all(fe_checks.values()):
-            self.record("Frontend", "Frontend UI components & state parity (Selector, Progress, Cards, Target blank, Error banners)", "PASS", t_fe, fe_checks)
+            self.record(
+                "Frontend",
+                "Frontend UI components & state parity (Selector, Progress, Cards, Target blank, Error banners)",
+                "PASS",
+                t_fe,
+                fe_checks,
+            )
         else:
-            self.record("Frontend", "Frontend UI components", "FAIL", t_fe, error=f"Missing UI elements: {[k for k, v in fe_checks.items() if not v]}")
+            self.record(
+                "Frontend",
+                "Frontend UI components",
+                "FAIL",
+                t_fe,
+                error=f"Missing UI elements: {[k for k, v in fe_checks.items() if not v]}",
+            )
 
     # ── 7. Observability ──────────────────────────────────────────────
 
     def verify_observability(self):
         print("\n--- Verifying Observability Logging ---")
         t0 = time.time()
-        res = self.service.execute_search_pipeline("Observability log check query", mode="search")
+        res = self.service.execute_search_pipeline(
+            "Observability log check query", mode="search"
+        )
         metrics = res.get("metrics", {})
         t_obs = (time.time() - t0) * 1000
 
-        required_keys = ["provider", "intent", "cache_hit", "search_time_ms", "extraction_time_ms", "total_time_ms", "results_count", "fallback_chain"]
+        required_keys = [
+            "provider",
+            "intent",
+            "cache_hit",
+            "search_time_ms",
+            "extraction_time_ms",
+            "total_time_ms",
+            "results_count",
+            "fallback_chain",
+        ]
         missing_keys = [k for k in required_keys if k not in metrics]
 
         if not missing_keys:
@@ -539,7 +863,13 @@ class SearchVerifier:
                 metrics,
             )
         else:
-            self.record("Observability", "Logs & metrics required fields", "FAIL", t_obs, error=f"Missing metric fields: {missing_keys}")
+            self.record(
+                "Observability",
+                "Logs & metrics required fields",
+                "FAIL",
+                t_obs,
+                error=f"Missing metric fields: {missing_keys}",
+            )
 
     # ── 8. Performance Benchmarks ─────────────────────────────────────
 
@@ -565,13 +895,21 @@ class SearchVerifier:
             p95 = latencies[int(len(latencies) * 0.95)]
             p99 = latencies[int(len(latencies) * 0.99)]
 
-            perf_report[mode_name] = {"p50": round(p50, 2), "p95": round(p95, 2), "p99": round(p99, 2)}
+            perf_report[mode_name] = {
+                "p50": round(p50, 2),
+                "p95": round(p95, 2),
+                "p99": round(p99, 2),
+            }
             self.record(
                 "Performance",
                 f"{mode_name} Latency Benchmark",
                 "PASS",
                 p50,
-                {"p50_ms": round(p50, 2), "p95_ms": round(p95, 2), "p99_ms": round(p99, 2)},
+                {
+                    "p50_ms": round(p50, 2),
+                    "p95_ms": round(p95, 2),
+                    "p99_ms": round(p99, 2),
+                },
             )
 
         # Cache hit latency
@@ -588,13 +926,21 @@ class SearchVerifier:
         cp95 = cache_latencies[int(len(cache_latencies) * 0.95)]
         cp99 = cache_latencies[int(len(cache_latencies) * 0.99)]
 
-        perf_report["Cache hit"] = {"p50": round(cp50, 2), "p95": round(cp95, 2), "p99": round(cp99, 2)}
+        perf_report["Cache hit"] = {
+            "p50": round(cp50, 2),
+            "p95": round(cp95, 2),
+            "p99": round(cp99, 2),
+        }
         self.record(
             "Performance",
             "Cache Hit Latency Benchmark",
             "PASS",
             cp50,
-            {"p50_ms": round(cp50, 2), "p95_ms": round(cp95, 2), "p99_ms": round(cp99, 2)},
+            {
+                "p50_ms": round(cp50, 2),
+                "p95_ms": round(cp95, 2),
+                "p99_ms": round(cp99, 2),
+            },
         )
 
         return perf_report
@@ -618,7 +964,9 @@ class SearchVerifier:
 
         for prompt in scenarios:
             t0 = time.time()
-            res = self.client.post("/api/search", json={"prompt": prompt, "mode": "auto"})
+            res = self.client.post(
+                "/api/search", json={"prompt": prompt, "mode": "auto"}
+            )
             t_scenario = (time.time() - t0) * 1000
 
             if res.status_code == 200:
@@ -634,7 +982,10 @@ class SearchVerifier:
                         f"Prompt: '{prompt}'",
                         "PASS",
                         t_scenario,
-                        {"sources_count": len(sources), "response_preview": response_text[:100]},
+                        {
+                            "sources_count": len(sources),
+                            "response_preview": response_text[:100],
+                        },
                     )
                 else:
                     self.record(
@@ -645,11 +996,19 @@ class SearchVerifier:
                         error=f"Grounded answer missing sources or text. Response len: {len(response_text)}, Sources count: {len(sources)}",
                     )
             else:
-                self.record("Real-World Scenarios", f"Prompt: '{prompt}'", "FAIL", t_scenario, error=f"HTTP {res.status_code}: {res.text[:100]}")
+                self.record(
+                    "Real-World Scenarios",
+                    f"Prompt: '{prompt}'",
+                    "FAIL",
+                    t_scenario,
+                    error=f"HTTP {res.status_code}: {res.text[:100]}",
+                )
 
     # ── 10. Generate Final Artifact Report ────────────────────────────
 
-    def generate_report(self, perf_metrics: Dict[str, Dict[str, float]], artifact_path: str):
+    def generate_report(
+        self, perf_metrics: Dict[str, Dict[str, float]], artifact_path: str
+    ):
         total_tests = len(self.results)
         passed_tests = sum(1 for r in self.results if r.status == "PASS")
         failed_tests = total_tests - passed_tests
@@ -675,44 +1034,60 @@ class SearchVerifier:
             cat_pass = sum(1 for r in cat_results if r.status == "PASS")
             cat_fail = len(cat_results) - cat_pass
             status_str = "✅ PASS" if cat_fail == 0 else "❌ FAIL"
-            lines.append(f"| {cat} | {len(cat_results)} | {cat_pass} | {cat_fail} | {status_str} |")
+            lines.append(
+                f"| {cat} | {len(cat_results)} | {cat_pass} | {cat_fail} | {status_str} |"
+            )
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## 2. Performance & Latency Benchmarks",
-            "",
-            "| Mode / Scenario | p50 Latency (ms) | p95 Latency (ms) | p99 Latency (ms) |",
-            "| --- | --- | --- | --- |",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 2. Performance & Latency Benchmarks",
+                "",
+                "| Mode / Scenario | p50 Latency (ms) | p95 Latency (ms) | p99 Latency (ms) |",
+                "| --- | --- | --- | --- |",
+            ]
+        )
 
         for mode, metrics in perf_metrics.items():
-            lines.append(f"| {mode} | {metrics['p50']} ms | {metrics['p95']} ms | {metrics['p99']} ms |")
+            lines.append(
+                f"| {mode} | {metrics['p50']} ms | {metrics['p95']} ms | {metrics['p99']} ms |"
+            )
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## 3. Real-World Grounded Search Validation",
-            "",
-            "| Prompt | Status | Latency | Sources Retrieved | Citation Verification |",
-            "| --- | --- | --- | --- | --- |",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 3. Real-World Grounded Search Validation",
+                "",
+                "| Prompt | Status | Latency | Sources Retrieved | Citation Verification |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+        )
 
         rw_results = [r for r in self.results if r.category == "Real-World Scenarios"]
         for r in rw_results:
             sources_cnt = r.details.get("sources_count", 0)
-            citation_ok = "✅ Grounded with sources" if sources_cnt > 0 else "❌ Missing citations"
-            lines.append(f"| {r.name} | {r.status} | {r.latency_ms} ms | {sources_cnt} | {citation_ok} |")
+            citation_ok = (
+                "✅ Grounded with sources"
+                if sources_cnt > 0
+                else "❌ Missing citations"
+            )
+            lines.append(
+                f"| {r.name} | {r.status} | {r.latency_ms} ms | {sources_cnt} | {citation_ok} |"
+            )
 
-        lines.extend([
-            "",
-            "---",
-            "",
-            "## 4. Comprehensive Scenario Breakdown",
-            "",
-        ])
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 4. Comprehensive Scenario Breakdown",
+                "",
+            ]
+        )
 
         for r in self.results:
             marker = "✅ PASS" if r.status == "PASS" else "❌ FAIL"
@@ -721,17 +1096,21 @@ class SearchVerifier:
             if r.error:
                 lines.append(f"- **Error Details:** `{r.error}`")
             if r.details:
-                lines.append(f"- **Details:** ```json\n{json.dumps(r.details, indent=2)}\n```")
+                lines.append(
+                    f"- **Details:** ```json\n{json.dumps(r.details, indent=2)}\n```"
+                )
             lines.append("")
 
-        lines.extend([
-            "---",
-            "",
-            "## 5. Bugs, Regressions & Unexpected Behavior",
-            "",
-            "No regressions found. All end-to-end components (Search Modes, Providers, Ranking, Cache, API, Frontend, Observability, Real-world prompts) operate as expected.",
-            "",
-        ])
+        lines.extend(
+            [
+                "---",
+                "",
+                "## 5. Bugs, Regressions & Unexpected Behavior",
+                "",
+                "No regressions found. All end-to-end components (Search Modes, Providers, Ranking, Cache, API, Frontend, Observability, Real-world prompts) operate as expected.",
+                "",
+            ]
+        )
 
         report_content = "\n".join(lines)
         os.makedirs(os.path.dirname(artifact_path), exist_ok=True)

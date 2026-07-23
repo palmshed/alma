@@ -98,12 +98,17 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 f"SEARCH SOURCES:\n{grounded_context}\n"
             )
             if messages:
-                augmented = [{"role": "user", "content": system_instruction}] + list(messages)
+                augmented = [{"role": "user", "content": system_instruction}] + list(
+                    messages
+                )
                 full_response = ai.generate_chat(augmented)
             else:
-                full_response = ai.generate_text(f"{system_instruction}\nUSER REQUEST: {user_query}")
+                full_response = ai.generate_text(
+                    f"{system_instruction}\nUSER REQUEST: {user_query}"
+                )
 
         if is_stream:
+
             def generate_sse():
                 try:
                     for s in steps:
@@ -117,17 +122,21 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                         yield f"data: {json.dumps({'type': 'chunk', 'delta': chunk})}\n\n"
                     yield f"data: {json.dumps({'type': 'done', 'intent': intent, 'metrics': pipeline_result.get('metrics', {})})}\n\n"
                 except GeneratorExit:
-                    logging.info("Client disconnected / aborted stream via AbortController.")
+                    logging.info(
+                        "Client disconnected / aborted stream via AbortController."
+                    )
 
             return Response(generate_sse(), mimetype="text/event-stream")
 
-        return jsonify({
-            "response": full_response,
-            "sources": sources,
-            "search_steps": steps,
-            "intent": intent,
-            "metrics": pipeline_result.get("metrics", {}),
-        })
+        return jsonify(
+            {
+                "response": full_response,
+                "sources": sources,
+                "search_steps": steps,
+                "intent": intent,
+                "metrics": pipeline_result.get("metrics", {}),
+            }
+        )
 
     except Exception as e:
         logging.error(f"Error in search_and_generate: {e}")
