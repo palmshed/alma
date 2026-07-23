@@ -3371,7 +3371,9 @@ def run_e2e_verification(
                 confirm_btn = page.locator(".disclaimer-dialog .dialog-btn--confirm")
                 if confirm_btn.count() > 0:
                     confirm_btn.first.click(timeout=3000)
-                    page.wait_for_selector(".dialog-overlay", state="hidden", timeout=3000)
+                    page.wait_for_selector(
+                        ".dialog-overlay", state="hidden", timeout=3000
+                    )
             except Exception:
                 pass  # No disclaimer or already dismissed.
 
