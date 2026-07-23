@@ -10,7 +10,6 @@ Production files are never modified.
 
 import http.server
 import os
-import sys
 
 PORT = 8000
 DIR = os.path.dirname(os.path.abspath(__file__))
