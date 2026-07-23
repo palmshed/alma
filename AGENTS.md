@@ -289,21 +289,60 @@ Code should read like an outline of the application rather than a collection of 
 
 ## Verification Policy
 
+Before every merge, verify the UI through three layers.
+
+### Layer 1: Browser verification
+
+Start the app and exercise the product exactly like a user.
+
+```bash
+./scripts/run-dev.sh all
+```
+
+Walk through: landing page, new conversation, chat, search, thinking, voice, theme toggle, mobile sidebar, settings, source cards, audio playback, keyboard shortcuts. This tells you whether the product works.
+
+### Layer 2: Automated E2E
+
+```bash
+uv run python -m backend.verify e2e
+# or
+make verify-e2e
+```
+
+Every supported flow is exercised automatically. Produces screenshots and traces.
+
+### Layer 3: Visual review
+
+Open the generated screenshots in `backend/verify-output/e2e/` and check for spacing, alignment, clipping, overflow, colors, theme contrast, and responsive layout. This catches regressions that tests won't.
+
+---
+
+### Per-feature workflow
+
+```
+Write code
+  ↓
+Run tests
+  ↓
+Run alma verify e2e
+  ↓
+Open generated screenshots
+  ↓
+Spend 5 minutes using the app manually
+  ↓
+Commit
+```
+
+The automated verifier proves everything is connected correctly. The quick human pass tells you whether the UI feels right. Together they give the highest confidence before merging.
+
+---
+
 `alma verify` is stable developer tooling. Treat it as frozen — do not add new checks unless a real production regression exposes a gap.
-
-Before every merge, run:
-```
-alma verify
-```
-
-Fix any regressions before shipping.
 
 When fixing a production bug, ask:
 - Can the existing verifier detect this?
   - If yes, fix the bug and move on.
   - If no, add one focused verification for that specific regression so it cannot silently regress.
-
-This keeps the verifier lean and grounded in real failures rather than hypothetical ones. The ideal is that developers trust `alma verify` and rarely think about it — it just catches regressions automatically.
 
 ---
 
