@@ -249,7 +249,7 @@ const Header: React.FC<HeaderProps> = ({
                       onChange={(e) => onSearchSettingsChange({ maxResults: parseInt(e.target.value, 10) })}
                       className="settings-dropdown-range"
                       data-testid="settings-search-max-results"
-                      aria-valuetext={`${searchSettings.maxResults} results`}
+                      aria-valuetext={`${searchSettings.maxResults ?? 3} results`}
                       style={{
                         '--range-progress': `${(((searchSettings.maxResults ?? 3) - 3) / 7) * 100}%`,
                       } as React.CSSProperties}
