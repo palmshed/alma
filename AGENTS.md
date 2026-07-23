@@ -339,6 +339,15 @@ The automated verifier proves everything is connected correctly. The quick human
 
 `alma verify` is stable developer tooling. Treat it as frozen — do not add new checks unless a real production regression exposes a gap.
 
+### Exit criteria
+
+A change is ready to commit when:
+
+- Manual verification succeeds.
+- `alma verify e2e` passes.
+- Visual artifacts show no unexpected regressions.
+- Relevant unit/integration tests pass.
+
 When fixing a production bug, ask:
 - Can the existing verifier detect this?
   - If yes, fix the bug and move on.
