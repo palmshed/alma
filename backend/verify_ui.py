@@ -2122,8 +2122,8 @@ def _check_infrastructure(base_url: str) -> List[E2EResult]:
 def _dismiss_overlay(page: "Any") -> None:
     """Dismiss any open dialog overlay so subsequent clicks are not blocked."""
     try:
-        overlay = page.locator(".dialog-overlay")
-        if overlay.count() > 0:
+        overlay = page.locator(".dialog-overlay").first
+        if overlay.is_visible():
             page.keyboard.press("Escape")
             page.wait_for_timeout(500)
     except Exception:
@@ -2133,15 +2133,15 @@ def _dismiss_overlay(page: "Any") -> None:
 def _start_new_conversation(page: "Any") -> None:
     """Click the logo to start a new conversation, handling the confirmation dialog."""
     _dismiss_overlay(page)
-    logo = page.locator("button[aria-label='Start a new conversation']")
-    if logo.count():
-        logo.first.click()
+    logo = page.locator("button[aria-label='Start a new conversation']").first
+    if logo.is_visible():
+        logo.click()
         page.wait_for_timeout(500)
         confirm_btn = page.locator(
             "button:has-text('New conversation'):not(:has-text('+'))"
-        )
-        if confirm_btn.count():
-            confirm_btn.first.click()
+        ).first
+        if confirm_btn.is_visible():
+            confirm_btn.click()
             page.wait_for_timeout(500)
         _dismiss_overlay(page)
 
