@@ -114,6 +114,24 @@ const SearchSettingsModal: React.FC<SearchSettingsModalProps> = ({
               data-testid="search-auto-toggle"
             />
           </div>
+
+          {/* Landing Suggestions */}
+          <div className="setting-row toggle-row">
+            <label className="setting-label">
+              <div className="setting-with-icon">
+                <Zap size={16} />
+                <span className="setting-name">Landing Suggestions</span>
+              </div>
+              <span className="setting-desc">Show suggestion chips on the landing page</span>
+            </label>
+            <input
+              type="checkbox"
+              className="setting-checkbox"
+              checked={settings.showSuggestions}
+              onChange={(e) => onUpdate({ showSuggestions: e.target.checked })}
+              data-testid="search-suggestions-toggle"
+            />
+          </div>
         </div>
 
         <div className="modal-footer">

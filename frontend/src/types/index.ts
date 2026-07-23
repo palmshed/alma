@@ -35,6 +35,7 @@ export interface SearchSettings {
   maxResults: number; // 3 - 10
   safeSearch: boolean;
   autoSearch: boolean;
+  showSuggestions: boolean;
 }
 
 export interface ModeOption {

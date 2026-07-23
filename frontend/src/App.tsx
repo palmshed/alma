@@ -49,9 +49,10 @@ function App() {
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
     try {
       const stored = localStorage.getItem('alma_search_settings');
-      return stored ? JSON.parse(stored) : { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true };
+      const defaults = { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true, showSuggestions: false };
+      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
     } catch {
-      return { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true };
+      return { provider: 'auto', maxResults: 5, safeSearch: true, autoSearch: true, showSuggestions: false };
     }
   });
   const [showSearchSettings, setShowSearchSettings] = useState(false);
@@ -456,7 +457,7 @@ function App() {
             </div>
           }
           suggestions={
-            !input && suggestions.length > 0 ? (
+            searchSettings.showSuggestions && !input && suggestions.length > 0 ? (
               <div className="landing-suggestions">
                 {suggestions.map((s) => (
                   <Chip key={s} label={s} onClick={() => { setInput(s); document.querySelector<HTMLTextAreaElement>('.composer-textarea')?.focus(); }} />
