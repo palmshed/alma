@@ -18,6 +18,24 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({ options, value, onChang
   const active = options.find((o) => o.value === value) ?? options[0];
 
   const close = useCallback(() => setOpen(false), []);
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropHeight = options.length * 32 + 12;
+    const top = spaceBelow > dropHeight + 8
+      ? rect.bottom + 4
+      : rect.top - dropHeight - 4;
+    let left = rect.left;
+    const minWidth = rect.width;
+    const menuWidth = Math.max(minWidth, 160);
+    if (left + menuWidth > window.innerWidth - 8) {
+      left = window.innerWidth - menuWidth - 8;
+    }
+    if (left < 8) left = 8;
+    setPos({ top, left, minWidth });
+  }, [options.length]);
 
   useEffect(() => {
     if (!open) return;
@@ -39,29 +57,18 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({ options, value, onChang
   }, [open, close]);
 
   useEffect(() => {
-    if (!open || !triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const dropHeight = options.length * 32 + 12;
-    const top = spaceBelow > dropHeight + 8
-      ? rect.bottom + 4
-      : rect.top - dropHeight - 4;
-    let left = rect.left;
-    const minWidth = rect.width;
-    const menuWidth = Math.max(minWidth, 160);
-    if (left + menuWidth > window.innerWidth - 8) {
-      left = window.innerWidth - menuWidth - 8;
-    }
-    if (left < 8) left = 8;
-    setPos({ top, left, minWidth });
-  }, [open, options.length]);
+    if (open) updatePosition();
+  }, [open, updatePosition]);
 
   return (
     <>
       <button
         ref={triggerRef}
         className="model-menu-trigger"
-        onClick={() => setOpen(v => !v)}
+        onClick={() => {
+          if (!open) updatePosition();
+          setOpen(v => !v);
+        }}
         type="button"
         aria-label={active?.label}
         aria-expanded={open}
