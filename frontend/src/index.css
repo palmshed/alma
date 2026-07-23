@@ -866,7 +866,6 @@ html {
 .settings-dropdown-range::-moz-range-thumb {
   width: 14px;
   height: 14px;
-  margin-top: -5px;
   border: 2px solid var(--surface);
   border-radius: 50%;
   background: var(--accent);
