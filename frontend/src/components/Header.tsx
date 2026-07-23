@@ -249,6 +249,10 @@ const Header: React.FC<HeaderProps> = ({
                       onChange={(e) => onSearchSettingsChange({ maxResults: parseInt(e.target.value, 10) })}
                       className="settings-dropdown-range"
                       data-testid="settings-search-max-results"
+                      aria-valuetext={`${searchSettings.maxResults} results`}
+                      style={{
+                        background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${((searchSettings.maxResults - 3) / 7) * 100}%, var(--border-subtle) ${((searchSettings.maxResults - 3) / 7) * 100}%, var(--border-subtle) 100%)`,
+                      }}
                     />
                     <span className="settings-dropdown-sub-value">{searchSettings.maxResults}</span>
                   </div>
