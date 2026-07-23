@@ -2146,6 +2146,38 @@ def _start_new_conversation(page: "Any") -> None:
         _dismiss_overlay(page)
 
 
+def _submit_message(page: "Any", text: str) -> None:
+    """Fill composer textarea and submit the message reliably.
+
+    Fills the textarea, waits for the send button to become enabled,
+    then clicks it. Falls back to Enter key if the button isn't clickable.
+    """
+    textarea = page.locator("[data-testid='composer-textarea']")
+    if not textarea.count():
+        return
+    textarea.first.fill(text)
+    page.wait_for_timeout(500)
+    send_btn = page.locator("[data-testid='composer-send']")
+    if send_btn.count():
+        try:
+            send_btn.first.wait_for(state="visible", timeout=3000)
+        except Exception:
+            pass
+        # Wait for React to re-render with the new value so button is enabled
+        page.wait_for_timeout(500)
+        is_disabled = send_btn.first.is_disabled()
+        if not is_disabled:
+            send_btn.first.click()
+        else:
+            # Button still disabled — use Enter key as fallback
+            textarea.first.focus()
+            page.keyboard.press("Enter")
+    else:
+        textarea.first.focus()
+        page.keyboard.press("Enter")
+    page.wait_for_timeout(300)
+
+
 def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     """Verify chat mode: select mode, submit, get non-empty response, TTS present."""
     results = []
@@ -2193,20 +2225,20 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     # Type and submit
     textarea = page.locator("[data-testid='composer-textarea']")
     if textarea.count():
-        textarea.first.fill("What is 2+2?")
-        page.wait_for_timeout(200)
-        send_btn = page.locator("[data-testid='composer-send']")
-        if send_btn.count():
-            send_btn.first.click()
-        else:
-            page.keyboard.press("Enter")
+        _submit_message(page, "What is 2+2?")
 
         # Wait for response (non-empty)
         page.wait_for_timeout(10000)
         screenshot_fn("chat-response")
 
-        # Verify response exists (non-empty)
+        # Debug: capture page state on failure
         messages = page.locator(".message-content, .markdown-content")
+        debug_info = ""
+        for i in range(messages.count()):
+            text = messages.nth(i).text_content() or ""
+            debug_info += f"msg[{i}]: {repr(text[:200])}\n"
+
+        # Verify response exists (non-empty)
         has_response = False
         for i in range(messages.count()):
             text = messages.nth(i).text_content() or ""
@@ -2224,7 +2256,7 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                     "chat_response",
                     "Response renders",
                     "fail",
-                    "No non-empty response found",
+                    f"No non-empty response found ({messages.count()} messages: {debug_info.strip()[:200]})",
                     category="Chat",
                 )
             )
@@ -2312,13 +2344,7 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     # Submit search
     textarea = page.locator("[data-testid='composer-textarea']")
     if textarea.count():
-        textarea.first.fill("What is the capital of France?")
-        page.wait_for_timeout(200)
-        send_btn = page.locator("[data-testid='composer-send']")
-        if send_btn.count():
-            send_btn.first.click()
-        else:
-            page.keyboard.press("Enter")
+        _submit_message(page, "What is the capital of France?")
 
         # Wait for SearchProgress
         page.wait_for_timeout(2000)
@@ -2498,13 +2524,7 @@ def _verify_thinking_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     # Submit
     textarea = page.locator("[data-testid='composer-textarea']")
     if textarea.count():
-        textarea.first.fill("Explain recursion in one sentence")
-        page.wait_for_timeout(200)
-        send_btn = page.locator("[data-testid='composer-send']")
-        if send_btn.count():
-            send_btn.first.click()
-        else:
-            page.keyboard.press("Enter")
+        _submit_message(page, "Explain recursion in one sentence")
 
         # Wait for response
         page.wait_for_timeout(10000)
