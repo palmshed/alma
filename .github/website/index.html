@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>alma</title>
+    <meta name="description" content="alma ~ Multimodal AI platform. Built the hard way." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html" class="active">Home</a></li>
+        <li><a href="./app.html">App</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="./download.html">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero">
+      <div class="hero-content">
+        <div class="hero-mark">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4"/>
+            <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3"/>
+            <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35"/>
+            <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14"/>
+          </svg>
+          <span>alma</span>
+        </div>
+        <h1>Multimodal AI platform</h1>
+        <p>A conversational interface for text, images, and web search. Built with Flask, React, and the Gemini SDK. The easy path kept breaking, so we built it the hard way.</p>
+        <div class="hero-actions">
+          <a href="https://palmshed.vercel.app">Open Alma</a>
+          <a href="https://github.com/palmshed/alma">Source</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>The short version</h2>
+        <p>Alma started as a chat box. Then we added search, thinking, voice, images, conversation history, and a settings panel with range sliders that work differently in Firefox and Chromium. Every feature was earned through debugging, not planning.</p>
+        <p>We wrote E2E tests. Fifty out of seventy-seven failed on the first run. The Gemini SDK swallowed errors silently. The API returned empty strings and called it success. The dismiss overlay covered the entire viewport. The textarea lost focus after every keystroke.</p>
+        <p>We fixed it all. Eighty-six out of eighty-six tests pass now.</p>
+      </section>
+
+      <section>
+        <h2>The easy path</h2>
+        <p>The Gemini SDK has a method called <code>generate_text</code>. It looks simple. It is not.</p>
+        <p>When the API returns a 429 rate limit error, the SDK raises a <code>ValueError</code>. Our error handler checked if the error was "recoverable" and returned <code>False</code> for <code>ValueError</code>. So the SDK raised the error, our handler caught it, decided it was not recoverable, and returned a generic 500 to the frontend. The user saw "Internal Server Error" with no explanation.</p>
+        <p>The fix: catch all exceptions except programming errors (<code>TypeError</code>, <code>NameError</code>, <code>AttributeError</code>). Return synthetic text for anything the SDK can recover from. Let real bugs through.</p>
+      </section>
+
+      <section>
+        <h2>The hard parts</h2>
+        <ul>
+          <li><strong>E2E tests</strong> failed because the disclaimer dialog overlay blocked every click. We targeted <code>.disclaimer-dialog .dialog-btn--confirm</code> to dismiss it.</li>
+          <li><strong>Search tests</strong> failed because <code>search_progress</code> was not visible within 5 seconds on slow CI. We added an extended 10-second wait and a dynamic <code>wait_for</code> that checks if the element exists first.</li>
+          <li><strong>Suggestion tests</strong> failed because <code>alma_active_conversation</code> in localStorage caused the app to enter "restoring" mode on reload, rendering a different view without suggestions. We clear it before every reload.</li>
+          <li><strong>Slider tests</strong> failed because Firefox and Chromium handle range inputs differently. Firefox uses <code>::-moz-range-thumb</code> and <code>::-moz-range-track</code>. Chromium uses <code>::-webkit-slider-thumb</code>. We unified them with a single CSS custom property: <code>--range-progress</code>.</li>
+          <li><strong>Bot reviews</strong> from nuntius-review suggested <code>.first.is_visible()</code> instead of <code>is_visible()</code> for Playwright checks. We applied every suggestion.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What works</h2>
+        <ul>
+          <li><strong>Chat</strong>, conversational interface with context across turns.</li>
+          <li><strong>Search</strong>, real-time web search with source citations.</li>
+          <li><strong>Thinking</strong>, step-by-step reasoning for complex questions.</li>
+          <li><strong>Voice</strong>, text-to-speech responses powered by gTTS.</li>
+          <li><strong>Images</strong>, paste or drag images directly into the conversation.</li>
+          <li><strong>History</strong>, conversations persist locally with search and rename.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Resources</h2>
+        <ul>
+          <li><a href="https://github.com/palmshed/alma">GitHub</a></li>
+          <li><a href="https://palmshed.vercel.app">Live app</a></li>
+        </ul>
+        <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+      </section>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+
+      (function() {
+        var input = document.getElementById('alma-input');
+        var submit = document.getElementById('alma-submit');
+        if (!input || !submit) return;
+
+        var placeholders = [
+          'Ask anything...',
+          'Debug a bug...',
+          'Send a message...',
+          'Fix an issue...',
+          'Explore a topic...'
+        ];
+        var idx = 0;
+        function rotatePlaceholder() {
+          input.classList.add('ph-hidden');
+          setTimeout(function() {
+            idx = (idx + 1) % placeholders.length;
+            input.setAttribute('placeholder', placeholders[idx]);
+            input.classList.remove('ph-hidden');
+          }, 800);
+        }
+        setInterval(rotatePlaceholder, 8000);
+
+        function openAlma() {
+          var text = input.value.trim();
+          if (!text) return;
+          window.open('https://palmshed.vercel.app', '_blank');
+        }
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            openAlma();
+          }
+        });
+        submit.addEventListener('click', openAlma);
+      })();
+    </script>
+  </body>
+</html>

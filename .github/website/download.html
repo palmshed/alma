@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Download ~ Alma</title>
+    <meta name="description" content="Download Alma for macOS." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html">App</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="./download.html" class="active">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Download</h1>
+        <p>Alma for macOS. Native Swift app. Connects to the Flask backend.</p>
+        <div class="hero-actions">
+          <a href="https://github.com/palmshed/alma/releases/latest">Download Alma</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Latest release</h2>
+        <p>Version 0.3.5. Released July 8, 2026.</p>
+        <pre><code>Alma-0.3.5.dmg
+1 MB
+SHA256: 3a70c7e89a4177543232421900faca84ccc8ce14561b859e84d507b3e669eb4c</code></pre>
+      </section>
+
+      <section>
+        <h2>Requirements</h2>
+        <ul>
+          <li>macOS 14.0 or later</li>
+          <li>Alma backend running on <code>localhost:8080</code></li>
+          <li>Gemini API key configured in the backend</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Install</h2>
+        <ol>
+          <li>Download the DMG from <a href="https://github.com/palmshed/alma/releases/latest">GitHub Releases</a>.</li>
+          <li>Open the DMG and drag Alma to Applications.</li>
+          <li>Start the backend: <code>./scripts/run-dev.sh all</code></li>
+          <li>Open Alma. It connects to <code>localhost:8080</code> automatically.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>What is included</h2>
+        <ul>
+          <li><strong>NavigationSplitView</strong>, sidebar with conversation list and detail view.</li>
+          <li><strong>Composer</strong>, text input with send button and attachment support.</li>
+          <li><strong>Markdown rendering</strong>, responses render as Markdown using the MarkdownUI library.</li>
+          <li><strong>Conversation management</strong>, create, rename, delete, search, switch.</li>
+          <li><strong>Theme support</strong>, system, light, and dark themes.</li>
+          <li><strong>Auto-titling</strong>, conversations are titled automatically from the first message.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Not included yet</h2>
+        <ul>
+          <li>Search mode</li>
+          <li>Thinking mode</li>
+          <li>Voice playback</li>
+          <li>Image paste and drag-and-drop</li>
+          <li>Keyboard shortcut configuration</li>
+        </ul>
+        <p class="subtext">These features work in the web frontend. The Swift app will get them in future releases.</p>
+      </section>
+
+      <section>
+        <h2>Source</h2>
+        <p>The Swift app source is in the <a href="https://github.com/palmshed/alma">Alma repository</a> under the <code>swift/</code> directory. Built with SwiftUI, Swift Concurrency, and the MarkdownUI library.</p>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

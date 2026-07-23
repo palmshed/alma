@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Search ~ Alma</title>
+    <meta name="description" content="How search works in Alma and how it broke in CI." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html" class="active">App</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="./download.html">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Search</h1>
+        <p>Real-time web search with source citations. The feature that taught us CI is not your laptop.</p>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>How it works</h2>
+        <p>When you select Search mode, your message goes through a search pipeline. The pipeline routes intent, executes the search, and formats results with source URLs. The model then answers using the search results as context.</p>
+        <p>The search progress indicator shows while the search is running. It disappears when the results come back.</p>
+      </section>
+
+      <section>
+        <h2>What broke</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Problem</th>
+              <th>Root cause</th>
+              <th>Fix</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td data-label="Problem">Progress indicator not found in E2E tests</td>
+              <td data-label="Root cause"><code>search_progress</code> was not visible within 5 seconds on slow CI. The element existed but was hidden or not rendered yet.</td>
+              <td data-label="Fix">Extended wait to 10 seconds. Added a dynamic <code>wait_for</code> that checks if the element exists before waiting for it to be visible.</td>
+            </tr>
+            <tr>
+              <td data-label="Problem">Search returned empty results</td>
+              <td data-label="Root cause">The search API timed out on CI. The backend returned an empty array instead of an error.</td>
+              <td data-label="Fix">Added a timeout check in the search pipeline. Return a meaningful error instead of empty results.</td>
+            </tr>
+            <tr>
+              <td data-label="Problem">Citations not rendering</td>
+              <td data-label="Root cause">The search results included URLs but the Markdown renderer did not auto-link them.</td>
+              <td data-label="Fix">Wrapped URLs in Markdown link syntax before passing to the renderer.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>The CI lesson</h2>
+        <p>On a MacBook Pro, the search progress indicator appears in under a second. On GitHub Actions with a Ubuntu runner, it takes 5 to 8 seconds. The E2E tests assumed the MacBook Pro timing.</p>
+        <p>The fix was not just waiting longer. It was checking whether the element exists at all before waiting for it to be visible. If the element does not exist, the test should fail with a clear message, not hang for 10 seconds.</p>
+        <pre><code># Before: always waits 5 seconds
+page.wait_for_selector(".search-progress", state="visible", timeout=5000)
+
+# After: checks existence first, then waits up to 10 seconds
+if page.locator(".search-progress").count() > 0:
+    page.locator(".search-progress").first.wait_for(state="visible", timeout=10000)</code></pre>
+      </section>
+
+      <section>
+        <h2>The macOS app</h2>
+        <p>The Swift app does not have search mode yet. It sends messages through the <code>GenerationAPI</code> which calls <code>/api/generate</code>. The search pipeline lives in the backend and is triggered by the web frontend when Search mode is selected.</p>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

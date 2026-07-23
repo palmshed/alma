@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>App ~ Alma</title>
+    <meta name="description" content="Alma is a multimodal AI platform. Here is what it does and how it broke." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html" class="active">App</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="./download.html">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Alma</h1>
+        <p>A multimodal AI platform. Flask backend, React frontend, Gemini SDK. The macOS Swift app is the current preferred platform. Every feature exists because something else did not work.</p>
+        <div class="hero-actions">
+          <a href="https://palmshed.vercel.app">Open Alma</a>
+          <a href="https://github.com/palmshed/alma">Source</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>Features</h2>
+        <p>Each feature has its own page. Each page tells the real story of how it was built and how it broke.</p>
+        <ul>
+          <li><a href="./chat.html">Chat</a>, the original feature. Send a message, get a response. It looks simple until you try to make it reliable.</li>
+          <li><a href="./search.html">Search</a>, real-time web search with source citations. The feature that taught us CI is not your laptop.</li>
+          <li><a href="./thinking.html">Thinking</a>, watch the model reason step by step. The feature that returned empty strings and called it success.</li>
+          <li><a href="./voice.html">Voice</a>, text-to-speech powered by gTTS. The feature with a race condition in the audio player.</li>
+          <li><a href="./images.html">Images</a>, paste or drag images into the conversation. The feature that opened images in a new tab.</li>
+          <li><a href="./history.html">History</a>, conversations persist locally. The feature that broke every E2E test after reload.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The macOS app</h2>
+        <p>The Swift app is built with SwiftUI. It connects to the same Flask backend as the web frontend. It uses <code>NavigationSplitView</code> for the sidebar and detail view. The composer is a <code>TextField</code> with a send button. Messages render as Markdown.</p>
+        <p>The conversation service uses <code>@Observable</code> for state management. It handles create, select, rename, delete, and send operations. The settings view has a theme picker and keyboard shortcuts placeholder.</p>
+        <pre><code>NavigationSplitView {
+    SidebarView(service: service)
+} detail: {
+    ConversationView(service: service)
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>Keyboard shortcuts</h2>
+        <pre><code>Cmd + N    New conversation
+/          Start a new conversation (web)
+Ctrl + K   Open search (web)</code></pre>
+      </section>
+
+      <section>
+        <h2>Models</h2>
+        <p>Uses Gemini via the Google AI SDK. The default model is selected automatically. The SDK raises <code>ValueError</code> for rate limits instead of returning a proper error response. We catch everything except programming errors and return synthetic text for recoverable failures.</p>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>

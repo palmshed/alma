@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Images ~ Alma</title>
+    <meta name="description" content="How images work in Alma and the drag-and-drop problem." />
+    <link rel="stylesheet" href="./styles.css" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  </head>
+  <body>
+    <nav>
+      <span class="nav-mark">alma</span>
+      <ul class="nav-links" id="nav">
+        <li><a href="./index.html">Home</a></li>
+        <li><a href="./app.html" class="active">App</a></li>
+        <li><a href="./support.html">Support</a></li>
+        <li><a href="./download.html">Download</a></li>
+      </ul>
+      <button class="mobile-menu-toggle" aria-label="Menu" aria-expanded="false">Menu</button>
+    </nav>
+
+    <div class="hero hero-short">
+      <div class="hero-content">
+        <h1>Images</h1>
+        <p>Paste or drag images into the conversation. The feature that opened images in a new tab.</p>
+      </div>
+    </div>
+
+    <div class="page">
+      <section>
+        <h2>How it works</h2>
+        <p>You can paste images from the clipboard or drag them into the composer. The image is sent to the backend as a base64-encoded string. The backend includes it in the Gemini API request. The model processes the image and responds.</p>
+        <p>Supported formats: JPEG, PNG, GIF, WebP. Maximum size: 20MB.</p>
+      </section>
+
+      <section>
+        <h2>The drag-and-drop problem</h2>
+        <p>The first version only supported clipboard paste. We added drag-and-drop later. The browser's default behavior for dropped files is to open them in a new tab. We needed to prevent that and extract the file from the <code>dataTransfer</code> object instead.</p>
+        <pre><code>// Prevent default browser behavior
+function handleDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        processImage(files[0]);
+    }
+}</code></pre>
+        <p>The fix was five lines of code. But we did not find it until we tested on a real browser. The E2E tests do not cover drag-and-drop because Playwright's drag-and-drop API does not trigger the browser's default behavior.</p>
+      </section>
+
+      <section>
+        <h2>Clipboard paste</h2>
+        <p>Clipboard paste works differently. The browser fires a <code>paste</code> event with the clipboard data. We check for image data in the <code>clipboardData.items</code> array. If found, we extract the file and process it.</p>
+        <p>The paste handler also needs to prevent the default behavior to avoid pasting the image as text into the textarea.</p>
+      </section>
+
+      <section>
+        <h2>The macOS app</h2>
+        <p>The Swift app has an attachment button in the composer. It uses <code>NSOpenPanel</code> to select image files. The selected file is sent to the backend as an attachment. The <code>Attachment</code> model stores the file metadata: filename, MIME type, size, checksum, and storage key.</p>
+        <pre><code>struct Attachment: Codable {
+    let id: String
+    let filename: String
+    let mimeType: String
+    let size: Int
+    let checksum: String
+    let storageKey: String
+    let createdAt: String
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>What broke in E2E</h2>
+        <ul>
+          <li><strong>Image upload button</strong>, the file input was hidden behind a styled button. Playwright could not click it directly. We used <code>page.set_input_files()</code> to set the file programmatically.</li>
+          <li><strong>Image preview</strong>, the image preview loaded asynchronously. The test tried to assert the preview before it rendered. We added a <code>wait_for_selector</code> for the preview element.</li>
+        </ul>
+      </section>
+      <p class="feedback">Found something unexpected? <a href="https://github.com/palmshed/alma/issues">Report an issue</a>.</p>
+    </div>
+
+    <footer>
+      <p>&copy; 2026 Palmshed</p>
+      <ul class="footer-links">
+        <li><a href="./contact.html">Contact</a></li>
+        <li><a href="./trademark.html">Trademark</a></li>
+        <li><a href="./privacy.html">Privacy</a></li>
+        <li><a href="./terms.html">Terms</a></li>
+      </ul>
+    </footer>
+
+    <script>
+      (function() {
+        var toggle = document.querySelector('.mobile-menu-toggle');
+        var nav = document.getElementById('nav');
+        if (!toggle || !nav) return;
+        function sync() { toggle.setAttribute('aria-expanded', nav.classList.contains('active')); }
+        toggle.addEventListener('click', function(e) {
+          e.stopPropagation();
+          nav.classList.toggle('active');
+          sync();
+        });
+        document.addEventListener('click', function(e) {
+          if (nav.classList.contains('active') && !nav.contains(e.target) && e.target !== toggle) {
+            nav.classList.remove('active');
+            sync();
+          }
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape' && nav.classList.contains('active')) {
+            nav.classList.remove('active');
+            sync();
+            toggle.focus();
+          }
+        });
+      })();
+    </script>
+  </body>
+</html>
