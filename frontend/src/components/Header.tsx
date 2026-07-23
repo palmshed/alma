@@ -91,7 +91,7 @@ const Header: React.FC<HeaderProps> = ({
       document.removeEventListener('mousedown', handler);
       document.removeEventListener('keydown', keyHandler);
     };
-  }, [open, close, calcMenuPos, showSearch, showSuggestions]);
+  }, [open, close, calcMenuPos, showSearch]);
 
   useEffect(() => {
     if (!open) return;
