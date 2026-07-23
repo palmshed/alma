@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 // SPDX-License-Identifier: MIT
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 
@@ -34,7 +34,12 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({ options, value, onChang
       left = window.innerWidth - menuWidth - 8;
     }
     if (left < 8) left = 8;
-    setPos({ top, left, minWidth });
+      setPos((prev) => {
+        if (prev.top === top && prev.left === left && prev.minWidth === minWidth) {
+          return prev;
+        }
+        return { top, left, minWidth };
+      });
   }, [options.length]);
 
   useEffect(() => {
@@ -56,7 +61,7 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({ options, value, onChang
     };
   }, [open, close]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) updatePosition();
   }, [open, updatePosition]);
 
