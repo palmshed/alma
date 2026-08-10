@@ -55,7 +55,9 @@ include = ["backend*", "palmshed_ai*", "services*"]
 
 [tool.pytest.ini_options]
 testpaths = ["src/backend/tests"]
-filterwarnings = []
+filterwarnings = [
+    "ignore::DeprecationWarning:google.genai.types",
+]
 
 [tool.uv]
 package = true

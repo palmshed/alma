@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
-# This module defines the API routes for the Gemini AI Search application,
+# This module defines the API routes for the Alma AI application,
 # including text generation, thinking mode, URL context, TTS, and image generation.
 
 from flask import Blueprint, request, jsonify, send_file, after_this_request, Response
@@ -12,10 +12,13 @@ import logging
 from typing import Any, cast, Dict, Tuple, Union
 from ..image_models import ImageStatus
 from ..search import SearchService
-from ..sdk import GeminiAI
+from ..providers.base import AIProviderError
+from ..router import router as ai
 
 
 def _error_response(e: Exception) -> Tuple[Response, int]:
+    if isinstance(e, AIProviderError):
+        return jsonify(e.to_dict()), e.http_error_status()
     msg = str(e)
     status = 429 if "429" in msg or "RESOURCE_EXHAUSTED" in msg else 500
     return jsonify({"error": msg}), status
@@ -31,7 +34,6 @@ def is_safe_path(base_path: str, target_path: str) -> bool:
         return False
 
 
-ai = GeminiAI()
 search_service = SearchService()
 api_bp = Blueprint("api", __name__)
 
@@ -86,7 +88,8 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
         mode = data.get("mode", "auto")
-        provider = data.get("provider", "auto")
+        ai_provider = data.get("ai_provider")
+        search_provider = data.get("provider", "auto")
         max_results = int(data.get("max_results", 5))
         safe_search = bool(data.get("safe_search", True))
         is_stream = bool(
@@ -110,7 +113,7 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
             query=user_query,
             messages=messages,
             mode=mode,
-            provider_name=provider,
+            provider_name=search_provider,
             max_results=max_results,
             safe_search=safe_search,
         )
@@ -120,17 +123,23 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
         steps = pipeline_result.get("search_steps", [])
         grounded_context = pipeline_result.get("grounded_context", "")
 
+        info: Dict[str, Any] = {}
+
         if intent == "chat" or not grounded_context:
             lang_instruction = _language_instruction(data.get("language"))
             if messages:
                 full_response = ai.generate_chat(
-                    _prepend_instruction(messages, lang_instruction)
+                    _prepend_instruction(messages, lang_instruction),
+                    info=info,
+                    provider=ai_provider,
                 )
             else:
                 full_response = ai.generate_text(
                     f"{lang_instruction}\n{user_query}"
                     if lang_instruction
-                    else user_query
+                    else user_query,
+                    info=info,
+                    provider=ai_provider,
                 )
         else:
             lang_instruction = _language_instruction(data.get("language"))
@@ -146,10 +155,14 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 augmented = [{"role": "user", "content": system_instruction}] + list(
                     messages
                 )
-                full_response = ai.generate_chat(augmented)
+                full_response = ai.generate_chat(
+                    augmented, info=info, provider=ai_provider
+                )
             else:
                 full_response = ai.generate_text(
-                    f"{system_instruction}\nUSER REQUEST: {user_query}"
+                    f"{system_instruction}\nUSER REQUEST: {user_query}",
+                    info=info,
+                    provider=ai_provider,
                 )
 
         if is_stream:
@@ -165,7 +178,7 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                     for i, w in enumerate(words):
                         chunk = w + (" " if i < len(words) - 1 else "")
                         yield f"data: {json.dumps({'type': 'chunk', 'delta': chunk})}\n\n"
-                    yield f"data: {json.dumps({'type': 'done', 'intent': intent, 'metrics': pipeline_result.get('metrics', {})})}\n\n"
+                    yield f"data: {json.dumps({'type': 'done', 'intent': intent, 'metrics': pipeline_result.get('metrics', {}), 'provider': info.get('provider'), 'model': info.get('model'), 'fallback_used': info.get('fallback_used')})}\n\n"
                 except GeneratorExit:
                     logging.info(
                         "Client disconnected / aborted stream via AbortController."
@@ -180,6 +193,9 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 "search_steps": steps,
                 "intent": intent,
                 "metrics": pipeline_result.get("metrics", {}),
+                "provider": info.get("provider"),
+                "model": info.get("model"),
+                "fallback_used": info.get("fallback_used"),
             }
         )
 
@@ -195,6 +211,7 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
         mode = data.get("mode")
+        ai_provider = data.get("ai_provider")
 
         if mode in ("search", "auto", "code") or data.get("search"):
             return search_and_generate()
@@ -203,9 +220,12 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
             return jsonify({"error": "No prompt provided"}), 400
 
         lang_instruction = _language_instruction(data.get("language"))
+        info: Dict[str, Any] = {}
         if messages:
             response = ai.generate_chat(
-                _prepend_instruction(messages, lang_instruction)
+                _prepend_instruction(messages, lang_instruction),
+                info=info,
+                provider=ai_provider,
             )
         else:
             if not prompt:
@@ -213,9 +233,11 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             response = ai.generate_text(
-                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt,
+                info=info,
+                provider=ai_provider,
             )
-        return jsonify({"response": response})
+        return jsonify({"response": response, **info})
 
     except Exception as e:
         logging.error(f"Error in generate_response: {e}")
@@ -228,14 +250,18 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        ai_provider = data.get("ai_provider")
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
         lang_instruction = _language_instruction(data.get("language"))
+        info: Dict[str, Any] = {}
         if messages:
             result = ai.generate_chat_with_thinking(
-                _prepend_instruction(messages, lang_instruction)
+                _prepend_instruction(messages, lang_instruction),
+                info=info,
+                provider=ai_provider,
             )
         else:
             if not prompt:
@@ -243,9 +269,14 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             result = ai.generate_text_with_thinking(
-                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt,
+                info=info,
+                provider=ai_provider,
             )
-        return jsonify(result)
+        resp = jsonify(result)
+        resp.headers["X-Alma-Provider"] = str(info.get("provider") or "")
+        resp.headers["X-Alma-Model"] = str(info.get("model") or "")
+        return resp
 
     except Exception as e:
         logging.error(f"Error in generate_response_with_thinking: {e}")
@@ -258,14 +289,18 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
         data = cast(Dict[str, Any], request.get_json() or {})
         prompt = data.get("prompt", "").strip()
         messages = data.get("messages")
+        ai_provider = data.get("ai_provider")
 
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
         lang_instruction = _language_instruction(data.get("language"))
+        info: Dict[str, Any] = {}
         if messages:
             response = ai.generate_chat_with_url_context(
-                _prepend_instruction(messages, lang_instruction)
+                _prepend_instruction(messages, lang_instruction),
+                info=info,
+                provider=ai_provider,
             )
         else:
             if not prompt:
@@ -273,9 +308,11 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
             response = ai.generate_text_with_url_context(
-                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt,
+                info=info,
+                provider=ai_provider,
             )
-        return jsonify({"response": response})
+        return jsonify({"response": response, **info})
 
     except Exception as e:
         logging.error(f"Error in generate_response_with_url_context: {e}")
@@ -481,7 +518,6 @@ def review_diff() -> Union[Response, Tuple[Response, int]]:
         ]
         review = ai.generate_chat(messages)
         return jsonify({"review": review})
-
     except Exception as e:
         logging.error(f"Error in review_diff: {e}")
         return _error_response(e)
@@ -493,4 +529,6 @@ def health_check():
     from services import platform
 
     h = platform.health()
-    return jsonify(h.to_dict())
+    data = h.to_dict()
+    data["ai"] = ai.status()
+    return jsonify(data)

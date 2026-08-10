@@ -312,6 +312,18 @@ def classify_response(status: int, body: Any) -> str:
     return INFRASTRUCTURE
 
 
+def header_value(
+    headers: Optional[Dict[str, str]], name: str
+) -> Optional[str]:
+    """Case-insensitive header lookup."""
+    if not headers:
+        return None
+    for key, value in headers.items():
+        if key.lower() == name.lower():
+            return value
+    return None
+
+
 def check_health(config: Dict[str, str]) -> Dict[str, Any]:
     result: Dict[str, Any] = {
         "name": "health",
@@ -342,10 +354,13 @@ def check_health(config: Dict[str, str]) -> Dict[str, Any]:
         result["error"] = f"mail config invalid: {mail}"
         return result
 
+    ai_info = body.get("ai", {}) or {}
     result["status"] = "pass"
     result["details"] = {
         "mail_provider": mail.get("provider"),
         "from_email": mail.get("from_email"),
+        "provider": ai_info.get("provider"),
+        "fallback": ai_info.get("fallback"),
     }
     return result
 
@@ -383,7 +398,10 @@ def check_canvas(config: Dict[str, str]) -> Dict[str, Any]:
         return result
 
     result["status"] = "pass"
-    result["details"] = {"model": "gemini-2.5-flash"}
+    result["details"] = {
+        "provider": body.get("provider"),
+        "model": body.get("model"),
+    }
     return result
 
 
@@ -426,7 +444,8 @@ def check_thinking(config: Dict[str, str]) -> Dict[str, Any]:
     thinking = body.get("thinking_summary", [])
     details: Dict[str, Any] = {
         "has_thinking_summary": len(thinking) > 0,
-        "model": "gemini-2.5-flash",
+        "provider": header_value(headers, "X-Alma-Provider"),
+        "model": header_value(headers, "X-Alma-Model"),
     }
 
     result["status"] = "pass"
@@ -469,7 +488,11 @@ def check_web(config: Dict[str, str]) -> Dict[str, Any]:
         return result
 
     result["status"] = "pass"
-    result["details"] = {"url_context": "ok", "model": "gemini-2.5-flash"}
+    result["details"] = {
+        "url_context": "ok",
+        "provider": body.get("provider"),
+        "model": body.get("model"),
+    }
     return result
 
 
@@ -890,15 +913,7 @@ def check_context(config: Dict[str, str]) -> Dict[str, Any]:
         "status": "fail",
     }
     t0 = time.time()
-    from palmshed_ai.sdk import GeminiAI
-
-    try:
-        ai = GeminiAI()
-    except (ValueError, Exception) as e:
-        result["status"] = "skip"
-        result["warning"] = f"Cannot initialise SDK: {e}"
-        result["latency"] = round(time.time() - t0, 1)
-        return result
+    from palmshed_ai.router import router as ai
 
     try:
         messages = [
@@ -907,7 +922,8 @@ def check_context(config: Dict[str, str]) -> Dict[str, Any]:
             {"role": "user", "content": "What is my name?"},
         ]
 
-        response = ai.generate_chat(messages)
+        info: Dict[str, Any] = {}
+        response = ai.generate_chat(messages, info=info)
         if not response:
             result["error"] = "generate_chat returned empty response"
             return result
@@ -921,12 +937,14 @@ def check_context(config: Dict[str, str]) -> Dict[str, Any]:
             result["status"] = "pass"
             result["details"] = {
                 "response_preview": response[:200],
+                "provider": info.get("provider"),
                 "note": "Context sent but model did not reference prior turn",
             }
         else:
             result["status"] = "pass"
             result["details"] = {
                 "response_preview": response[:200],
+                "provider": info.get("provider"),
                 "context_verified": True,
             }
 
@@ -1011,6 +1029,13 @@ def run_checks(
         r["status"] == "pass" for r in app_results if r.get("category") == QUOTA
     )
 
+    providers: List[str] = []
+    for r in results:
+        details = r.get("details") or {}
+        p = details.get("provider")
+        if p and p not in providers:
+            providers.append(p)
+
     return {
         "results": results,
         "passed": sum(1 for r in results if r["status"] == "pass"),
@@ -1019,6 +1044,7 @@ def run_checks(
         "platform_quota": platform_quota,
         "infrastructure_pass": infra_pass,
         "quota_pass": quota_pass,
+        "providers": providers,
     }
 
 
@@ -1074,6 +1100,8 @@ def format_human(results: Dict[str, Any]) -> str:
     )
     if results.get("quota_pass") is not None:
         lines.append(f"  Quota:      {'PASS' if results['quota_pass'] else 'FAILED'}")
+    if results.get("providers"):
+        lines.append(f"  Provider:   {', '.join(results['providers'])}")
     lines.append(f"  Total:      {results['passed']}/{results['total']} passed")
     lines.append("")
 
