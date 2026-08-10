@@ -25,6 +25,7 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -36,7 +37,7 @@ async function request<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${API_BASE}${path}`, { credentials: 'include' });
   if (!res.ok) {
     const msg = (await res.json().catch(() => ({}))).error || res.statusText;
     throw new Error(msg);
@@ -48,6 +49,7 @@ async function apiPut<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(body),
   });
   if (!res.ok) {
@@ -58,7 +60,7 @@ async function apiPut<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function apiDelete(path: string): Promise<void> {
-  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE' });
+  const res = await fetch(`${API_BASE}${path}`, { method: 'DELETE', credentials: 'include' });
   if (!res.ok) {
     const msg = (await res.json().catch(() => ({}))).error || res.statusText;
     throw new Error(msg);
@@ -112,6 +114,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/generate-image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ prompt }),
     });
     if (!res.ok) {
@@ -126,6 +129,7 @@ export const api = {
     const res = await fetch(`${API_BASE}/api/text-to-speech`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ text }),
     });
     if (!res.ok) {
@@ -141,6 +145,7 @@ export const api = {
     formData.append('file', file);
     const res = await fetch(`${API_BASE}/api/attachments`, {
       method: 'POST',
+      credentials: 'include',
       body: formData,
     });
     if (!res.ok) {
@@ -153,6 +158,7 @@ export const api = {
   async deleteAttachment(id: string): Promise<void> {
     const res = await fetch(`${API_BASE}/api/attachments/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
     if (!res.ok && res.status !== 404) {
       throw new Error('Failed to delete attachment');
