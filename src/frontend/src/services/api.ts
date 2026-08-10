@@ -5,22 +5,6 @@ import type { ApiThinkingResult, AttachmentData, ConversationEntry, Conversation
 const API_BASE =
   import.meta.env.DEV ? 'http://localhost:8000' : '';
 
-export class ApiError extends Error {
-  status: number;
-  retryAfter?: number;
-
-  constructor(msg: string, status: number, retryAfter?: number) {
-    super(msg);
-    this.name = 'ApiError';
-    this.status = status;
-    this.retryAfter = retryAfter;
-  }
-}
-
-export function isQuotaError(err: unknown): err is ApiError {
-  return err instanceof ApiError && (err.status === 429 || err.status === 503);
-}
-
 async function request<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
@@ -30,8 +14,7 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   });
   if (!res.ok) {
     const msg = (await res.json().catch(() => ({}))).error || res.statusText;
-    const retryAfter = res.headers.get('Retry-After');
-    throw new ApiError(msg, res.status, retryAfter ? parseInt(retryAfter, 10) : undefined);
+    throw new Error(msg);
   }
   return res.json();
 }
@@ -68,8 +51,8 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string, messages?: MessageData[], model?: string, mode?: string, language?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt, messages, model, mode, language }).then(
+  generate(prompt: string, messages?: MessageData[], mode?: string, language?: string, aiProvider?: string): Promise<string> {
+    return request<{ response: string }>('/api/generate', { prompt, messages, mode, language, ai_provider: aiProvider }).then(
       (d) => d.response,
     );
   },
@@ -83,6 +66,7 @@ export const api = {
       max_results?: number;
       safe_search?: boolean;
       language?: string;
+      ai_provider?: string;
     },
   ): Promise<import('../types').ApiSearchResult> {
     return request<import('../types').ApiSearchResult>('/api/search', {
@@ -93,24 +77,19 @@ export const api = {
       max_results: options?.max_results ?? 5,
       safe_search: options?.safe_search ?? true,
       language: options?.language || 'auto',
+      ai_provider: options?.ai_provider,
     });
   },
 
   generateWithThinking(
     prompt: string,
     messages?: MessageData[],
-    model?: string,
     language?: string,
+    aiProvider?: string,
   ): Promise<ApiThinkingResult> {
     return request<ApiThinkingResult>('/api/generate-with-thinking', {
-      prompt, messages, model, language,
+      prompt, messages, language, ai_provider: aiProvider,
     });
-  },
-
-  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string, language?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate-with-url-context', {
-      prompt, messages, model, language,
-    }).then((d) => d.response);
   },
 
   async generateImage(prompt: string): Promise<Blob> {

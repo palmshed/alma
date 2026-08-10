@@ -50,6 +50,13 @@ export interface ModelOption {
   shortLabel?: string;
 }
 
+export interface ModelAvailability {
+  state: 'ready' | 'cooling-down' | 'unavailable';
+  reason?: string;
+}
+
+export type ModelAvailabilityState = Record<string, ModelAvailability>;
+
 export interface ConversationEntry {
   id: string;
   title: string;
@@ -72,13 +79,6 @@ export interface MessageData {
   search_steps?: string[] | null;
   intent?: string;
   thinking_duration_sec?: number;
-}
-
-export type ModelAvailabilityState = 'ready' | 'cooling-down' | 'unavailable';
-
-export interface ModelAvailability {
-  state: ModelAvailabilityState;
-  availableAt?: number;
 }
 
 export interface ConversationData {

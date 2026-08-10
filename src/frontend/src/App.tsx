@@ -18,9 +18,9 @@ import SourceCards from './components/SourceCards';
 import SearchProgress from './components/SearchProgress';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound, getModelLabel, resolveModel } from './utils';
+import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
 import { api } from './services/api';
-import { AttachmentData, ConversationData, ModelAvailability, SearchSettings } from './types';
+import { AttachmentData, ConversationData, SearchSettings } from './types';
 
 const PLACEHOLDERS = [
   'Ask anything...',
@@ -47,7 +47,6 @@ function removeStorage(key: string): void {
 
 function App() {
   const [mode, setMode] = useState('search');
-  const [selectedModel, setSelectedModel] = useState(MODELS[0].value);
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
     try {
       const stored = localStorage.getItem('alma_search_settings');
@@ -68,33 +67,10 @@ function App() {
   const [placeholderIndex, setPlaceholderIndex] = useState(Math.floor(Math.random() * PLACEHOLDERS.length));
   const [placeholderVisible, setPlaceholderVisible] = useState(true);
   const { input, setInput, clear: composerClear } = useComposer();
-  const [modelAvailability, setModelAvailability] = useState<Record<string, ModelAvailability>>({});
   const {
     messages, isLoading, conversationStarted, error,
     submit, clear: conversationClear, loadConversation, getMessages,
-  } = useConversation({
-    autoMode: selectedModel === 'auto',
-    getFallbackModel: (failedModel) => {
-      const next = resolveModel(selectedModel, modelAvailability);
-      return next !== failedModel ? next : undefined;
-    },
-    onQuotaError: (model, retryAfter) => {
-      if (retryAfter) {
-        setModelAvailability(prev => ({
-          ...prev,
-          [model]: { state: 'cooling-down', availableAt: Date.now() + retryAfter * 1000 },
-        }));
-        setTimeout(() => {
-          setModelAvailability(prev => ({ ...prev, [model]: { state: 'ready' } }));
-        }, retryAfter * 1000);
-      } else {
-        setModelAvailability(prev => ({
-          ...prev,
-          [model]: { state: 'unavailable' },
-        }));
-      }
-    },
-  });
+  } = useConversation();
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (document.documentElement.getAttribute('data-theme') as 'dark' | 'light') || 'dark'
   );
@@ -103,6 +79,9 @@ function App() {
   });
   const [language, setLanguage] = useState<string>(() => {
     try { return localStorage.getItem('alma_language') || 'auto'; } catch { return 'auto'; }
+  });
+  const [model, setModel] = useState<string>(() => {
+    try { return localStorage.getItem('alma_model') || 'auto'; } catch { return 'auto'; }
   });
   const [pendingAttachments, setPendingAttachments] = useState<AttachmentData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,7 +119,6 @@ function App() {
       setActiveConversationId(storedId);
       loadConversation(conv);
       if (conv.mode) setMode(conv.mode);
-      if (conv.model) setSelectedModel(conv.model);
     }).catch(() => {
       if (!cancelled) removeStorage(STORAGE_ACTIVE_CONV);
     }).finally(() => {
@@ -203,6 +181,10 @@ function App() {
     try { localStorage.setItem('alma_language', language); } catch {}
   }, [language]);
 
+  useEffect(() => {
+    try { localStorage.setItem('alma_model', model); } catch {}
+  }, [model]);
+
   const handleNavigate = useCallback((page: string) => {
     setSidebarOpen(false);
     setCurrentPage(page);
@@ -252,7 +234,6 @@ function App() {
     composerClear();
     setPendingAttachments([]);
     lastPromptRef.current = text;
-    const actualModel = resolveModel(selectedModel, modelAvailability);
     const userMessage = {
       role: 'user' as const,
       content: text,
@@ -262,7 +243,7 @@ function App() {
 
     /* Update the interface before waiting for Vercel to persist the conversation. */
     const currentMsgs = getMessages();
-    const generation = submit(text, mode, currentMsgs, atts, actualModel, language);
+    const generation = submit(text, mode, currentMsgs, atts, language, model);
     const existingConversation = activeConversationRef.current;
     const savedConversation = existingConversation
       ? Promise.resolve({
@@ -273,7 +254,6 @@ function App() {
       : api.createConversation({
         title: text.slice(0, 60),
         mode,
-        model: actualModel,
         messages: [userMessage],
         metadata: { status: 'pending' },
       }).then((conversation) => {
@@ -297,7 +277,7 @@ function App() {
       .catch(() => {
         /* The visible conversation remains available if background persistence fails. */
       });
-  }, [submit, mode, selectedModel, composerClear, messages, pendingAttachments, modelAvailability, getMessages, language]);
+  }, [submit, mode, composerClear, messages, pendingAttachments, getMessages, language, model]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -507,15 +487,7 @@ function App() {
             ) : undefined
           }
           modes={
-            <div className={`composer-toolbar${MODELS.length <= 1 ? ' composer-toolbar--no-model' : ''}${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
-              {MODELS.length > 1 && (
-                <ModelMenu
-                  options={MODELS}
-                  value={selectedModel}
-                  onChange={setSelectedModel}
-                  availability={modelAvailability}
-                />
-              )}
+            <div className={`composer-toolbar${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
               {MODES.length > 1 && (
                 <ModeMenu
                   options={MODES}
@@ -523,6 +495,11 @@ function App() {
                   onChange={setMode}
                 />
               )}
+              <ModelMenu
+                options={MODELS}
+                value={model}
+                onChange={setModel}
+              />
             </div>
           }
         />
@@ -567,11 +544,6 @@ function App() {
                 if (msg.role === 'assistant') {
                   return (
                     <React.Fragment key={i}>
-                      {msg.model && (
-                        <div className={`response-model${msg.metadata?.autoFallback ? ' response-model--fallback' : ''}`}>
-                          <>{getModelLabel(msg.model)}{msg.metadata?.autoFallback && <span className="response-model-badge"> Auto fallback</span>}</>
-                        </div>
-                      )}
                       {msg.thinking && <ThinkingContainer content={msg.thinking} durationSec={msg.thinking_duration_sec} />}
                       {msg.image ? (
                         <ImageContainer imageUrl={msg.image} />
@@ -631,15 +603,7 @@ function App() {
                   </div>
                 )}
               </div>
-              <div className={`composer-toolbar${MODELS.length <= 1 ? ' composer-toolbar--no-model' : ''}${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
-                {MODELS.length > 1 && (
-                  <ModelMenu
-                    options={MODELS}
-                    value={selectedModel}
-                    onChange={setSelectedModel}
-                    availability={modelAvailability}
-                  />
-                )}
+              <div className={`composer-toolbar${MODES.length <= 1 ? ' composer-toolbar--no-mode' : ''}`}>
                 {MODES.length > 1 && (
                   <ModeMenu
                     options={MODES}
@@ -647,6 +611,11 @@ function App() {
                     onChange={setMode}
                   />
                 )}
+                <ModelMenu
+                  options={MODELS}
+                  value={model}
+                  onChange={setModel}
+                />
               </div>
             </>
           }
@@ -664,7 +633,6 @@ function App() {
             setActiveConversationId(id);
             loadConversation(conv);
             if (conv.mode) setMode(conv.mode);
-            if (conv.model) setSelectedModel(conv.model);
           }).catch(() => {});
         }}
         onDeleteConversation={async () => {
