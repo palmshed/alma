@@ -35,6 +35,41 @@ ai = GeminiAI()
 search_service = SearchService()
 api_bp = Blueprint("api", __name__)
 
+# Languages users can select as their response preference.
+# Auto-detect (default) means no instruction is sent; the model answers in
+# the language of the user's message.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "bn": "Bengali",
+    "hi": "Hindi",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "mr": "Marathi",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "zh": "Chinese",
+    "ja": "Japanese",
+}
+
+
+def _language_instruction(language: Any) -> str:
+    """Return a short instruction forcing the response language, or '' for auto."""
+    if not language or language == "auto":
+        return ""
+    name = LANGUAGE_NAMES.get(str(language))
+    if not name:
+        return ""
+    return f"Respond entirely in {name}."
+
+
+def _prepend_instruction(messages: Any, instruction: str) -> Any:
+    """Prepend a synthetic user message carrying the instruction, if any."""
+    if not instruction or not messages:
+        return messages
+    return [{"role": "user", "content": instruction}] + list(messages)
+
+
 # Create directories for temporary files
 TEMP_AUDIO_DIR = os.path.join(tempfile.gettempdir(), "gemini_tts")
 os.makedirs(TEMP_AUDIO_DIR, exist_ok=True)
@@ -86,17 +121,27 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
         grounded_context = pipeline_result.get("grounded_context", "")
 
         if intent == "chat" or not grounded_context:
+            lang_instruction = _language_instruction(data.get("language"))
             if messages:
-                full_response = ai.generate_chat(messages)
+                full_response = ai.generate_chat(
+                    _prepend_instruction(messages, lang_instruction)
+                )
             else:
-                full_response = ai.generate_text(user_query)
+                full_response = ai.generate_text(
+                    f"{lang_instruction}\n{user_query}"
+                    if lang_instruction
+                    else user_query
+                )
         else:
+            lang_instruction = _language_instruction(data.get("language"))
             system_instruction = (
                 "You are Alma, an intelligent coding and research assistant. "
                 "Answer the user's prompt grounded in the provided web search context. "
                 "Synthesize clear answers with relevant citations.\n\n"
                 f"SEARCH SOURCES:\n{grounded_context}\n"
             )
+            if lang_instruction:
+                system_instruction = f"{lang_instruction}\n\n{system_instruction}"
             if messages:
                 augmented = [{"role": "user", "content": system_instruction}] + list(
                     messages
@@ -157,14 +202,19 @@ def generate_response() -> Union[Response, Tuple[Response, int]]:
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
+        lang_instruction = _language_instruction(data.get("language"))
         if messages:
-            response = ai.generate_chat(messages)
+            response = ai.generate_chat(
+                _prepend_instruction(messages, lang_instruction)
+            )
         else:
             if not prompt:
                 return jsonify({"error": "No prompt provided"}), 400
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-            response = ai.generate_text(prompt)
+            response = ai.generate_text(
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+            )
         return jsonify({"response": response})
 
     except Exception as e:
@@ -182,14 +232,19 @@ def generate_response_with_thinking() -> Union[Response, Tuple[Response, int]]:
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
+        lang_instruction = _language_instruction(data.get("language"))
         if messages:
-            result = ai.generate_chat_with_thinking(messages)
+            result = ai.generate_chat_with_thinking(
+                _prepend_instruction(messages, lang_instruction)
+            )
         else:
             if not prompt:
                 return jsonify({"error": "No prompt provided"}), 400
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-            result = ai.generate_text_with_thinking(prompt)
+            result = ai.generate_text_with_thinking(
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+            )
         return jsonify(result)
 
     except Exception as e:
@@ -207,14 +262,19 @@ def generate_response_with_url_context() -> Union[Response, Tuple[Response, int]
         if not prompt and not messages:
             return jsonify({"error": "No prompt provided"}), 400
 
+        lang_instruction = _language_instruction(data.get("language"))
         if messages:
-            response = ai.generate_chat_with_url_context(messages)
+            response = ai.generate_chat_with_url_context(
+                _prepend_instruction(messages, lang_instruction)
+            )
         else:
             if not prompt:
                 return jsonify({"error": "No prompt provided"}), 400
             if len(prompt) > 5000:
                 return jsonify({"error": "Prompt too long (max 5000 chars)"}), 400
-            response = ai.generate_text_with_url_context(prompt)
+            response = ai.generate_text_with_url_context(
+                f"{lang_instruction}\n{prompt}" if lang_instruction else prompt
+            )
         return jsonify({"response": response})
 
     except Exception as e:

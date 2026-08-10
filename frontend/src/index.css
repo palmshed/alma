@@ -541,7 +541,6 @@ html {
   justify-content: space-between;
   height: 40px;
   padding: 0 24px;
-  border-bottom: 1px solid var(--border-header);
   background: var(--bg);
   position: sticky;
   top: 0;
@@ -675,6 +674,7 @@ html {
   background: none;
   color: var(--text-secondary);
   font-size: 0.82rem;
+  line-height: 1.4;
   border-radius: var(--radius-button);
   cursor: pointer;
   text-align: left;
@@ -701,7 +701,9 @@ html {
   background: none;
   color: inherit;
   font: inherit;
+  line-height: 1.4;
   cursor: pointer;
+  text-align: left;
 }
 
 .settings-dropdown-icon {
@@ -738,6 +740,22 @@ html {
 
 .settings-dropdown-item--accent {
   position: relative;
+  padding: 0;
+}
+
+.settings-dropdown-item--expandable {
+  padding: 0;
+}
+
+.settings-dropdown-item--accent .settings-dropdown-item-btn,
+.settings-dropdown-item--expandable .settings-dropdown-item-btn {
+  padding: 6px 10px;
+  border-radius: var(--radius-button);
+}
+
+.settings-dropdown-item-btn:focus-visible {
+  outline: none;
+  background: var(--surface-hover);
 }
 
 /* Toggle switch */
@@ -777,6 +795,10 @@ html {
 /* Expandable section chevron */
 .settings-dropdown-chevron {
   display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  flex-shrink: 0;
   transition: transform 0.15s;
 }
 
@@ -786,8 +808,8 @@ html {
 
 /* Search sub-section */
 .settings-dropdown-sub {
-  margin-top: var(--space-1);
-  padding: 4px 10px 8px;
+  margin: var(--space-1) 10px 0;
+  padding: var(--space-1) 0 var(--space-2);
   border-top: 1px solid var(--border-subtle);
   max-height: 300px;
   overflow: hidden;
@@ -883,7 +905,9 @@ html {
   background: none;
   color: var(--text-secondary);
   font-size: 0.82rem;
+  line-height: 1.4;
   cursor: pointer;
+  text-align: left;
   border-radius: var(--radius-button);
   transition: color var(--transition-fast), background var(--transition-fast);
 }

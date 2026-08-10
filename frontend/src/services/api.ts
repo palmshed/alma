@@ -68,8 +68,8 @@ async function apiDelete(path: string): Promise<void> {
 }
 
 export const api = {
-  generate(prompt: string, messages?: MessageData[], model?: string, mode?: string): Promise<string> {
-    return request<{ response: string }>('/api/generate', { prompt, messages, model, mode }).then(
+  generate(prompt: string, messages?: MessageData[], model?: string, mode?: string, language?: string): Promise<string> {
+    return request<{ response: string }>('/api/generate', { prompt, messages, model, mode, language }).then(
       (d) => d.response,
     );
   },
@@ -82,6 +82,7 @@ export const api = {
       provider?: string;
       max_results?: number;
       safe_search?: boolean;
+      language?: string;
     },
   ): Promise<import('../types').ApiSearchResult> {
     return request<import('../types').ApiSearchResult>('/api/search', {
@@ -91,6 +92,7 @@ export const api = {
       provider: options?.provider || 'auto',
       max_results: options?.max_results ?? 5,
       safe_search: options?.safe_search ?? true,
+      language: options?.language || 'auto',
     });
   },
 
@@ -98,15 +100,16 @@ export const api = {
     prompt: string,
     messages?: MessageData[],
     model?: string,
+    language?: string,
   ): Promise<ApiThinkingResult> {
     return request<ApiThinkingResult>('/api/generate-with-thinking', {
-      prompt, messages, model,
+      prompt, messages, model, language,
     });
   },
 
-  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string): Promise<string> {
+  generateWithUrlContext(prompt: string, messages?: MessageData[], model?: string, language?: string): Promise<string> {
     return request<{ response: string }>('/api/generate-with-url-context', {
-      prompt, messages, model,
+      prompt, messages, model, language,
     }).then((d) => d.response);
   },
 

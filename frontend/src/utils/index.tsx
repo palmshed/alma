@@ -49,6 +49,25 @@ export const SUGGESTIONS: Record<string, string[]> = {
   images: ['A peaceful sunset over mountains', 'A futuristic city with neon lights', 'A cute robot with big eyes'],
 };
 
+export const LANGUAGES = [
+  { value: 'auto', label: 'Auto-detect' },
+  { value: 'en', label: 'English' },
+  { value: 'bn', label: 'বাংলা' },
+  { value: 'hi', label: 'हिन्दी' },
+  { value: 'ta', label: 'தமிழ்' },
+  { value: 'te', label: 'తెలుగు' },
+  { value: 'mr', label: 'मराठी' },
+  { value: 'es', label: 'Español' },
+  { value: 'fr', label: 'Français' },
+  { value: 'de', label: 'Deutsch' },
+  { value: 'zh', label: '中文' },
+  { value: 'ja', label: '日本語' },
+];
+
+export function getLanguageLabel(value: string): string {
+  return LANGUAGES.find(l => l.value === value)?.label || 'Auto-detect';
+}
+
 export const ACCENT_PRESETS = [
   { color: '#24d455', hover: '#1fbf4a' },
   { color: '#3b82f6', hover: '#2563eb' },

@@ -9,7 +9,7 @@ interface UseConversationReturn {
   isLoading: boolean;
   conversationStarted: boolean;
   error: string | null;
-  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => Promise<boolean>;
+  submit: (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string, language?: string) => Promise<boolean>;
   clear: () => void;
   loadConversation: (conv: ConversationData) => void;
   reconcileMessages: (newMessages: MessageData[]) => void;
@@ -30,7 +30,7 @@ export function useConversation(options?: UseConversationOptions): UseConversati
 
   const conversationStarted = messages.length > 0 || isLoading;
 
-  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string) => {
+  const submit = useCallback(async (text: string, mode: string, convMessages?: MessageData[], attachments?: AttachmentData[], model?: string, language?: string) => {
     if (!text.trim() || isLoading) return false;
     setIsLoading(true);
     setError(null);
@@ -71,18 +71,18 @@ export function useConversation(options?: UseConversationOptions): UseConversati
         responseText = '[Image generated]';
         thinkingText = '';
       } else if (mode === 'thinking') {
-        const result = await api.generateWithThinking(text, history, requestModel);
+        const result = await api.generateWithThinking(text, history, requestModel, language);
         responseText = result.response || '';
         thinkingText = result.thinking_summary?.map((s: string) => s.replace(/[,;:\s-]+$/, '')).join('\n') || '';
       } else if (['search', 'auto', 'code', 'web'].includes(mode)) {
-        const searchRes = await api.search(text, history, { mode });
+        const searchRes = await api.search(text, history, { mode, language });
         responseText = searchRes.response || '';
         thinkingText = '';
         sourcesData = searchRes.sources;
         stepsData = searchRes.search_steps;
         intent = searchRes.intent;
       } else {
-        responseText = await api.generate(text, history, requestModel, mode);
+        responseText = await api.generate(text, history, requestModel, mode, language);
         thinkingText = '';
       }
       return { responseText, thinkingText, durationMs: performance.now() - t0, sourcesData, stepsData, intent };

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: MIT
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Sun, Moon, Keyboard, Info, Palette, Globe, ShieldCheck, Zap, ChevronDown } from 'lucide-react';
-import { ACCENT_PRESETS } from '../utils';
+import { Sun, Moon, Keyboard, Info, Palette, Globe, ShieldCheck, Zap, ChevronDown, Languages } from 'lucide-react';
+import { ACCENT_PRESETS, LANGUAGES, getLanguageLabel } from '../utils';
 import type { SearchSettings } from '../types';
 import DropdownSelect from './DropdownSelect';
 
@@ -32,6 +32,8 @@ interface HeaderProps {
   onShowAbout?: () => void;
   searchSettings?: SearchSettings;
   onSearchSettingsChange?: (updates: Partial<SearchSettings>) => void;
+  language?: string;
+  onLanguageChange?: (value: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -48,16 +50,19 @@ const Header: React.FC<HeaderProps> = ({
   onShowAbout,
   searchSettings,
   onSearchSettingsChange,
+  language = 'auto',
+  onLanguageChange,
 }) => {
   const [open, setOpen] = useState(false);
   const [showAccentPicker, setShowAccentPicker] = useState(false);
+  const [showLanguage, setShowLanguage] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const close = useCallback(() => { setOpen(false); setShowAccentPicker(false); setShowSearch(false); }, []);
+  const close = useCallback(() => { setOpen(false); setShowAccentPicker(false); setShowLanguage(false); setShowSearch(false); }, []);
 
   const calcMenuPos = useCallback(() => {
     if (!triggerRef.current || !dropdownRef.current) return;
@@ -174,6 +179,7 @@ const Header: React.FC<HeaderProps> = ({
                 </span>
                 <span className="settings-dropdown-label">Theme</span>
                 <span className="settings-dropdown-value">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+                <span className="settings-dropdown-chevron" />
               </button>
 
               {/* Accent Color */}
@@ -190,6 +196,7 @@ const Header: React.FC<HeaderProps> = ({
                   </span>
                   <span className="settings-dropdown-label">Accent</span>
                   <span className="settings-dropdown-accent-dot" style={{ background: accentColor }} />
+                  <span className="settings-dropdown-chevron" />
                 </button>
                 {showAccentPicker && (
                   <div className="accent-picker-popup accent-picker-popup--dropdown">
@@ -206,6 +213,40 @@ const Header: React.FC<HeaderProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Language (expandable section) */}
+              <div className="settings-dropdown-item settings-dropdown-item--expandable">
+                <button
+                  className="settings-dropdown-item-btn"
+                  onClick={() => setShowLanguage(v => !v)}
+                  type="button"
+                  role="menuitem"
+                  aria-expanded={showLanguage}
+                  data-testid="settings-language-trigger"
+                >
+                  <span className="settings-dropdown-icon">
+                    <Languages size={14} strokeWidth={1.7} />
+                  </span>
+                  <span className="settings-dropdown-label">Language</span>
+                  <span className="settings-dropdown-value">{getLanguageLabel(language)}</span>
+                  <span className={`settings-dropdown-chevron${showLanguage ? ' open' : ''}`}>
+                    <ChevronDown size={12} strokeWidth={1.7} />
+                  </span>
+                </button>
+              </div>
+
+              {onLanguageChange && (
+                <div className={`settings-dropdown-sub${showLanguage ? '' : ' settings-dropdown-sub--collapsed'}`} data-testid="settings-language-sub">
+                  <div className="settings-dropdown-sub-row">
+                    <span className="settings-dropdown-sub-label">Respond in</span>
+                    <DropdownSelect
+                      options={LANGUAGES}
+                      value={language}
+                      onChange={onLanguageChange}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Search (expandable section) */}
               <div className="settings-dropdown-item settings-dropdown-item--expandable">
@@ -331,6 +372,7 @@ const Header: React.FC<HeaderProps> = ({
                   <Keyboard size={14} strokeWidth={1.7} />
                 </span>
                 <span className="settings-dropdown-label">Keyboard shortcuts</span>
+                <span className="settings-dropdown-chevron" />
               </button>
 
               {/* About */}
@@ -345,6 +387,7 @@ const Header: React.FC<HeaderProps> = ({
                   <Info size={14} strokeWidth={1.7} />
                 </span>
                 <span className="settings-dropdown-label">About</span>
+                <span className="settings-dropdown-chevron" />
               </button>
             </div>
           ), document.body)}

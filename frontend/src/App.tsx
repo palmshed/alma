@@ -101,6 +101,9 @@ function App() {
   const [accentColor, setAccentColor] = useState(() => {
     try { return localStorage.getItem('accent') || '#24d455'; } catch { return '#24d455'; }
   });
+  const [language, setLanguage] = useState<string>(() => {
+    try { return localStorage.getItem('alma_language') || 'auto'; } catch { return 'auto'; }
+  });
   const [pendingAttachments, setPendingAttachments] = useState<AttachmentData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | undefined>(undefined);
@@ -196,6 +199,10 @@ function App() {
     try { localStorage.setItem('accent', accentColor); } catch {}
   }, [accentColor]);
 
+  useEffect(() => {
+    try { localStorage.setItem('alma_language', language); } catch {}
+  }, [language]);
+
   const handleNavigate = useCallback((page: string) => {
     setSidebarOpen(false);
     setCurrentPage(page);
@@ -255,7 +262,7 @@ function App() {
 
     /* Update the interface before waiting for Vercel to persist the conversation. */
     const currentMsgs = getMessages();
-    const generation = submit(text, mode, currentMsgs, atts, actualModel);
+    const generation = submit(text, mode, currentMsgs, atts, actualModel, language);
     const existingConversation = activeConversationRef.current;
     const savedConversation = existingConversation
       ? Promise.resolve({
@@ -290,7 +297,7 @@ function App() {
       .catch(() => {
         /* The visible conversation remains available if background persistence fails. */
       });
-  }, [submit, mode, selectedModel, composerClear, messages, pendingAttachments, modelAvailability, getMessages]);
+  }, [submit, mode, selectedModel, composerClear, messages, pendingAttachments, modelAvailability, getMessages, language]);
 
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
@@ -410,6 +417,8 @@ function App() {
           onShowAbout={() => setShowDisclaimer(true)}
           searchSettings={searchSettings}
           onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+          language={language}
+          onLanguageChange={setLanguage}
         />
       </div>
     );
@@ -435,6 +444,8 @@ function App() {
         onShowAbout={() => setShowDisclaimer(true)}
         searchSettings={searchSettings}
         onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
+        language={language}
+        onLanguageChange={setLanguage}
       />
 
       <input
