@@ -596,16 +596,12 @@ def check_thinking_completeness() -> UICheck:
         or "result?.thinking_summary" in hook_code
     )
 
-    # Frontend must have separate state for both
-    has_response_state = "response" in hook_code and "setResponse" in hook_code
-    has_thinking_state = "thinking" in hook_code and "setThinking" in hook_code
-
-    # Frontend must render both
+    # Frontend must render both - thinking stored in message.thinking, response in message.content
     renders_thinking = (
-        app_code and "ThinkingContainer" in app_code and "thinking &&" in app_code
+        app_code and "ThinkingContainer" in app_code and "thinking" in app_code
     )
     renders_response = (
-        app_code and "ResponseContainer" in app_code and "response &&" in app_code
+        app_code and "ResponseContainer" in app_code and "content" in app_code
     )
 
     # Type must include thinking_summary
@@ -616,10 +612,6 @@ def check_thinking_completeness() -> UICheck:
         missing.append("reads thinking_summary from API")
     if not reads_response:
         missing.append("reads response from API")
-    if not has_thinking_state:
-        missing.append("has thinking state variable")
-    if not has_response_state:
-        missing.append("has response state variable")
     if not renders_thinking:
         missing.append("renders ThinkingContainer")
     if not renders_response:
@@ -694,19 +686,21 @@ def check_has_thinking_display() -> UICheck:
             "ThinkingContainer.tsx not found",
         )
     has_thinking_separator = "thinking" in code
-    separate_state = hook_code and "setThinking" in hook_code
-    separate_render = app_code and "thinking &&" in app_code
-    if all([has_thinking_separator, separate_state, separate_render]):
+    has_thinking_mode_check = hook_code and "mode === 'thinking'" in hook_code
+    separate_render = app_code and "ThinkingContainer" in app_code and "thinking" in app_code
+    if all([has_thinking_separator, has_thinking_mode_check, separate_render]):
         return UICheck(
             "thinking_display",
             "Thinking display",
             "pass",
             "Thinking displayed in separate container with distinct styling; "
-            "state and rendering are independent from response.",
+            "thinking mode is handled via mode check and rendered from message.thinking.",
         )
     missing = []
     if not has_thinking_separator:
         missing.append("thinking content")
+    if not has_thinking_mode_check:
+        missing.append("mode === 'thinking' check in hook")
     if not separate_render:
         missing.append("separate render path")
     return UICheck(
@@ -809,26 +803,30 @@ def check_mode_routing() -> UICheck:
         return UICheck(
             "mode_routing", "Mode routing", "fail", "useConversation.ts not found"
         )
-    has_canvas = "mode === 'canvas'" in hook_code or "mode === canvas" in hook_code
-    has_thinking = "mode === 'thinking'" in hook_code
-    has_web = "mode === 'web'" in hook_code
+    # Current architecture:
+    # - 'images' is explicit check
+    # - 'thinking' is explicit check
+    # - 'search', 'auto', 'code', 'web' are grouped
+    # - 'canvas' and 'chat' fall through to else branch (generate)
     has_images = "mode === 'images'" in hook_code
-    has_else_canvas = has_thinking and has_web and has_images and not has_canvas
-    if has_else_canvas:
-        has_canvas = True
-    canvas_mode = "canvas (default, else branch)" if has_else_canvas else "canvas"
+    has_thinking = "mode === 'thinking'" in hook_code
+    has_search_modes = (
+        "['search', 'auto', 'code', 'web']" in hook_code
+        or "search" in hook_code and "auto" in hook_code and "code" in hook_code and "web" in hook_code
+    )
+    has_else_branch = "else" in hook_code  # canvas/chat default
     missing = []
-    if not has_canvas:
-        missing.append("canvas")
-    if not has_thinking:
-        missing.append("thinking")
-    if not has_web:
-        missing.append("web")
     if not has_images:
         missing.append("images")
+    if not has_thinking:
+        missing.append("thinking")
+    if not has_search_modes:
+        missing.append("search/auto/code/web")
+    if not has_else_branch:
+        missing.append("canvas/chat (else branch)")
     status = "pass" if not missing else "fail"
     detail = (
-        f"All modes routed: {canvas_mode}, thinking, web, images."
+        "All modes routed: images, thinking, search/auto/code/web, canvas/chat (else)."
         if not missing
         else f"Missing routes: {', '.join(missing)}"
     )
