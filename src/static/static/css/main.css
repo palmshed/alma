@@ -504,14 +504,8 @@ body:has(#landing[style*="display:none"]) .app-header-title {
   overflow: visible;
 }
 
-.composer-toolbar .model-menu,
 .composer-toolbar .mode-menu {
   position: relative;
-}
-
-.composer-toolbar .model-menu .model-menu-dropdown {
-  left: 0;
-  transform: none;
 }
 
 .composer-toolbar .mode-menu .mode-menu-dropdown {
@@ -536,11 +530,43 @@ body:has(#landing[style*="display:none"]) .app-header-title {
   background: var(--border-subtle);
 }
 
-.composer-toolbar:empty {
+.composer-toolbar .mode-menu:first-child {
+  margin-left: 0;
+  padding-left: 0;
+}
+
+.composer-toolbar .mode-menu:first-child::before {
   display: none;
 }
 
-.composer-toolbar > .mode-menu:only-child::before {
+.composer-toolbar .model-menu-dropdown {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.composer-toolbar .model-menu {
+  margin-left: 10px;
+  padding-left: 10px;
+}
+
+.composer-toolbar .model-menu::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 10px;
+  background: var(--border-subtle);
+}
+
+.composer-toolbar > .mode-menu:only-child::before,
+.composer-toolbar > .model-menu:only-child::before {
+  display: none;
+}
+
+.composer-toolbar:empty {
   display: none;
 }
 
@@ -770,7 +796,7 @@ body:has(#landing[style*="display:none"]) .app-header-title {
   gap: 2px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
   z-index: 100;
-  min-width: 160px;
+  min-width: 130px;
 }
 
 .model-menu-item {
@@ -805,20 +831,6 @@ body:has(#landing[style*="display:none"]) .app-header-title {
 
 .model-menu-item-label {
   flex: 1;
-}
-
-.model-menu-item-status {
-  font-size: 0.65rem;
-  opacity: 0.7;
-  margin-left: 8px;
-}
-
-.model-menu-item-status--cooling-down {
-  color: var(--accent);
-}
-
-.model-menu-item-status--unavailable {
-  color: var(--text-muted);
 }
 
 /* ── Chip ── */
@@ -1162,24 +1174,6 @@ body:has(#landing[style*="display:none"]) .app-header-title {
   padding: 1.25rem;
   margin-bottom: 0.75rem;
   text-align: center;
-}
-
-.response-model {
-  font-size: 0.65rem;
-  color: var(--text-muted);
-  opacity: 0.55;
-  margin-bottom: 4px;
-  padding-left: 2px;
-}
-
-.response-model--fallback {
-  opacity: 0.7;
-}
-
-.response-model-badge {
-  font-size: 0.6rem;
-  opacity: 0.6;
-  margin-left: 2px;
 }
 
 .image-actions {

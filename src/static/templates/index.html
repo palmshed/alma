@@ -122,20 +122,6 @@ SPDX-License-Identifier: MIT
                 </div>
 
                 <div class="composer-toolbar">
-                    <div class="model-menu" id="landing-model-menu">
-                        <button class="model-menu-trigger" type="button" aria-label="Model: Gemini 2.5 Flash" aria-expanded="false">
-                            <span class="model-menu-trigger-label" id="landing-model-label">Gemini 2.5 Flash</span>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"/></svg>
-                        </button>
-                        <div class="model-menu-dropdown" style="display:none">
-                            <button class="model-menu-item active" data-model="auto" role="menuitemradio" aria-checked="true" type="button"><span class="model-menu-item-label">Auto (Smart Select)</span></button>
-                            <button class="model-menu-item" data-model="gemini-2.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 2.5 Flash</span></button>
-                            <button class="model-menu-item" data-model="gemini-2.5-flash-lite" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 2.5 Flash Lite</span></button>
-                            <button class="model-menu-item" data-model="gemini-3.0-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3 Flash</span></button>
-                            <button class="model-menu-item" data-model="gemini-3.1-flash-lite" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.1 Flash Lite</span></button>
-                            <button class="model-menu-item" data-model="gemini-3.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.5 Flash</span></button>
-                        </div>
-                    </div>
                     <div class="mode-menu" id="landing-mode-menu">
                         <button class="mode-menu-trigger" type="button" aria-label="Mode: Canvas" aria-expanded="false">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15" id="landing-mode-icon">
@@ -196,6 +182,23 @@ SPDX-License-Identifier: MIT
                                     </svg>
                                 </span>
                                 <span class="mode-menu-item-label">Images</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="model-menu" id="landing-model-menu">
+                        <button class="model-menu-trigger" type="button" aria-label="Model: Auto" aria-expanded="false">
+                            <span class="model-menu-trigger-label">Auto</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="model-menu-dropdown" style="display:none">
+                            <button class="model-menu-item active" data-model="auto" role="menuitemradio" aria-checked="true" type="button">
+                                <span class="model-menu-item-label">Auto</span>
+                            </button>
+                            <button class="model-menu-item" data-model="gemini" role="menuitemradio" aria-checked="false" type="button">
+                                <span class="model-menu-item-label">Gemini</span>
+                            </button>
+                            <button class="model-menu-item" data-model="openrouter" role="menuitemradio" aria-checked="false" type="button">
+                                <span class="model-menu-item-label">OpenRouter</span>
                             </button>
                         </div>
                     </div>
@@ -276,20 +279,6 @@ SPDX-License-Identifier: MIT
                 </div>
             </div>
             <div class="composer-toolbar">
-                <div class="model-menu" id="conv-model-menu">
-                    <button class="model-menu-trigger" type="button" aria-label="Model: Gemini 2.5 Flash" aria-expanded="false">
-                        <span class="model-menu-trigger-label" id="conv-model-label">Gemini 2.5 Flash</span>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"/></svg>
-                    </button>
-                    <div class="model-menu-dropdown" style="display:none">
-                        <button class="model-menu-item active" data-model="auto" role="menuitemradio" aria-checked="true" type="button"><span class="model-menu-item-label">Auto (Smart Select)</span></button>
-                        <button class="model-menu-item" data-model="gemini-2.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 2.5 Flash</span></button>
-                        <button class="model-menu-item" data-model="gemini-2.5-flash-lite" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 2.5 Flash Lite</span></button>
-                        <button class="model-menu-item" data-model="gemini-3.0-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3 Flash</span></button>
-                        <button class="model-menu-item" data-model="gemini-3.1-flash-lite" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.1 Flash Lite</span></button>
-                        <button class="model-menu-item" data-model="gemini-3.5-flash" role="menuitemradio" aria-checked="false" type="button"><span class="model-menu-item-label">Gemini 3.5 Flash</span></button>
-                    </div>
-                </div>
                 <div class="mode-menu" id="conv-mode-menu">
                     <button class="mode-menu-trigger" type="button" aria-label="Mode: Canvas" aria-expanded="false">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15">
@@ -337,6 +326,23 @@ SPDX-License-Identifier: MIT
                             </span>
                             <span class="mode-menu-item-label">Images</span>
                         </button>
+                    </div>
+                    <div class="model-menu" id="conv-model-menu">
+                        <button class="model-menu-trigger" type="button" aria-label="Model: Auto" aria-expanded="false">
+                            <span class="model-menu-trigger-label">Auto</span>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <div class="model-menu-dropdown" style="display:none">
+                            <button class="model-menu-item active" data-model="auto" role="menuitemradio" aria-checked="true" type="button">
+                                <span class="model-menu-item-label">Auto</span>
+                            </button>
+                            <button class="model-menu-item" data-model="gemini" role="menuitemradio" aria-checked="false" type="button">
+                                <span class="model-menu-item-label">Gemini</span>
+                            </button>
+                            <button class="model-menu-item" data-model="openrouter" role="menuitemradio" aria-checked="false" type="button">
+                                <span class="model-menu-item-label">OpenRouter</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
