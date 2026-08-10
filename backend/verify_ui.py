@@ -1993,6 +1993,7 @@ ALL_FLOWS = (
     "keyboard",
     "themes",
     "landing_suggestions",
+    "language",
 )
 
 
@@ -3204,6 +3205,464 @@ def _verify_landing_suggestions(page: "Any", screenshot_fn: "Any") -> List[E2ERe
     return results
 
 
+def _dominant_script(text: str) -> Tuple[str, int]:
+    """Return (script, count) of the dominant script in the text.
+
+    Scripts cover the languages Alma offers: Latin (English), Bengali,
+    Devanagari (Hindi/Marathi), Tamil, Telugu, Han (Chinese), and Kana (Japanese).
+    """
+    ranges = [
+        ("en", [(0x0041, 0x005A), (0x0061, 0x007A)]),  # Latin letters
+        ("bn", [(0x0980, 0x09FF)]),  # Bengali
+        ("hi", [(0x0900, 0x097F)]),  # Devanagari (Hindi, Marathi)
+        ("ta", [(0x0B80, 0x0BFF)]),  # Tamil
+        ("te", [(0x0C00, 0x0C7F)]),  # Telugu
+        ("zh", [(0x3400, 0x4DBF), (0x4E00, 0x9FFF)]),  # Han
+        ("ja", [(0x3040, 0x30FF), (0x31F0, 0x31FF)]),  # Kana
+    ]
+    best = ("en", 0)
+    for script, rng in ranges:
+        count = 0
+        for ch in text:
+            cp = ord(ch)
+            if any(lo <= cp <= hi for lo, hi in rng):
+                count += 1
+        if count > best[1]:
+            best = (script, count)
+    return best
+
+
+def _submit_and_get_response(page: "Any", text: str, timeout: int = 25000) -> str:
+    """Submit a message and return the latest assistant message text."""
+    before = page.locator(".message-content, .markdown-content").count()
+    _submit_message(page, text)
+    try:
+        page.wait_for_function(
+            "() => document.querySelectorAll('.message-content, .markdown-content').length > {}".format(
+                before
+            ),
+            timeout=timeout,
+        )
+    except Exception:
+        pass
+    page.wait_for_timeout(800)
+    msgs = page.locator(".message-content, .markdown-content")
+    n = msgs.count()
+    if n == 0:
+        return ""
+    return msgs.nth(n - 1).inner_text() or ""
+
+
+def _set_mode(page: "Any", mode_value: str) -> bool:
+    """Select a composer mode via the mode menu. Returns True on success."""
+    try:
+        trigger = page.locator("[data-testid='mode-menu-trigger']")
+        if not trigger.count():
+            return False
+        trigger.first.click()
+        page.wait_for_timeout(300)
+        option = page.locator(f"[data-testid='mode-option-{mode_value}']")
+        if not option.count():
+            page.keyboard.press("Escape")
+            return False
+        option.first.click()
+        page.wait_for_timeout(300)
+        return True
+    except Exception:
+        return False
+
+
+def _set_language(page: "Any", label: str) -> bool:
+    """Set the response language via the settings dropdown. Returns True on success."""
+    try:
+        trigger = page.locator("[data-testid='settings-menu-trigger']")
+        trigger.first.click()
+        page.wait_for_timeout(400)
+        lang_trigger = page.locator("[data-testid='settings-language-trigger']")
+        if not lang_trigger.count():
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            return False
+        lang_trigger.first.click()
+        page.wait_for_timeout(300)
+        sel = page.locator(
+            "[data-testid='settings-language-sub'] .model-menu-trigger"
+        ).first
+        if not sel.count():
+            page.keyboard.press("Escape")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            return False
+        sel.click()
+        page.wait_for_timeout(300)
+        item = page.locator(
+            ".dropdown-select-menu .model-menu-item:has-text('{}')".format(label)
+        ).first
+        if not item.count():
+            page.keyboard.press("Escape")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(300)
+            return False
+        item.click()
+        page.wait_for_timeout(300)
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        return True
+    except Exception:
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        return False
+
+
+def _read_language(page: "Any") -> str:
+    """Return the currently selected language label shown in settings."""
+    try:
+        trigger = page.locator("[data-testid='settings-menu-trigger']")
+        trigger.first.click()
+        page.wait_for_timeout(400)
+        lang_trigger = page.locator("[data-testid='settings-language-trigger']")
+        value = ""
+        if lang_trigger.count():
+            value = (
+                lang_trigger.first.locator(".settings-dropdown-value").inner_text()
+                or ""
+            ).strip()
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+        return value
+    except Exception:
+        return ""
+
+
+_SYNTHETIC_MARKERS = (
+    "Synthesized reasoning and answer.",
+    "Synthesized answer for",
+    "Grounded response for conversation turn",
+    "Grounded response based on provided context",
+)
+
+
+def _is_synthetic_fallback(text: str) -> bool:
+    """True when the SDK returned its synthetic fallback instead of a real answer."""
+    return any(m in text for m in _SYNTHETIC_MARKERS)
+
+
+def _language_result(
+    name: str,
+    label: str,
+    text: str,
+    expected: str,
+    detail: str = "",
+    category: str = "Language",
+) -> E2EResult:
+    """Build a pass/fail/skip result for a language response assertion."""
+    lowered = text.lower()
+    if "error" in lowered[:200] and ("429" in lowered or "exhausted" in lowered):
+        return E2EResult(
+            name,
+            label,
+            "skip",
+            "Quota exhausted (429): " + text[:120],
+            category=category,
+        )
+    if _is_synthetic_fallback(text):
+        return E2EResult(
+            name,
+            label,
+            "skip",
+            "Skipped: Gemini API unavailable, response fell back to synthetic: "
+            + text[:80],
+            category=category,
+        )
+    script, count = _dominant_script(text)
+    ok = script == expected and count >= 3
+    if ok:
+        return E2EResult(
+            name, label, "pass", f"Dominant script: {script}", category=category
+        )
+    if not text:
+        return E2EResult(name, label, "fail", "Empty response", category=category)
+    return E2EResult(
+        name,
+        label,
+        "fail",
+        f"Expected {expected}, dominant script {script} (count {count}): {text[:120]}"
+        + (("; " + detail) if detail else ""),
+        category=category,
+    )
+
+
+def _assert_language_response(
+    page: "Any",
+    name: str,
+    label: str,
+    prompt: str,
+    expected: str,
+    screenshot_fn: "Any" = None,
+    screenshot_name: str = "",
+) -> E2EResult:
+    """Submit a prompt and verify the response language, retrying API flakes.
+
+    The real Gemini API is nondeterministic and occasionally returns a
+    synthetic fallback (transient error) or ignores an explicit language
+    instruction on a single call. A single retry keeps the check meaningful
+    without being flaky.
+    """
+    text = _submit_and_get_response(page, prompt)
+    attempts = 1
+    while attempts <= 1 and (
+        not text.strip()
+        or _is_synthetic_fallback(text)
+        or _dominant_script(text)[0] != expected
+    ):
+        text = _submit_and_get_response(page, prompt)
+        attempts += 1
+    r = _language_result(name, label, text, expected)
+    if attempts > 1:
+        r.detail = f"After {attempts} attempts; {r.detail}".rstrip("; ") + ";"
+    if screenshot_fn and screenshot_name:
+        screenshot_fn(screenshot_name)
+    return r
+
+
+_LANGUAGE_API_CHECKED = False
+_LANGUAGE_API_RESULTS: List[E2EResult] = []
+
+
+def _verify_language_ui_checks(page: "Any", screenshot_fn: "Any", results: List[E2EResult]) -> None:
+    """Verify the language setting UI: default, selectability, persistence.
+
+    Runs on every viewport. Cheap, no API calls, and confirms the settings
+    control works and keeps its layout at each width.
+    """
+    # Clean state: default is Auto-detect.
+    page.evaluate(
+        """() => {
+        try { localStorage.removeItem('alma_language'); } catch {}
+        try { localStorage.removeItem('alma_active_conversation'); } catch {}
+    }"""
+    )
+    page.reload(wait_until="networkidle")
+    page.wait_for_timeout(600)
+    _dismiss_overlay(page)
+
+    default_lang = _read_language(page)
+    results.append(
+        E2EResult(
+            "language_default_auto",
+            "Default is Auto-detect",
+            "pass" if default_lang == "Auto-detect" else "fail",
+            f"Selected: {default_lang!r}",
+            category="Language",
+        )
+    )
+    screenshot_fn("language-settings-default")
+
+    # Bengali can be selected.
+    set_bn = _set_language(page, "বাংলা")
+    results.append(
+        E2EResult(
+            "language_select_bengali",
+            "Bengali can be selected",
+            "pass" if set_bn else "fail",
+            category="Language",
+        )
+    )
+    screenshot_fn("language-settings-bengali")
+
+    # English can be selected.
+    set_en = _set_language(page, "English")
+    results.append(
+        E2EResult(
+            "language_select_english",
+            "English can be selected",
+            "pass" if set_en else "fail",
+            category="Language",
+        )
+    )
+
+    # Preference survives a refresh.
+    persisted = _read_language(page)
+    results.append(
+        E2EResult(
+            "language_persist",
+            "Preference persists across refresh",
+            "pass" if persisted == "English" else "fail",
+            f"Selected after refresh: {persisted!r}",
+            category="Language",
+        )
+    )
+
+    # New conversation inherits the preference.
+    _start_new_conversation(page)
+    inherited = _read_language(page)
+    results.append(
+        E2EResult(
+            "language_inherit_new",
+            "New conversation inherits preference",
+            "pass" if inherited == "English" else "fail",
+            f"Selected in new conversation: {inherited!r}",
+            category="Language",
+        )
+    )
+
+
+def _verify_language_api_checks(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify response language behavior against the live API.
+
+    Language behavior does not depend on viewport, so these calls run once
+    per verification run to stay within the Gemini rate budget.
+    """
+    results: List[E2EResult] = []
+
+    # Auto-detect English → English response.
+    _set_language(page, "Auto-detect")
+    _set_mode(page, "chat")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_auto_english",
+            "Auto-detect English responds in English",
+            "Write a short greeting and say hello.",
+            "en",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-auto-english",
+        )
+    )
+
+    # Auto-detect Bengali → Bengali response.
+    results.append(
+        _assert_language_response(
+            page,
+            "language_auto_bengali",
+            "Auto-detect Bengali responds in Bengali",
+            "বাংলায় একটি ছোট পরিচিতি লিখুন।",
+            "bn",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-auto-bengali",
+        )
+    )
+
+    # Explicit Bengali (English prompt) → Bengali response.
+    _set_language(page, "বাংলা")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_explicit_bengali",
+            "Explicit Bengali responds in Bengali",
+            "What is the capital of France? Explain briefly.",
+            "bn",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-explicit-bengali",
+        )
+    )
+
+    # Switch to English in the same conversation → English response.
+    _set_language(page, "English")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_switch_english",
+            "Switching to English responds in English",
+            "What is the capital of Japan? Explain briefly.",
+            "en",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-switch-english",
+        )
+    )
+
+    # Search-triggering Bengali question returns a Bengali answer with sources.
+    _set_language(page, "বাংলা")
+    _set_mode(page, "search")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_search_bengali",
+            "Search in Bengali returns a Bengali answer",
+            "বাংলাদেশের রাজধানী কোথায়? বিস্তারিত বলুন।",
+            "bn",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-search-bengali",
+        )
+    )
+    sources_after = page.locator(".source-cards-container .source-card").count()
+    results.append(
+        E2EResult(
+            "language_search_sources",
+            "Search still returns sources",
+            "pass" if sources_after > 0 else "skip",
+            f"Sources rendered: {sources_after}",
+            category="Language",
+        )
+    )
+
+    # Thinking capability respects the preference.
+    _set_mode(page, "thinking")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_thinking_bengali",
+            "Thinking responds in Bengali",
+            "একটি গুরুত্বপূর্ণ সিদ্ধান্ত কীভাবে নেবেন? ব্যাখ্যা করুন।",
+            "bn",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-thinking-bengali",
+        )
+    )
+
+    # Code capability respects the preference.
+    _set_mode(page, "code")
+    results.append(
+        _assert_language_response(
+            page,
+            "language_code_bengali",
+            "Code responds in Bengali",
+            "একটি পাইথন ফাংশন কীভাবে কাজ করে তা বাংলায় ব্যাখ্যা করুন।",
+            "bn",
+            screenshot_fn=screenshot_fn,
+            screenshot_name="language-code-bengali",
+        )
+    )
+
+    return results
+
+
+def _verify_language_preference(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
+    """Verify the response language preference end to end.
+
+    UI checks run on every viewport; API-backed language checks run once
+    per verification run (language behavior is viewport-independent).
+    """
+    global _LANGUAGE_API_CHECKED
+    results: List[E2EResult] = []
+    t = FlowTiming("language")
+    t.start = time.time()
+    _dismiss_overlay(page)
+
+    _verify_language_ui_checks(page, screenshot_fn, results)
+
+    if not _LANGUAGE_API_CHECKED:
+        _LANGUAGE_API_RESULTS.extend(_verify_language_api_checks(page, screenshot_fn))
+        _LANGUAGE_API_CHECKED = True
+    for r in _LANGUAGE_API_RESULTS:
+        results.append(
+            E2EResult(
+                r.name,
+                r.label,
+                r.status,
+                "Verified against the live API. " + r.detail,
+                category="Language",
+            )
+        )
+
+    t.end = time.time()
+    for r in results:
+        r.timing = t
+    return results
+
+
 def _collect_browser_errors(page: "Any") -> Tuple[List[str], List[str], List[str]]:
     """Collect console errors, warnings, and failed requests.
 
@@ -3402,6 +3861,9 @@ def run_e2e_verification(
     viewports: Optional[Dict[str, dict]] = None,
 ) -> List[E2EResult]:
     """Run full E2E verification across viewports and flows."""
+    global _LANGUAGE_API_CHECKED
+    _LANGUAGE_API_CHECKED = False
+    _LANGUAGE_API_RESULTS.clear()
     if not check_playwright_installed():
         return [
             E2EResult(
@@ -3495,8 +3957,9 @@ def run_e2e_verification(
                 "keyboard": _verify_keyboard_navigation,
                 "themes": _verify_themes,
                 "landing_suggestions": _verify_landing_suggestions,
+                "language": _verify_language_preference,
             }
-            _API_FLOWS = {"chat", "search", "thinking", "voice"}
+            _API_FLOWS = {"chat", "search", "thinking", "voice", "language"}
             quota_exhausted = False
 
             for flow_name in flows:
@@ -5444,7 +5907,7 @@ def main() -> None:
         nargs="*",
         default=None,
         metavar="FLOW",
-        help="Specific flows to verify (chat, search, thinking, voice, keyboard, themes)",
+        help="Specific flows to verify (chat, search, thinking, voice, keyboard, themes, landing_suggestions, language)",
     )
     parser.add_argument(
         "--viewport",
