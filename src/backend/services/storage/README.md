@@ -59,7 +59,7 @@ Uploads, downloads, checksums, deletes, and reports latency for each step.
 
 ## Adding a Provider
 
-1. Create `backend/services/storage/providers/gcs.py`
+1. Create `src/backend/services/storage/providers/gcs.py`
 2. Implement `StorageProvider` ABC
 3. Register in `providers/__init__.py`
 4. Set `STORAGE_PROVIDER=gcs`

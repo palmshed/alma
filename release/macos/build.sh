@@ -2,7 +2,7 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$PROJECT_ROOT/swift"
+cd "$PROJECT_ROOT/src/swift"
 
 RELEASE_TAG="${1:-}"
 VERSION="${RELEASE_TAG#v}"

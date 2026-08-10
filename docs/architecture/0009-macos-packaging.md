@@ -77,7 +77,7 @@ configuration is added on top.
   Releases page without any developer tooling installed.
 - The unsigned DMG will show a Gatekeeper warning on first launch,
   which is acceptable for an open source project at this stage.
-- A `scripts/macos/` directory centralises all packaging knowledge —
+- A `release/macos/` directory centralises all packaging knowledge —
   CI configuration stays thin and local packaging mirrors CI packaging.
 - GitHub Actions macOS runner minutes will be consumed on each tagged
   release, but release cadence is low enough that this is not a concern.
@@ -89,7 +89,7 @@ configuration is added on top.
 ### DS_Store generation (v0.3.4+)
 
 The DMG `.DS_Store` is generated during packaging by
-`scripts/macos/generate-dsstore.py` using the `ds_store` and
+`release/macos/generate-dsstore.py` using the `ds_store` and
 `mac_alias` Python libraries.
 
 **Decision**

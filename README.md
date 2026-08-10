@@ -8,7 +8,7 @@ Backend: Flask, flask-cors, flask-limiter, google-genai, gTTS, python-dotenv, re
 
 Frontend: React 18, react-markdown, remark-gfm, lucide-react, Tailwind CSS 4, Vite, TypeScript.
 
-See `pyproject.toml` and `frontend/package.json` for pinned versions.
+See `pyproject.toml` and `src/frontend/package.json` for pinned versions.
 
 ---
 

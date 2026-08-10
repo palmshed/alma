@@ -2,10 +2,10 @@
 
 ## Test Structure
 
-Tests are located in the `backend/tests/` directory:
+Tests are located in the `src/backend/tests/` directory:
 
 ```
-backend/tests/
+src/backend/tests/
 └── test_app.py    # Basic Flask app tests
 ```
 
@@ -16,10 +16,10 @@ backend/tests/
 make test
 
 # With coverage
-PYTHONPATH=backend uv run pytest --cov=palmshed_ai --cov-report=html
+PYTHONPATH=src/backend uv run pytest --cov=palmshed_ai --cov-report=html
 
 # Specific test file
-PYTHONPATH=backend uv run pytest backend/tests/test_app.py
+PYTHONPATH=src/backend uv run pytest src/backend/tests/test_app.py
 ```
 
 ## Current Test Coverage
@@ -122,7 +122,7 @@ alma verify e2e --flow chat search themes
 alma verify e2e --viewport desktop
 
 # JSON + HTML output
-alma verify e2e --json --output backend/verify-output
+alma verify e2e --json --output src/backend/verify-output
 
 # Just infrastructure check (no browser)
 alma verify e2e --flow infra

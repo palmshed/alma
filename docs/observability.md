@@ -148,7 +148,7 @@ a dataclass with service status information.
 
 ## Verify Alignment
 
-The `alma verify` CLI (`backend/verify.py`) reports health in a format
+The `alma verify` CLI (`src/backend/verify.py`) reports health in a format
 that mirrors each service's health() output.
 
 - Platform checks call `service.health()` directly and map its fields

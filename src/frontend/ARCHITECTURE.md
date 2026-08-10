@@ -76,7 +76,7 @@ App
 ## Key principles
 
 - **React is the design source of truth.** The static Flask interface
-  (`deploy/static/web/`) mirrors the React output exactly — no drift.
+  (`src/static/`) mirrors the React output exactly — no drift.
 
 - **Layouts own composition only.** They receive fully constructed
   components as props (ReactNode slots). They never contain business logic,
@@ -103,7 +103,7 @@ context.
 
 ## Directory
 
-- `frontend/src/` — React application (source of truth)
+- `src/frontend/` — React application (source of truth)
   - `layouts/LandingLayout.tsx`
   - `layouts/ConversationLayout.tsx`
   - `components/` — 12 components (Composer, Header, Chip, SegmentedControl, LoadingDots, etc.)
@@ -113,10 +113,10 @@ context.
   - `utils/index.tsx`
   - `App.tsx` — orchestrator (wires hooks to components)
   - `index.css` — all styles via Palmshed design tokens
-- `deploy/static/web/` — Flask static mirror (static HTML/CSS/JS)
+- `src/static/` — Flask static mirror (static HTML/CSS/JS)
   - `index.html` — standalone static page
   - `templates/index.html` — Jinja2 template (mirrors index.html)
-  - `static/css/main.css` — static CSS (mirrors frontend/src/index.css)
+  - `static/css/main.css` — static CSS (mirrors src/frontend/src/index.css)
   - `static/js/main.js` — static JS behavior
 
 ## Verified differences between React and static

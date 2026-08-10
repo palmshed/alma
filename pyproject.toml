@@ -50,15 +50,15 @@ line-length = 88
 target-version = ['py312']
 
 [tool.setuptools.packages.find]
-where = ["backend"]
-include = ["palmshed_ai*", "services*", "backend*"]
+where = ["src", "src/backend"]
+include = ["backend*", "palmshed_ai*", "services*"]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
+testpaths = ["src/backend/tests"]
 filterwarnings = []
 
 [tool.uv]
 package = true
 
 [tool.vercel]
-entrypoint = "backend.app:app"
+entrypoint = "src.backend.app:app"

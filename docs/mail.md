@@ -53,7 +53,7 @@ Available templates:
 ## Directory structure
 
 ```
-backend/services/mail/
+src/backend/services/mail/
 ├── __init__.py         # Public API exports
 ├── config.py           # MailConfig (all env vars centralized)
 ├── models.py           # MailMessage, MailResult, Address, etc.
@@ -67,7 +67,7 @@ backend/services/mail/
     ├── smtp.py         # SMTPProvider
     └── mock.py         # MockProvider (testing)
 
-backend/services/mail/templates/
+src/backend/services/mail/templates/
 ├── welcome.html / .txt
 ├── verification.html / .txt
 ├── password_reset.html / .txt
@@ -250,7 +250,7 @@ Validation runs at startup:
 
 Add a template:
 
-1. Create `backend/services/mail/templates/{name}.html` and `backend/services/mail/templates/{name}.txt`
+1. Create `src/backend/services/mail/templates/{name}.html` and `src/backend/services/mail/templates/{name}.txt`
 2. Add the `MailTemplate` enum member in `templates.py`
 3. Add the `TemplateDefinition` with metadata and required placeholders
 

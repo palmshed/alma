@@ -77,7 +77,7 @@ find_frontend_port() {
 
 start_backend() {
     free_port 8000
-    "$PYTHON" "$REPO_ROOT/backend/app.py" &
+    "$PYTHON" "$REPO_ROOT/src/backend/app.py" &
     BACKEND_PID=$!
     if wait_for_port "127.0.0.1" 8000 10; then
         echo "✓ Backend    http://localhost:8000"
@@ -88,7 +88,7 @@ start_backend() {
 }
 
 start_frontend() {
-    local frontend_dir="$REPO_ROOT/frontend"
+    local frontend_dir="$REPO_ROOT/src/frontend"
     if [ ! -d "$frontend_dir" ]; then
         echo "✗ Frontend   directory not found at $frontend_dir"
         exit 1
@@ -111,7 +111,7 @@ start_frontend() {
 
 start_static() {
     free_port 5001
-    "$PYTHON" "$REPO_ROOT/backend/static_app.py" &
+    "$PYTHON" "$REPO_ROOT/src/backend/static_app.py" &
     STATIC_PID=$!
     if wait_for_port "127.0.0.1" 5001 10; then
         echo "✓ Static     http://localhost:5001"
@@ -122,12 +122,12 @@ start_static() {
 }
 
 start_go() {
-    if ! command -v go &> /dev/null || [ ! -f "$REPO_ROOT/go/src/main.go" ]; then
+    if ! command -v go &> /dev/null || [ ! -f "$REPO_ROOT/src/go/main.go" ]; then
         return 0
     fi
     free_port 8080
     (
-        cd "$REPO_ROOT/go/src" || exit 1
+        cd "$REPO_ROOT/src/go" || exit 1
         go run main.go
     ) &
     GO_PID=$!

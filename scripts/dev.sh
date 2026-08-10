@@ -100,7 +100,7 @@ wait_for_frontend() {
 
 start_backend() {
     free_port 8000
-    "$PYTHON" "$REPO_ROOT/backend/app.py" &
+    "$PYTHON" "$REPO_ROOT/src/backend/app.py" &
     BACKEND_PID=$!
     if ! wait_for_backend 15; then
         echo "✗ Backend failed to become ready on :8000" >&2
@@ -109,7 +109,7 @@ start_backend() {
 }
 
 start_frontend() {
-    local frontend_dir="$REPO_ROOT/frontend"
+    local frontend_dir="$REPO_ROOT/src/frontend"
     if [ ! -d "$frontend_dir" ]; then
         echo "✗ Frontend directory not found at $frontend_dir" >&2
         exit 1
@@ -132,7 +132,7 @@ start_static() {
         return 0
     fi
     free_port 5001
-    "$PYTHON" "$REPO_ROOT/backend/static_app.py" &
+    "$PYTHON" "$REPO_ROOT/src/backend/static_app.py" &
     STATIC_PID=$!
     if ! curl -s -o /dev/null --max-time 15 --retry 15 --retry-delay 1 --retry-connrefused "http://localhost:5001" 2>/dev/null; then
         echo "✗ Static interface failed to become ready on :5001" >&2
@@ -141,13 +141,13 @@ start_static() {
 }
 
 start_go() {
-    if ! command -v go >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/backend/go/src/main.go" ]; then
-        echo "⚠ Go service skipped: go not found or backend/go/src/main.go missing" >&2
+    if ! command -v go >/dev/null 2>&1 || [ ! -f "$REPO_ROOT/src/go/main.go" ]; then
+        echo "⚠ Go service skipped: go not found or src/go/main.go missing" >&2
         return 0
     fi
     free_port 8080
     (
-        cd "$REPO_ROOT/backend/go/src" || exit 1
+        cd "$REPO_ROOT/src/go" || exit 1
         go run main.go
     ) &
     GO_PID=$!

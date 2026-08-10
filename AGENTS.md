@@ -315,7 +315,7 @@ Every supported flow is exercised automatically. Produces screenshots and traces
 
 ### Layer 3: Visual review
 
-Open the generated screenshots in `backend/verify-output/e2e/` and check for spacing, alignment, clipping, overflow, colors, theme contrast, and responsive layout. This catches regressions that tests won't.
+Open the generated screenshots in `src/backend/verify-output/e2e/` and check for spacing, alignment, clipping, overflow, colors, theme contrast, and responsive layout. This catches regressions that tests won't.
 
 ---
 

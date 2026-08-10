@@ -44,7 +44,7 @@ jobs:
 
       - name: Build React frontend
         run: |
-          cd frontend
+          cd src/frontend
           npm install
           npm run build
 
@@ -56,15 +56,15 @@ jobs:
 
       - name: Run unit tests with coverage
         run: >-
-          PYTHONPATH=backend uv run pytest backend/tests/
+          PYTHONPATH=src/backend uv run pytest src/backend/tests/
           --cov=palmshed_ai --cov-report=xml
           -W ignore::DeprecationWarning
 
       - name: Run integration test
         run: >-
-          PYTHONPATH=backend uv run pytest backend/tests/integration/test_smoke.py
+          PYTHONPATH=src/backend uv run pytest src/backend/tests/integration/test_smoke.py
 
       - name: Validate vercel.json
         run: >-
-          python -m json.tool deploy/vercel/vercel.json > /dev/null
+          python -m json.tool release/vercel/vercel.json > /dev/null
           && echo "vercel.json is valid"

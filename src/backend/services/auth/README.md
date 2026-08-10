@@ -124,7 +124,7 @@ policy. Public API is defined by `__init__.py` exports.
 
 ```bash
 # Unit tests
-uv run pytest backend/tests/test_auth.py
+uv run pytest src/backend/tests/test_auth.py
 
 # End-to-end verification
 python -m services.auth.verify

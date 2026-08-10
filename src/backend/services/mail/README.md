@@ -150,7 +150,7 @@ ProviderRegistry.register("myprovider", MyProvider)
 
 ## Adding a template
 
-1. Create `backend/services/mail/templates/{name}.html` and `backend/services/mail/templates/{name}.txt`.
+1. Create `src/backend/services/mail/templates/{name}.html` and `src/backend/services/mail/templates/{name}.txt`.
 2. Add an enum member to `MailTemplate` in `templates.py`.
 3. Add metadata to `_TEMPLATE_METADATA` with required placeholders.
 
@@ -173,7 +173,7 @@ assert svc.provider.sent[0].template == "welcome"
 Run the full test suite:
 
 ```
-python -m pytest backend/tests/test_mail.py -v
+python -m pytest src/backend/tests/test_mail.py -v
 ```
 
 Integration tests with pytest verify the complete pipeline:
@@ -211,7 +211,7 @@ Call `shutdown()` on application exit to avoid silent message loss.
 ## Directory structure
 
 ```
-backend/services/mail/
+src/backend/services/mail/
 ├── README.md           # This file
 ├── __init__.py         # Public API exports
 ├── config.py           # MailConfig (centralized env vars)

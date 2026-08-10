@@ -15,6 +15,12 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
+_HERE = os.path.dirname(os.path.abspath(__file__))  # src/api
+_ROOT = os.path.dirname(_HERE)  # src
+_BACKEND = os.path.join(_ROOT, "backend")  # src/backend
 
-from backend.app import app  # noqa: F401 — WSGI handler for Vercel
+for path in (_ROOT, _BACKEND):
+    if path not in sys.path:
+        sys.path.insert(0, path)
+
+from backend.app import app  # noqa: E402, F401 — WSGI handler for Vercel

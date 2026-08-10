@@ -32,9 +32,9 @@ milestones.
 Run all three locally:
 
 ```
-./scripts/macos/build.sh
-./scripts/macos/package.sh
-./scripts/macos/verify.sh
+./release/macos/build.sh
+./release/macos/package.sh
+./release/macos/verify.sh
 ```
 
 ## DS_Store generation

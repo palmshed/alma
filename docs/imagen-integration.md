@@ -12,7 +12,7 @@ The application now supports two image generation pipelines:
 
 ### Code Changes Made
 
-#### 1. SDK Modifications (`backend/palmshed_ai/sdk.py`)
+#### 1. SDK Modifications (`src/backend/palmshed_ai/sdk.py`)
 
 **Added Vertex AI imports:**
 ```python
@@ -35,7 +35,7 @@ except ImportError:
 - Uses `ImageGenerationModel.from_pretrained()` for Imagen models
 - Handles image saving and temporary file management
 
-#### 2. Model Configuration (`backend/palmshed_ai/models.py`)
+#### 2. Model Configuration (`src/backend/palmshed_ai/models.py`)
 
 **Current IMAGE_MODEL (default):**
 ```python
@@ -114,7 +114,7 @@ GEMINI_API_KEY=your_gemini_key_here
 
 2. **Test Imagen Generation:**
    ```bash
-   ./run-dev.sh static
+   ./scripts/dev.sh static
    curl -X POST http://localhost:5001/api/generate-image \
      -H "Content-Type: application/json" \
      -d '{"prompt": "a cat"}' \
@@ -180,8 +180,8 @@ curl -X POST http://localhost:5001/api/generate-image \
 
 ## Files Modified
 
-- `backend/palmshed_ai/sdk.py`: Added Vertex AI pipeline
-- `backend/palmshed_ai/models.py`: Updated IMAGE_MODEL to Imagen
+- `src/backend/palmshed_ai/sdk.py`: Added Vertex AI pipeline
+- `src/backend/palmshed_ai/models.py`: Updated IMAGE_MODEL to Imagen
 - `docs/troubleshooting.md`: Added Vertex AI setup guide
 - `pyproject.toml`: Added google-cloud-aiplatform dependency
 - `.env`: Added Google Cloud variables

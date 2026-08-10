@@ -51,7 +51,7 @@ at a high level and points to detailed documents for each component.
 
 ### PlatformManager
 
-`backend/services/platform.py` — the single entry point for all platform
+`src/backend/services/platform.py` — the single entry point for all platform
 services. Application code never constructs `MailService`, `AuthService`,
 etc. directly.
 
@@ -89,7 +89,7 @@ Provider selection is always configuration-only:
 
 ### alma verify
 
-`backend/verify.py` — consolidated operational CLI that checks both
+`src/backend/verify.py` — consolidated operational CLI that checks both
 platform services (local) and application endpoints (API).
 
 ```bash
@@ -111,10 +111,10 @@ do not cause a failure). This makes it suitable for CI gating.
 
 | Service | Path | Public API | Providers |
 |---------|------|------------|-----------|
-| Mail | `backend/services/mail/` | `MailService.send()` | Mock, SMTP, Resend |
-| Auth | `backend/services/auth/` | `register`, `login`, `verify`, `refresh`, `logout` | Mock, JWT |
-| Storage | `backend/services/storage/` | `upload`, `download`, `delete`, `exists`, `metadata`, `list`, `signed_url` | Mock, Local, Cloud |
-| Notifications | `backend/services/notifications/` | `NotificationService.send()` | Mock, Email, Webhook |
+| Mail | `src/backend/services/mail/` | `MailService.send()` | Mock, SMTP, Resend |
+| Auth | `src/backend/services/auth/` | `register`, `login`, `verify`, `refresh`, `logout` | Mock, JWT |
+| Storage | `src/backend/services/storage/` | `upload`, `download`, `delete`, `exists`, `metadata`, `list`, `signed_url` | Mock, Local, Cloud |
+| Notifications | `src/backend/services/notifications/` | `NotificationService.send()` | Mock, Email, Webhook |
 
 ---
 
