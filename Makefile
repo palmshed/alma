@@ -4,7 +4,10 @@
 # This Makefile provides commands for linting, formatting, testing,
 # and running the Gemini AI Search application.
 
-.PHONY: lint format test run
+.PHONY: dev lint format test verify build run run-static verify-e2e run-all
+
+dev:
+	./scripts/dev.sh
 
 lint:
 	uv run ruff check .
@@ -14,6 +17,12 @@ format:
 
 test:
 	GEMINI_API_KEY=dummy PYTHONPATH=backend uv run pytest backend/tests/
+
+verify:
+	uv run python -m backend.verify e2e
+
+build:
+	cd frontend && npm run build
 
 run:
 	uv run python backend/app.py

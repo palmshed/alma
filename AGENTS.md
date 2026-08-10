@@ -296,8 +296,10 @@ Before every merge, verify the UI through three layers.
 Start the app and exercise the product exactly like a user.
 
 ```bash
-./scripts/run-dev.sh all
+./scripts/dev.sh
 ```
+
+`./scripts/dev.sh` starts the React app and backend — the canonical development entrypoint. The older `./scripts/run-dev.sh` is kept only as a legacy/compatibility script; prefer `./scripts/dev.sh`.
 
 Walk through: landing page, new conversation, chat, search, thinking, voice, theme toggle, mobile sidebar, settings, source cards, audio playback, keyboard shortcuts. This tells you whether the product works.
 
