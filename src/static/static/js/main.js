@@ -71,62 +71,6 @@ function setMode(value) {
   if (_skipInitSound) { _skipInitSound = false; } else { playNavSound(); }
 }
 
-/* ── Model Menu ── */
-
-var currentModel = 'auto';
-
-var MODEL_LABELS = {
-  auto: 'Auto',
-  gemini: 'Gemini',
-  openrouter: 'OpenRouter',
-};
-
-function getModelLabel(value) {
-  return MODEL_LABELS[value] || 'Auto';
-}
-
-function setModel(value) {
-  currentModel = value;
-  document.querySelectorAll('.model-menu-trigger-label').forEach(function (l) {
-    l.textContent = getModelLabel(value);
-  });
-  document.querySelectorAll('.model-menu-item').forEach(function (item) {
-    var isActive = item.dataset.model === value;
-    item.classList.toggle('active', isActive);
-    item.setAttribute('aria-checked', isActive ? 'true' : 'false');
-  });
-  if (_skipInitSound) { _skipInitSound = false; } else { playNavSound(); }
-}
-
-function setupModelMenu(menuId) {
-  var menu = document.getElementById(menuId);
-  if (!menu) return;
-  var trigger = menu.querySelector('.model-menu-trigger');
-  var dropdown = menu.querySelector('.model-menu-dropdown');
-
-  trigger.addEventListener('click', function (e) {
-    e.stopPropagation();
-    var isOpen = dropdown.style.display !== 'none';
-    document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
-    document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
-    setOverflowVisible(null, false);
-    if (!isOpen) {
-      dropdown.style.display = 'flex';
-      trigger.setAttribute('aria-expanded', 'true');
-      setOverflowVisible(menu, true);
-    }
-  });
-
-  menu.querySelectorAll('.model-menu-item').forEach(function (item) {
-    item.addEventListener('click', function () {
-      setModel(item.dataset.model);
-      dropdown.style.display = 'none';
-      trigger.setAttribute('aria-expanded', 'false');
-      setOverflowVisible(null, false);
-    });
-  });
-}
-
 /* ── Navigation sound ── */
 var _audioCtx = null;
 function playNavSound() {
@@ -384,7 +328,7 @@ function handleSubmit() {
 
   var createPromise;
   if (activeConversationId) {
-    /* Existing conversation — add user message now */
+    /* Existing conversation: add user message now */
     var payload = cloneConversation(activeConversationData);
     var userMsg = { role: 'user', content: prompt, timestamp: new Date().toISOString() };
     if (attData) userMsg.attachments = attData;
@@ -404,7 +348,7 @@ function handleSubmit() {
       fetchConversations();
     });
   } else {
-    /* New conversation — create with user message */
+    /* New conversation: create with user message */
     var title = prompt.slice(0, 60);
     var userMsg = { role: 'user', content: prompt, timestamp: new Date().toISOString() };
     if (attData) userMsg.attachments = attData;
@@ -468,7 +412,7 @@ function handleTextGen(prompt, style) {
   fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt: prompt, messages: messages, mode: currentMode, ai_provider: currentModel }),
+    body: JSON.stringify({ prompt: prompt, messages: messages, mode: currentMode }),
   })
     .then(function (r) {
       if (!r.ok) throw new Error('Request failed');
@@ -1149,19 +1093,14 @@ document.addEventListener('DOMContentLoaded', function () {
   /* ── Mode menu setup ── */
   setupModeMenu('landing-mode-menu');
   setupModeMenu('conv-mode-menu');
-  setupModelMenu('landing-model-menu');
-  setupModelMenu('conv-model-menu');
   _skipInitSound = true;
   setMode('canvas');
-  setModel('auto');
 
   /* Outside click to close menu dropdowns */
   document.addEventListener('mousedown', function (e) {
-    if (!e.target.closest('.mode-menu') && !e.target.closest('.model-menu')) {
+    if (!e.target.closest('.mode-menu')) {
       document.querySelectorAll('.mode-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
       document.querySelectorAll('.mode-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
-      document.querySelectorAll('.model-menu-dropdown').forEach(function (d) { d.style.display = 'none'; });
-      document.querySelectorAll('.model-menu-trigger').forEach(function (t) { t.setAttribute('aria-expanded', 'false'); });
       setOverflowVisible(null, false);
     }
   });
