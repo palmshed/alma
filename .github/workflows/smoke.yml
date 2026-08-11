@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
 # Smoke Test: Fast health check for every push and PR.
@@ -25,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || 'dummy' }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || 'dummy' }}
+      OPENROUTER_MODEL: ${{ secrets.OPENROUTER_MODEL }}
+      OPENROUTER_THINKING_MODEL: ${{ secrets.OPENROUTER_THINKING_MODEL }}
+      OPENROUTER_URL_CONTEXT_MODEL: ${{ secrets.OPENROUTER_URL_CONTEXT_MODEL }}
       ALMA_BASE_URL: http://localhost:8000
     steps:
       - name: Checkout
