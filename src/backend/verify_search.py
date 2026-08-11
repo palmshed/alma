@@ -803,6 +803,10 @@ class SearchVerifier:
         # Search must be internal to Auto, not a standalone mode.
         # getEndpoint may keep legacy 'search' routing for restored
         # conversations, but the user-facing MODES must not list it.
+        utils_path = os.path.join(frontend_src_dir, "utils/index.tsx")
+        app_src = ""
+        if os.path.exists(app_tsx_path):
+            app_src = open(app_tsx_path, "r", encoding="utf-8").read()
         utils_src = ""
         if os.path.exists(utils_path):
             utils_src = open(utils_path, "r", encoding="utf-8").read()
