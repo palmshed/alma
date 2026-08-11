@@ -47,15 +47,7 @@ export interface ModeOption {
 export interface ModelOption {
   value: string;
   label: string;
-  shortLabel?: string;
 }
-
-export interface ModelAvailability {
-  state: 'ready' | 'cooling-down' | 'unavailable';
-  reason?: string;
-}
-
-export type ModelAvailabilityState = Record<string, ModelAvailability>;
 
 export interface ConversationEntry {
   id: string;

@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Sun, Moon, Keyboard, Info, Palette, Globe, ShieldCheck, Zap, ChevronDown, Languages } from 'lucide-react';
-import { ACCENT_PRESETS, LANGUAGES, getLanguageLabel } from '../utils';
-import type { SearchSettings } from '../types';
+import { ACCENT_PRESETS, LANGUAGES, getLanguageLabel, MODELS, getModelLabel } from '../utils';
+import type { SearchSettings, ModelOption } from '../types';
 import DropdownSelect from './DropdownSelect';
 
 const SEARCH_PROVIDERS = [
@@ -23,6 +23,7 @@ interface HeaderProps {
   onThemeToggle?: () => void;
   onMenuToggle?: () => void;
   showTitle?: boolean;
+  showLogo?: boolean;
   onNewChat?: () => void;
   accentColor?: string;
   onAccentChange?: (color: string) => void;
@@ -34,6 +35,8 @@ interface HeaderProps {
   onSearchSettingsChange?: (updates: Partial<SearchSettings>) => void;
   language?: string;
   onLanguageChange?: (value: string) => void;
+  model?: string;
+  onModelChange?: (value: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -41,6 +44,7 @@ const Header: React.FC<HeaderProps> = ({
   onThemeToggle,
   onMenuToggle,
   showTitle = false,
+  showLogo = true,
   onNewChat,
   accentColor = '#24d455',
   onAccentChange,
@@ -52,17 +56,20 @@ const Header: React.FC<HeaderProps> = ({
   onSearchSettingsChange,
   language = 'auto',
   onLanguageChange,
+  model = 'auto',
+  onModelChange,
 }) => {
   const [open, setOpen] = useState(false);
   const [showAccentPicker, setShowAccentPicker] = useState(false);
   const [showLanguage, setShowLanguage] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showModel, setShowModel] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
-  const close = useCallback(() => { setOpen(false); setShowAccentPicker(false); setShowLanguage(false); setShowSearch(false); }, []);
+  const close = useCallback(() => { setOpen(false); setShowAccentPicker(false); setShowLanguage(false); setShowSearch(false); setShowModel(false); }, []);
 
   const calcMenuPos = useCallback(() => {
     if (!triggerRef.current || !dropdownRef.current) return;
@@ -105,25 +112,27 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="app-header">
-      <div className="app-header-left">
-        <button className="btn btn--ghost app-header-logo-btn" onClick={onNewChat} type="button" aria-label="Start a new conversation">
-          <svg
-            className="app-header-logo"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.7}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
-            <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
-            <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
-            <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
-          </svg>
-          {showTitle && <span className="app-header-title">Alma</span>}
-        </button>
-      </div>
+      {showLogo && (
+        <div className="app-header-left">
+          <button className="btn btn--ghost app-header-logo-btn" onClick={onNewChat} type="button" aria-label="Start a new conversation">
+            <svg
+              className="app-header-logo"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.7}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M13 8c0-2.76-2.46-5-5.5-5S2 5.24 2 8h2l1-1 1 1h4" />
+              <path d="M13 7.14A5.82 5.82 0 0 1 16.5 6c3.04 0 5.5 2.24 5.5 5h-3l-1-1-1 1h-3" />
+              <path d="M5.89 9.71c-2.15 2.15-2.3 5.47-.35 7.43l4.24-4.25.7-.7.71-.71 2.12-2.12c-1.95-1.96-5.27-1.8-7.42.35" />
+              <path d="M11 15.5c.5 2.5-.17 4.5-1 6.5h4c2-5.5-.5-12-1-14" />
+            </svg>
+            {showTitle && <span className="app-header-title">Alma</span>}
+          </button>
+        </div>
+      )}
 
       <div className="app-header-right">
         {onMenuToggle && (
@@ -357,6 +366,40 @@ const Header: React.FC<HeaderProps> = ({
                       </span>
                     </span>
                   </button>
+                </div>
+              )}
+
+              {/* AI Provider / Model */}
+              <div className="settings-dropdown-item settings-dropdown-item--expandable">
+                <button
+                  className="settings-dropdown-item-btn"
+                  onClick={() => setShowModel(v => !v)}
+                  type="button"
+                  role="menuitem"
+                  aria-expanded={showModel}
+                  data-testid="settings-model-trigger"
+                >
+                  <span className="settings-dropdown-icon">
+                    <Zap size={14} strokeWidth={1.7} />
+                  </span>
+                  <span className="settings-dropdown-label">AI</span>
+                  <span className="settings-dropdown-value">{getModelLabel(model)}</span>
+                  <span className={`settings-dropdown-chevron${showModel ? ' open' : ''}`}>
+                    <ChevronDown size={12} strokeWidth={1.7} />
+                  </span>
+                </button>
+              </div>
+
+              {onModelChange && (
+                <div className={`settings-dropdown-sub${showModel ? '' : ' settings-dropdown-sub--collapsed'}`} data-testid="settings-model-sub">
+                  <div className="settings-dropdown-sub-row">
+                    <span className="settings-dropdown-sub-label">Provider</span>
+                    <DropdownSelect
+                      options={MODELS}
+                      value={model}
+                      onChange={onModelChange}
+                    />
+                  </div>
                 </div>
               )}
 

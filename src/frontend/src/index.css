@@ -1086,7 +1086,7 @@ html {
   flex: 1;
 }
 
-/* ── Model Menu ── */
+/* ── Dropdown trigger & items (shared) ── */
 
 .model-menu-trigger {
   display: flex;
@@ -1114,42 +1114,6 @@ html {
   max-width: 130px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.model-menu {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.model-menu-dropdown {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--surface);
-  border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  z-index: 100;
-  min-width: 130px;
-}
-
-.model-menu-item-status {
-  font-size: 0.65rem;
-  opacity: 0.7;
-}
-
-.model-menu-item-status--cooling-down {
-  color: var(--text-muted);
-}
-
-.model-menu-item-status--unavailable {
-  color: var(--danger);
 }
 
 .dropdown-select-menu {
@@ -1814,30 +1778,7 @@ html {
   display: none;
 }
 
-.composer-toolbar .model-menu-dropdown {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
-.composer-toolbar .model-menu {
-  margin-left: 10px;
-  padding-left: 10px;
-}
-
-.composer-toolbar .model-menu::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-  height: 10px;
-  background: var(--border-subtle);
-}
-
-.composer-toolbar > .mode-menu:only-child::before,
-.composer-toolbar > .model-menu:only-child::before {
+.composer-toolbar > .mode-menu:only-child::before {
   display: none;
 }
 

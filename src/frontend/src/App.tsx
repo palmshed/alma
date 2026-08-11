@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Composer from './components/Composer';
 import ModeMenu from './components/ModeMenu';
-import ModelMenu from './components/ModelMenu';
 import Chip from './components/Chip';
 import LoadingDots from './components/LoadingDots';
 import ResponseContainer from './components/ResponseContainer';
@@ -18,7 +17,7 @@ import SourceCards from './components/SourceCards';
 import SearchProgress from './components/SearchProgress';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, MODELS, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
+import { MODES, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
 import { api } from './services/api';
 import { AttachmentData, ConversationData, SearchSettings } from './types';
 
@@ -225,7 +224,7 @@ function App() {
     try {
       await api.deleteAttachment(att.id);
     } catch {
-      /* ignore — server-side cleanup is best-effort */
+      /* ignore: server-side cleanup is best-effort */
     }
   }, []);
 
@@ -388,6 +387,7 @@ function App() {
           onThemeToggle={handleThemeToggle}
           onMenuToggle={() => setSidebarOpen(true)}
           showTitle={false}
+          showLogo={false}
           onNewChat={handleNewChat}
           accentColor={accentColor}
           onAccentChange={setAccentColor}
@@ -399,6 +399,8 @@ function App() {
           onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
           language={language}
           onLanguageChange={setLanguage}
+          model={model}
+          onModelChange={setModel}
         />
       </div>
     );
@@ -415,6 +417,7 @@ function App() {
         onThemeToggle={handleThemeToggle}
         onMenuToggle={() => setSidebarOpen(true)}
         showTitle={conversationStarted}
+        showLogo={true}
         onNewChat={handleNewChat}
         accentColor={accentColor}
         onAccentChange={setAccentColor}
@@ -426,6 +429,8 @@ function App() {
         onSearchSettingsChange={(u) => setSearchSettings(prev => ({ ...prev, ...u }))}
         language={language}
         onLanguageChange={setLanguage}
+        model={model}
+        onModelChange={setModel}
       />
 
       <input
@@ -495,11 +500,6 @@ function App() {
                   onChange={setMode}
                 />
               )}
-              <ModelMenu
-                options={MODELS}
-                value={model}
-                onChange={setModel}
-              />
             </div>
           }
         />
@@ -611,11 +611,6 @@ function App() {
                     onChange={setMode}
                   />
                 )}
-                <ModelMenu
-                  options={MODELS}
-                  value={model}
-                  onChange={setModel}
-                />
               </div>
             </>
           }

@@ -3,9 +3,9 @@
 import type { ModelOption, ModeOption } from '../types';
 
 export const MODELS: ModelOption[] = [
-  { value: 'auto', label: 'Auto', shortLabel: 'Auto' },
-  { value: 'gemini', label: 'Gemini', shortLabel: 'Gemini' },
-  { value: 'openrouter', label: 'OpenRouter', shortLabel: 'OpenRouter' },
+  { value: 'auto', label: 'Auto' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'openrouter', label: 'OpenRouter' },
 ];
 
 export function getModelLabel(value: string): string {
