@@ -312,9 +312,7 @@ def classify_response(status: int, body: Any) -> str:
     return INFRASTRUCTURE
 
 
-def header_value(
-    headers: Optional[Dict[str, str]], name: str
-) -> Optional[str]:
+def header_value(headers: Optional[Dict[str, str]], name: str) -> Optional[str]:
     """Case-insensitive header lookup."""
     if not headers:
         return None

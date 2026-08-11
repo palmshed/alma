@@ -51,7 +51,9 @@ class FakeSession:
         self.calls: List[Dict[str, Any]] = []
 
     def post(self, url, headers=None, json=None, timeout=None, stream=False):
-        self.calls.append({"url": url, "json": json, "headers": headers, "stream": stream})
+        self.calls.append(
+            {"url": url, "json": json, "headers": headers, "stream": stream}
+        )
         return self.response
 
 
@@ -109,9 +111,9 @@ def test_openrouter_synthetic_with_mock_key():
     assert not provider.has_credentials
     assert provider.synthetic
     assert provider.generate_text("hello").startswith(SYNTHETIC_ANSWER_PREFIX)
-    assert provider.generate_chat(
-        [{"role": "user", "content": "hi"}]
-    ).startswith(SYNTHETIC_CHAT_PREFIX)
+    assert provider.generate_chat([{"role": "user", "content": "hi"}]).startswith(
+        SYNTHETIC_CHAT_PREFIX
+    )
 
 
 def test_openrouter_synthetic_thinking_shape():
@@ -200,7 +202,10 @@ def test_openrouter_streams_deltas():
     session = FakeSession(FakeResponse(lines=lines))
     provider = OpenRouterProvider(api_key=REAL_OR_KEY, base_url="https://or.test/v1")
     provider.session = session
-    assert "".join(provider.stream_chat([{"role": "user", "content": "hi"}])) == "Hello world"
+    assert (
+        "".join(provider.stream_chat([{"role": "user", "content": "hi"}]))
+        == "Hello world"
+    )
     assert session.calls[0]["json"]["stream"] is True
 
 
@@ -251,9 +256,7 @@ def test_router_auto_with_dummy_key_uses_synthetic(monkeypatch):
 def test_router_synthetic_generation_reports_info(monkeypatch):
     router = AIRouter()
     info: Dict[str, Any] = {}
-    response = router.generate_chat(
-        [{"role": "user", "content": "hello"}], info=info
-    )
+    response = router.generate_chat([{"role": "user", "content": "hello"}], info=info)
     assert response.startswith(SYNTHETIC_CHAT_PREFIX)
     assert info["provider"] == "synthetic/mock"
     assert info["provider_key"] == "synthetic"
@@ -272,14 +275,24 @@ def _router_with_real_credentials(monkeypatch) -> AIRouter:
 
 def test_router_falls_back_on_quota(monkeypatch):
     router = _router_with_real_credentials(monkeypatch)
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
-        with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
+        with patch.object(
+            OpenRouterProvider,
+            "has_credentials",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
             with patch.object(
                 router.providers["gemini"],
                 "generate_chat",
                 side_effect=AIProviderError(
-                    "quota exceeded", category="quota", http_status=429,
-                    provider="Gemini", model="m",
+                    "quota exceeded",
+                    category="quota",
+                    http_status=429,
+                    provider="Gemini",
+                    model="m",
                 ),
             ):
                 with patch.object(
@@ -298,8 +311,15 @@ def test_router_falls_back_on_quota(monkeypatch):
 
 def test_router_per_request_provider_override(monkeypatch):
     router = _router_with_real_credentials(monkeypatch)
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
-        with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
+        with patch.object(
+            OpenRouterProvider,
+            "has_credentials",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
             with patch.object(
                 router.providers["openrouter"],
                 "generate_chat",
@@ -320,8 +340,15 @@ def test_router_per_request_provider_override(monkeypatch):
 
 def test_router_invalid_provider_override_falls_back_to_auto(monkeypatch):
     router = _router_with_real_credentials(monkeypatch)
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
-        with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
+        with patch.object(
+            OpenRouterProvider,
+            "has_credentials",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
             with patch.object(
                 router.providers["gemini"],
                 "generate_chat",
@@ -335,8 +362,15 @@ def test_router_invalid_provider_override_falls_back_to_auto(monkeypatch):
 
 def test_router_raises_when_all_providers_fail(monkeypatch):
     router = _router_with_real_credentials(monkeypatch)
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
-        with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
+        with patch.object(
+            OpenRouterProvider,
+            "has_credentials",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
             with patch.object(
                 router.providers["gemini"],
                 "generate_chat",
@@ -358,7 +392,9 @@ def test_router_raises_when_all_providers_fail(monkeypatch):
 
 def test_router_does_not_fallback_to_synthetic_on_real_failure(monkeypatch):
     router = _router_with_real_credentials(monkeypatch)
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
         with patch.object(
             router.providers["gemini"],
             "generate_chat",
@@ -366,7 +402,12 @@ def test_router_does_not_fallback_to_synthetic_on_real_failure(monkeypatch):
                 "boom", category="unavailable", provider="Gemini"
             ),
         ):
-            with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=False):
+            with patch.object(
+                OpenRouterProvider,
+                "has_credentials",
+                new_callable=PropertyMock,
+                return_value=False,
+            ):
                 with pytest.raises(AIProviderError) as excinfo:
                     router.generate_chat([{"role": "user", "content": "hi"}])
     assert excinfo.value.category == "unavailable"
@@ -388,8 +429,15 @@ def test_router_stream_falls_back(monkeypatch):
         def __iter__(self):
             raise AIProviderError("stream failed", category="server")
 
-    with patch.object(GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True):
-        with patch.object(OpenRouterProvider, "has_credentials", new_callable=PropertyMock, return_value=True):
+    with patch.object(
+        GeminiAI, "has_credentials", new_callable=PropertyMock, return_value=True
+    ):
+        with patch.object(
+            OpenRouterProvider,
+            "has_credentials",
+            new_callable=PropertyMock,
+            return_value=True,
+        ):
             with patch.object(
                 router.providers["gemini"],
                 "stream_chat",
@@ -401,9 +449,11 @@ def test_router_stream_falls_back(monkeypatch):
                     return_value=iter(["a", "b", "c"]),
                 ):
                     info: Dict[str, Any] = {}
-                    chunks = list(router.stream_chat(
-                        [{"role": "user", "content": "hi"}], info=info
-                    ))
+                    chunks = list(
+                        router.stream_chat(
+                            [{"role": "user", "content": "hi"}], info=info
+                        )
+                    )
     assert chunks == ["a", "b", "c"]
     assert info["provider"] == "OpenRouter"
     assert info["fallback_used"] is True

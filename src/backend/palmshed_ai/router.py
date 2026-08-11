@@ -50,13 +50,12 @@ class AIRouter:
 
     def __init__(self, provider: Optional[str] = None):
         self.config_provider = (
-            provider or os.environ.get("AI_PROVIDER", "auto")
-        ).strip().lower()
+            (provider or os.environ.get("AI_PROVIDER", "auto")).strip().lower()
+        )
         if self.config_provider not in ("auto", "gemini", "openrouter"):
             self.config_provider = "auto"
         self.providers: Dict[str, AIProvider] = {
-            name: AIProviderRegistry.create(name)
-            for name in ("gemini", "openrouter")
+            name: AIProviderRegistry.create(name) for name in ("gemini", "openrouter")
         }
         self.synthetic = AIProviderRegistry.create("synthetic")
 
@@ -85,9 +84,7 @@ class AIRouter:
         name = provider.strip().lower()
         if name not in ("gemini", "openrouter", "auto"):
             name = "auto"
-        ordered = [
-            self.providers[p] for p in _provider_order(name)
-        ]
+        ordered = [self.providers[p] for p in _provider_order(name)]
         # Keep the requested provider at the front, dedupe, then append others.
         ordered = sorted(
             ordered,
@@ -177,7 +174,9 @@ class AIRouter:
     # ── Text generation entry points ─────────────────────────────────
 
     def generate_text(
-        self, prompt: str, info: Optional[Dict[str, Any]] = None,
+        self,
+        prompt: str,
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> str:
         return self._execute(
@@ -185,7 +184,9 @@ class AIRouter:
         )
 
     def generate_chat(
-        self, messages: List[dict], info: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[dict],
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> str:
         return self._execute(
@@ -193,7 +194,9 @@ class AIRouter:
         )
 
     def generate_chat_with_thinking(
-        self, messages: List[dict], info: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[dict],
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> Dict[str, Any]:
         return self._execute(
@@ -206,7 +209,9 @@ class AIRouter:
         )
 
     def generate_text_with_thinking(
-        self, prompt: str, info: Optional[Dict[str, Any]] = None,
+        self,
+        prompt: str,
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> Dict[str, Any]:
         return self._execute(
@@ -219,7 +224,9 @@ class AIRouter:
         )
 
     def generate_chat_with_url_context(
-        self, messages: List[dict], info: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[dict],
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> str:
         return self._execute(
@@ -232,7 +239,9 @@ class AIRouter:
         )
 
     def generate_text_with_url_context(
-        self, prompt: str, info: Optional[Dict[str, Any]] = None,
+        self,
+        prompt: str,
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> str:
         return self._execute(
@@ -245,7 +254,9 @@ class AIRouter:
         )
 
     def stream_chat(
-        self, messages: List[dict], info: Optional[Dict[str, Any]] = None,
+        self,
+        messages: List[dict],
+        info: Optional[Dict[str, Any]] = None,
         provider: Optional[str] = None,
     ) -> Iterator[str]:
         candidates = self._candidates_for(provider)

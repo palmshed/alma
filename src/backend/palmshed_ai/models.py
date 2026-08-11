@@ -15,9 +15,7 @@ import os
 
 # ── Gemini (direct) models ────────────────────────────────────────────
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.6-flash")
-GEMINI_THINKING_MODEL = os.environ.get(
-    "GEMINI_THINKING_MODEL", "gemini-2.5-pro"
-)
+GEMINI_THINKING_MODEL = os.environ.get("GEMINI_THINKING_MODEL", "gemini-2.5-pro")
 GEMINI_URL_CONTEXT_MODEL = os.environ.get(
     "GEMINI_URL_CONTEXT_MODEL", "gemini-3.5-flash"
 )

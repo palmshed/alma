@@ -47,7 +47,9 @@ class OpenRouterProvider(AIProvider):
 
     def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None):
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY")
-        self.base_url = (base_url or os.environ.get("OPENROUTER_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        self.base_url = (
+            base_url or os.environ.get("OPENROUTER_BASE_URL") or DEFAULT_BASE_URL
+        ).rstrip("/")
         self.session = requests.Session()
         self._last_model: Optional[str] = None
 
@@ -57,9 +59,15 @@ class OpenRouterProvider(AIProvider):
 
     def model_for(self, capability: str) -> str:
         if capability == CAPABILITY_THINKING:
-            return os.environ.get("OPENROUTER_THINKING_MODEL") or models.OPENROUTER_THINKING_MODEL
+            return (
+                os.environ.get("OPENROUTER_THINKING_MODEL")
+                or models.OPENROUTER_THINKING_MODEL
+            )
         if capability == CAPABILITY_WEB:
-            return os.environ.get("OPENROUTER_URL_CONTEXT_MODEL") or models.OPENROUTER_URL_CONTEXT_MODEL
+            return (
+                os.environ.get("OPENROUTER_URL_CONTEXT_MODEL")
+                or models.OPENROUTER_URL_CONTEXT_MODEL
+            )
         return os.environ.get("OPENROUTER_MODEL") or models.OPENROUTER_MODEL
 
     def _headers(self) -> Dict[str, str]:
@@ -90,7 +98,9 @@ class OpenRouterProvider(AIProvider):
             "stream": stream,
         }
 
-    def _normalize_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _normalize_messages(
+        self, messages: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
         normalized = normalize_messages(messages)
         out: List[Dict[str, Any]] = []
         for msg in normalized:
@@ -180,9 +190,7 @@ class OpenRouterProvider(AIProvider):
             raise classify_network_error(e, self.display_name, model) from e
         return response
 
-    def _complete(
-        self, messages: List[Dict[str, Any]], model: str
-    ) -> Dict[str, Any]:
+    def _complete(self, messages: List[Dict[str, Any]], model: str) -> Dict[str, Any]:
         self._last_model = model
         response = self._post(messages, model)
         if response.status_code >= 400:
@@ -201,7 +209,9 @@ class OpenRouterProvider(AIProvider):
             self._last_model = actual
         return data
 
-    def _classify_response(self, response: requests.Response, model: str) -> AIProviderError:
+    def _classify_response(
+        self, response: requests.Response, model: str
+    ) -> AIProviderError:
         detail = response.text[:300].strip() or f"HTTP {response.status_code}"
         return classify_http_status(
             response.status_code, self.display_name, model, detail
@@ -218,9 +228,7 @@ class OpenRouterProvider(AIProvider):
         data = self._complete(messages, model or self.model_for(CAPABILITY_CHAT))
         return self._extract_text(data)
 
-    def generate_chat(
-        self, messages: List[dict], model: Optional[str] = None
-    ) -> str:
+    def generate_chat(self, messages: List[dict], model: Optional[str] = None) -> str:
         """Generate a response from a conversation message list."""
         if not messages:
             raise ValueError("No messages provided")
@@ -257,9 +265,7 @@ class OpenRouterProvider(AIProvider):
         if self.synthetic:
             return dict(SYNTHETIC_THINKING)
         messages = [{"role": "user", "content": prompt}]
-        data = self._complete(
-            messages, model or self.model_for(CAPABILITY_THINKING)
-        )
+        data = self._complete(messages, model or self.model_for(CAPABILITY_THINKING))
         response = self._extract_text(data)
         return {"response": response, "thinking_summary": self._extract_reasoning(data)}
 
@@ -287,9 +293,7 @@ class OpenRouterProvider(AIProvider):
         if self.synthetic:
             return SYNTHETIC_TEXT.format(query=prompt[:60])
         messages = [{"role": "user", "content": prompt}]
-        data = self._complete(
-            messages, model or self.model_for(CAPABILITY_WEB)
-        )
+        data = self._complete(messages, model or self.model_for(CAPABILITY_WEB))
         return self._extract_text(data)
 
     def stream_chat(

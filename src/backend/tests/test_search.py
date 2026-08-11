@@ -60,10 +60,15 @@ def test_intent_router_chat_triggers():
 
 def test_intent_router_search_triggers():
     service = SearchService()
-    assert service.route_intent("What is the latest Rust release?", mode="auto") == "search"
+    assert (
+        service.route_intent("What is the latest Rust release?", mode="auto")
+        == "search"
+    )
     assert service.route_intent("What happened today in tech?", mode="auto") == "search"
     assert service.route_intent("Compare PostgreSQL and MySQL", mode="auto") == "search"
-    assert service.route_intent("What is the capital of France?", mode="auto") == "search"
+    assert (
+        service.route_intent("What is the capital of France?", mode="auto") == "search"
+    )
     assert service.route_intent("What is Rust 1.90?", mode="auto") == "search"
     assert service.route_intent("Latest Node.js release", mode="auto") == "search"
     assert service.route_intent("Who won the 2026 election?", mode="auto") == "search"

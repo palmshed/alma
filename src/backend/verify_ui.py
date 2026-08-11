@@ -687,7 +687,9 @@ def check_has_thinking_display() -> UICheck:
         )
     has_thinking_separator = "thinking" in code
     has_thinking_mode_check = hook_code and "mode === 'thinking'" in hook_code
-    separate_render = app_code and "ThinkingContainer" in app_code and "thinking" in app_code
+    separate_render = (
+        app_code and "ThinkingContainer" in app_code and "thinking" in app_code
+    )
     if all([has_thinking_separator, has_thinking_mode_check, separate_render]):
         return UICheck(
             "thinking_display",
@@ -812,7 +814,10 @@ def check_mode_routing() -> UICheck:
     has_thinking = "mode === 'thinking'" in hook_code
     has_search_modes = (
         "['search', 'auto', 'code', 'web']" in hook_code
-        or "search" in hook_code and "auto" in hook_code and "code" in hook_code and "web" in hook_code
+        or "search" in hook_code
+        and "auto" in hook_code
+        and "code" in hook_code
+        and "web" in hook_code
     )
     has_else_branch = "else" in hook_code  # canvas/chat default
     missing = []
@@ -2545,8 +2550,9 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                 state="visible", timeout=45000
             )
             text = (
-                page.locator(".response-container .markdown-content")
-                .first.text_content()
+                page.locator(
+                    ".response-container .markdown-content"
+                ).first.text_content()
                 or ""
             )
             has_response = bool(text.strip() and len(text.strip()) > 5)
@@ -3490,7 +3496,9 @@ _LANGUAGE_API_CHECKED = False
 _LANGUAGE_API_RESULTS: List[E2EResult] = []
 
 
-def _verify_language_ui_checks(page: "Any", screenshot_fn: "Any", results: List[E2EResult]) -> None:
+def _verify_language_ui_checks(
+    page: "Any", screenshot_fn: "Any", results: List[E2EResult]
+) -> None:
     """Verify the language setting UI: default, selectability, persistence.
 
     Runs on every viewport. Cheap, no API calls, and confirms the settings

@@ -106,7 +106,9 @@ class GeminiAI(AIProvider):
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
-        self.client = google_genai.Client(api_key=self.api_key) if self.api_key else None
+        self.client = (
+            google_genai.Client(api_key=self.api_key) if self.api_key else None
+        )
         self.cache = None
         redis_url = os.environ.get("REDIS_URL")
         if redis and redis_url:
@@ -136,9 +138,14 @@ class GeminiAI(AIProvider):
 
     def model_for(self, capability: str) -> str:
         if capability == CAPABILITY_THINKING:
-            return os.environ.get("GEMINI_THINKING_MODEL") or models.GEMINI_THINKING_MODEL
+            return (
+                os.environ.get("GEMINI_THINKING_MODEL") or models.GEMINI_THINKING_MODEL
+            )
         if capability == CAPABILITY_WEB:
-            return os.environ.get("GEMINI_URL_CONTEXT_MODEL") or models.GEMINI_URL_CONTEXT_MODEL
+            return (
+                os.environ.get("GEMINI_URL_CONTEXT_MODEL")
+                or models.GEMINI_URL_CONTEXT_MODEL
+            )
         return os.environ.get("GEMINI_MODEL") or models.GEMINI_MODEL
 
     def _build_contents(self, messages: List[dict]) -> List[types.Content]:
@@ -185,9 +192,7 @@ class GeminiAI(AIProvider):
             self.cache.set(cache_key, result)
         return result
 
-    def generate_chat(
-        self, messages: List[dict], model: Optional[str] = None
-    ) -> str:
+    def generate_chat(self, messages: List[dict], model: Optional[str] = None) -> str:
         """Generate text response from conversation history."""
         if not messages:
             raise ValueError("No messages provided")

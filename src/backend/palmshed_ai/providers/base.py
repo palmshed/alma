@@ -210,7 +210,9 @@ class AIProvider(ABC):
         return True
 
 
-def normalize_messages(messages: Optional[List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+def normalize_messages(
+    messages: Optional[List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
     """Normalize conversation messages to ``[{role, content}, ...]``.
 
     Skips messages without usable text and maps unknown roles to ``user``.

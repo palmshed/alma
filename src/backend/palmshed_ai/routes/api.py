@@ -164,9 +164,7 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 f"SOURCES:\n{grounded_context}\n"
             )
             if lang_instruction:
-                synthesis_instruction = (
-                    f"{lang_instruction}\n\n{synthesis_instruction}"
-                )
+                synthesis_instruction = f"{lang_instruction}\n\n{synthesis_instruction}"
             if messages:
                 augmented = [{"role": "user", "content": synthesis_instruction}] + list(
                     messages

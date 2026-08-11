@@ -427,10 +427,14 @@ class SearchService:
         q_lower = query.strip().lower()
 
         # Pure arithmetic / math: no web needed.
-        if re.search(r"\d[\d\s]*[\+\-\*/%^][\d\s]*\d", q_lower) or re.search(
-            r"\b(what is|calculate|solve)\b.*\b(plus|minus|times|divided by|\+|-|\*|/)\b",
-            q_lower,
-        ) or re.search(r"\d+\s*%", q_lower):
+        if (
+            re.search(r"\d[\d\s]*[\+\-\*/%^][\d\s]*\d", q_lower)
+            or re.search(
+                r"\b(what is|calculate|solve)\b.*\b(plus|minus|times|divided by|\+|-|\*|/)\b",
+                q_lower,
+            )
+            or re.search(r"\d+\s*%", q_lower)
+        ):
             return "chat"
 
         # Conversational / creative / writing tasks: no web needed.
