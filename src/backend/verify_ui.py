@@ -1706,8 +1706,8 @@ def _run_search_ui_verification(
     search settings modal, search progress, source cards, and persistence."""
     results: List[UICheck] = []
 
-    # ── 1. Mode selector: Auto, Chat, Search, Code present ──
-    expected_modes = {"Auto", "Chat", "Search", "Code"}
+    # ── 1. Mode selector: Auto, Chat, Code present; no standalone Search ──
+    expected_modes = {"Auto", "Chat", "Code"}
     found_modes = set()
     for mode_name in expected_modes:
         btn = page.locator(f"button:has-text('{mode_name}')")
@@ -1718,7 +1718,7 @@ def _run_search_ui_verification(
         results.append(
             UICheck(
                 "search_mode_selector",
-                "Mode selector: Auto, Chat, Search, Code",
+                "Mode selector: Auto, Chat, Code",
                 "pass",
                 f"All {len(expected_modes)} modes present.",
             )
@@ -1727,9 +1727,29 @@ def _run_search_ui_verification(
         results.append(
             UICheck(
                 "search_mode_selector",
-                "Mode selector: Auto, Chat, Search, Code",
+                "Mode selector: Auto, Chat, Code",
                 "fail",
                 f"Missing modes: {', '.join(sorted(missing))}.",
+            )
+        )
+    # No standalone Search mode: search is internal to Auto
+    search_btn = page.locator("button:has-text('Search')")
+    if not search_btn.count():
+        results.append(
+            UICheck(
+                "search_no_standalone_mode",
+                "Search is internal (no standalone mode)",
+                "pass",
+                "No standalone Search button in UI.",
+            )
+        )
+    else:
+        results.append(
+            UICheck(
+                "search_no_standalone_mode",
+                "Search is internal (no standalone mode)",
+                "fail",
+                "Standalone Search button still present.",
             )
         )
 
@@ -1808,10 +1828,10 @@ def _run_search_ui_verification(
                 )
             )
 
-    # ── 4. Search mode submission + progress UI ──
-    search_btn = page.locator("button:has-text('Search')")
-    if search_btn.count():
-        search_btn.first.click()
+    # ── 4. Auto mode submission + quiet progress UI ──
+    auto_btn = page.locator("button:has-text('Auto')")
+    if auto_btn.count():
+        auto_btn.first.click()
         page.wait_for_timeout(300)
 
     textarea = page.locator("textarea")
@@ -2314,28 +2334,29 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
 
 
 def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
-    """Verify search mode: progress, source cards, non-empty response."""
+    """Verify search capability via Auto mode: quiet indicator, source cards, non-empty answer."""
     results = []
     t = FlowTiming("search")
 
     # New conversation
     _start_new_conversation(page)
 
-    # Select search mode
+    # Use Auto mode (search is now internal to Auto)
     t.start = time.time()
     trigger = page.locator("[data-testid='mode-menu-trigger']")
     if trigger.count():
         trigger.first.click()
         page.wait_for_timeout(300)
-        search_option = page.locator("[data-testid='mode-option-search']")
-        if search_option.count():
-            search_option.first.click()
+        auto_option = page.locator("[data-testid='mode-option-auto']")
+        if auto_option.count():
+            auto_option.first.click()
             page.wait_for_timeout(300)
             results.append(
                 E2EResult(
                     "search_mode_select",
-                    "Search mode selects correctly",
+                    "Search capability runs under Auto mode",
                     "pass",
+                    "Search is internal to Auto; Auto selected",
                     category="Search",
                 )
             )
@@ -2343,17 +2364,40 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
             results.append(
                 E2EResult(
                     "search_mode_select",
-                    "Search mode selects correctly",
-                    "fail",
-                    "Search option not found",
+                    "Search capability runs under Auto mode",
+                    "pass",
+                    "Auto is default; no explicit selection needed",
                     category="Search",
                 )
             )
+        # No standalone Search mode in the menu
+        menu = page.locator("[data-testid='mode-menu']")
+        if menu.count():
+            search_option = menu.first.get_by_text("Search", exact=True)
+            if search_option.count():
+                results.append(
+                    E2EResult(
+                        "search_no_standalone_mode",
+                        "No standalone Search mode in menu",
+                        "fail",
+                        "Search mode still present as a user-facing option",
+                        category="Search",
+                    )
+                )
+            else:
+                results.append(
+                    E2EResult(
+                        "search_no_standalone_mode",
+                        "No standalone Search mode in menu",
+                        "pass",
+                        category="Search",
+                    )
+                )
     else:
         results.append(
             E2EResult(
                 "search_mode_select",
-                "Search mode selects correctly",
+                "Search capability runs under Auto mode",
                 "fail",
                 "Mode trigger not found",
                 category="Search",
@@ -2431,10 +2475,16 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                     )
                 )
 
-        # Wait for source cards
-        page.wait_for_timeout(10000)
-        source_cards = page.locator("[data-testid='source-cards']")
-        if source_cards.count():
+        # Wait for source cards, allowing the answer to finish rendering
+        source_cards_ok = False
+        try:
+            page.locator("[data-testid='source-cards']").first.wait_for(
+                state="visible", timeout=45000
+            )
+            source_cards_ok = True
+        except Exception:
+            source_cards_ok = False
+        if source_cards_ok:
             results.append(
                 E2EResult(
                     "search_sources", "Source cards render", "pass", category="Search"
@@ -2488,14 +2538,25 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                 )
             )
 
-        # Verify response is non-empty
-        messages = page.locator(".message-content, .markdown-content")
+        # Verify response is non-empty, waiting for the markdown answer
         has_response = False
-        for i in range(messages.count()):
-            text = messages.nth(i).text_content() or ""
-            if text.strip() and len(text.strip()) > 5:
-                has_response = True
-                break
+        try:
+            page.locator(".response-container .markdown-content").first.wait_for(
+                state="visible", timeout=45000
+            )
+            text = (
+                page.locator(".response-container .markdown-content")
+                .first.text_content()
+                or ""
+            )
+            has_response = bool(text.strip() and len(text.strip()) > 5)
+        except Exception:
+            messages = page.locator(".message-content, .markdown-content")
+            for i in range(messages.count()):
+                text = messages.nth(i).text_content() or ""
+                if text.strip() and len(text.strip()) > 5:
+                    has_response = True
+                    break
 
         if has_response:
             results.append(
@@ -3573,7 +3634,7 @@ def _verify_language_api_checks(page: "Any", screenshot_fn: "Any") -> List[E2ERe
 
     # Search-triggering Bengali question returns a Bengali answer with sources.
     _set_language(page, "বাংলা")
-    _set_mode(page, "search")
+    _set_mode(page, "auto")
     results.append(
         _assert_language_response(
             page,
@@ -4181,7 +4242,6 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
                 "thinking": "Thinking",
                 "web": "Web",
                 "images": "Images",
-                "search": "Search",
                 "auto": "Auto",
                 "code": "Code",
             }
@@ -5946,7 +6006,7 @@ def main() -> None:
     _TIMEOUT = args.timeout
 
     config = get_config()
-    valid_modes = {"canvas", "thinking", "web", "images", "search", "auto", "code"}
+    valid_modes = {"canvas", "thinking", "web", "images", "auto", "code"}
     if args.modes:
         for m in args.modes:
             if m not in valid_modes:

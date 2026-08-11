@@ -787,12 +787,7 @@ class SearchVerifier:
         search_modal_path = os.path.join(
             frontend_src_dir, "components/SearchSettingsModal.tsx"
         )
-        mode_menu_path = os.path.join(frontend_src_dir, "components/ModeMenu.tsx")
 
-        has_mode_selector = os.path.exists(mode_menu_path) or (
-            os.path.exists(app_tsx_path)
-            and "searchSettings" in open(app_tsx_path, "r", encoding="utf-8").read()
-        )
         has_progress_states = os.path.exists(search_progress_path) and (
             "Searching the web"
             in open(search_progress_path, "r", encoding="utf-8").read()
@@ -805,9 +800,26 @@ class SearchVerifier:
         )
         has_modal = os.path.exists(search_modal_path)
 
+        # Search must be internal to Auto, not a standalone mode.
+        # getEndpoint may keep legacy 'search' routing for restored
+        # conversations, but the user-facing MODES must not list it.
+        utils_src = ""
+        if os.path.exists(utils_path):
+            utils_src = open(utils_path, "r", encoding="utf-8").read()
+        has_legacy_normalization = (
+            "LEGACY_SEARCH_MODES" in app_src and "normalizeMode" in app_src
+        )
+        mods_block = ""
+        if "MODES" in utils_src:
+            start = utils_src.index("MODES")
+            mods_block = utils_src[start : start + 400]
+        no_standalone_search = has_legacy_normalization and (
+            not mods_block or "search" not in mods_block
+        )
+
         t_fe = (time.time() - t0) * 1000
         fe_checks = {
-            "Search mode selector": has_mode_selector,
+            "Search is internal to Auto (no standalone mode)": no_standalone_search,
             "Search progress states": has_progress_states,
             "Source cards": has_source_cards,
             "Opening sources (target='_blank')": has_target_blank,
@@ -817,7 +829,7 @@ class SearchVerifier:
         if all(fe_checks.values()):
             self.record(
                 "Frontend",
-                "Frontend UI components & state parity (Selector, Progress, Cards, Target blank, Error banners)",
+                "Frontend UI components & state parity (Internal search, Progress, Cards, Target blank, Error banners)",
                 "PASS",
                 t_fe,
                 fe_checks,
