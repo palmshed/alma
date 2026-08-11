@@ -62,7 +62,7 @@ Mail uses `http.client` instead of `requests`. Auth uses `hmac` +
 `hashlib` instead of `PyJWT`. Templates use `string.Template`
 instead of Jinja2.
 
-This is not a universal rule — when a dependency dramatically reduces
+This is not a universal rule: when a dependency dramatically reduces
 code or complexity, use it. But default to stdlib first and justify
 every external dependency.
 
@@ -83,15 +83,15 @@ the kind of over-engineering that produces elegant infrastructure
 and a mediocre product.
 
 The goal is a repository that is easy to understand, easy to change,
-and easy to operate — not one that is maximally abstract or
+and easy to operate, not one that is maximally abstract or
 theoretically pure.
 
 ---
 
 ## Related Documents
 
-- `AGENTS.md` — how to work in this repository
-- `docs/architecture.md` — what the platform looks like
-- `docs/architecture/*.md` — why specific decisions were made (ADRs)
-- `docs/versioning.md` — what counts as a breaking change
-- `docs/observability.md` — how services report their state
+- `AGENTS.md`: how to work in this repository
+- `docs/architecture.md`: what the platform looks like
+- `docs/architecture/*.md`: why specific decisions were made (ADRs)
+- `docs/versioning.md`: what counts as a breaking change
+- `docs/observability.md`: how services report their state

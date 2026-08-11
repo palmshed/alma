@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# Smoke Test — Fast health check for every push and PR.
+# Smoke Test: Fast health check for every push and PR.
 #
 # Answers: "Did we break the application?"
 # Target: under 2 minutes.
@@ -43,7 +43,7 @@ jobs:
 
       - name: Build frontend
         run: |
-          cd frontend
+          cd src/frontend
           npm install
           npm run build
 
@@ -52,7 +52,7 @@ jobs:
 
       - name: Start backend
         run: |
-          nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
+          nohup uv run python src/backend/app.py > /tmp/backend.log 2>&1 &
           for i in $(seq 1 15); do
             if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
               echo "Backend up"

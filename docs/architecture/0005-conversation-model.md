@@ -5,7 +5,7 @@
 
 ## Context
 
-Conversations are Alma's primary product concept — every user interaction
+Conversations are Alma's primary product concept: every user interaction
 happens within a conversation. The model must be designed for the product,
 not the current UI, because conversations will outlive any single interface
 (sidebar, search, export, sharing, multi-device).
@@ -27,7 +27,7 @@ Local, Cloud) do not affect the model.
 
 ### UI-independent schema
 
-The model contains no React state — no expanded panels, loading flags,
+The model contains no React state: no expanded panels, loading flags,
 scroll positions, or animation state. Every conversation is fully
 serializable and deserializable without information loss.
 

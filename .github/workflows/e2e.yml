@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# End-to-End — Full browser verification.
+# End-to-End: Full browser verification.
 #
 # Answers: "Can a user actually use Alma?"
 # Runs Playwright against the deployed app or a local instance.
@@ -51,7 +51,7 @@ jobs:
 
       - name: Start backend
         run: |
-          nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
+          nohup uv run python src/backend/app.py > /tmp/backend.log 2>&1 &
           for i in $(seq 1 15); do
             if curl -s http://localhost:8000/api/health > /dev/null 2>&1; then
               echo "Backend up"
@@ -78,44 +78,44 @@ jobs:
       - name: Run E2E verification
         continue-on-error: true
         run: |
-          mkdir -p backend/verify-output/e2e
-          uv run python -m backend.verify e2e --json --output backend/verify-output/e2e/report.json
+          mkdir -p src/backend/verify-output/e2e
+          uv run python -m backend.verify e2e --json --output src/backend/verify-output/e2e/report.json
 
       - name: Upload screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-screenshots
-          path: backend/verify-output/e2e/**/*.png
+          path: src/backend/verify-output/e2e/**/*.png
 
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-report-html
-          path: backend/verify-output/e2e/report.html
+          path: src/backend/verify-output/e2e/report.html
 
       - name: Upload JSON report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-report-json
-          path: backend/verify-output/e2e/report.json
+          path: src/backend/verify-output/e2e/report.json
 
       - name: Upload traces
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-traces
-          path: backend/verify-output/e2e/**/trace.zip
+          path: src/backend/verify-output/e2e/**/trace.zip
 
       - name: Summarize results
         if: always()
         run: |
-          if [ -f backend/verify-output/e2e/report.json ]; then
+          if [ -f src/backend/verify-output/e2e/report.json ]; then
             uv run python -c "
           import json, sys
-          r = json.load(open('backend/verify-output/e2e/report.json'))
+          r = json.load(open('src/backend/verify-output/e2e/report.json'))
           s = r['summary']
           print(f\"E2E: {s['passed']}/{s['total']} passed, {s['failed']} failed, {s['skipped']} skipped\")
           if s['failed'] > 0:

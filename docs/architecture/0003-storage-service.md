@@ -87,21 +87,21 @@ class StorageService:
 
 All environment variables are read exclusively in `StorageConfig.from_env()`:
 
-- `STORAGE_PROVIDER` — provider name (default: `mock`)
-- `STORAGE_BUCKET` — logical bucket/container name (default: `alma`)
-- `STORAGE_BASE_PATH` — filesystem path for local provider
-- `STORAGE_PUBLIC_URL` — public base URL for serving objects
-- `MAX_UPLOAD_SIZE_MB` — maximum upload size in MB (default: `50`)
+- `STORAGE_PROVIDER`: provider name (default: `mock`)
+- `STORAGE_BUCKET`: logical bucket/container name (default: `alma`)
+- `STORAGE_BASE_PATH`: filesystem path for local provider
+- `STORAGE_PUBLIC_URL`: public base URL for serving objects
+- `MAX_UPLOAD_SIZE_MB`: maximum upload size in MB (default: `50`)
 
 ### Providers
 
-**MockStorageProvider** — in-memory store. All capabilities enabled. No
+**MockStorageProvider**: in-memory store. All capabilities enabled. No
 credentials or persistence required. Default for development and tests.
 
-**LocalStorageProvider** — filesystem-backed storage. Supports nested paths,
+**LocalStorageProvider**: filesystem-backed storage. Supports nested paths,
 metadata, and listing. Does not support public URLs or signed URLs.
 
-**CloudStorageProvider** — interface stub. All methods return FAILED with a
+**CloudStorageProvider**: interface stub. All methods return FAILED with a
 message directing implementors to replace with GCS, S3, R2, or Azure.
 
 ### Health integration
@@ -149,5 +149,5 @@ Negative:
 
 - ADR 0001: Platform Services
 - ADR 0002: Mail Service
-- `services/mail/` — reference implementation
-- `services/auth/` — reference implementation
+- `services/mail/`: reference implementation
+- `services/auth/`: reference implementation

@@ -10,9 +10,9 @@ should have for platform services.
 
 Platform services follow [Semantic Versioning 2.0.0](https://semver.org/):
 
-- **MAJOR** — incompatible API changes
-- **MINOR** — backward-compatible additions
-- **PATCH** — backward-compatible bug fixes
+- **MAJOR**: incompatible API changes
+- **MINOR**: backward-compatible additions
+- **PATCH**: backward-compatible bug fixes
 
 All four services share the same version number (currently 0.1.0).
 Application code depends on `services` as a single unit, so there is
@@ -25,7 +25,7 @@ no per-service version pinning.
 Every symbol listed in each service's `__init__.py` `__all__` is
 considered part of the public API.
 
-### Mail (`backend/services/mail/`)
+### Mail (`src/backend/services/mail/`)
 
 `MailConfig`, `MailMetrics`, `MailService`, `MailMessage`, `MailResult`,
 `MailStatus`, `MailPriority`, `MailError`, `MailValidationError`,
@@ -33,20 +33,20 @@ considered part of the public API.
 `MailTemplates`, `TemplateDefinition`, `MailProvider`, `ProviderRegistry`,
 `MailQueue`, `get_provider`, `get_queue`
 
-### Auth (`backend/services/auth/`)
+### Auth (`src/backend/services/auth/`)
 
 `AuthConfig`, `AuthMetrics`, `AuthService`, `AuthResult`, `AuthStatus`,
 `TokenPair`, `User`, `AuthError`, `AuthValidationError`,
 `AuthHealthStatus`, `AuthProvider`, `ProviderRegistry`, `get_provider`
 
-### Storage (`backend/services/storage/`)
+### Storage (`src/backend/services/storage/`)
 
 `StorageConfig`, `StorageMetrics`, `StorageService`, `StorageObject`,
 `StorageResult`, `StorageStatus`, `StorageError`,
 `StorageValidationError`, `StorageHealth`, `ProviderCapabilities`,
 `StorageProvider`, `ProviderRegistry`, `get_provider`
 
-### Notifications (`backend/services/notifications/`)
+### Notifications (`src/backend/services/notifications/`)
 
 `NotificationConfig`, `NotificationMetrics`, `NotificationService`,
 `Notification`, `NotificationResult`, `NotificationStatus`,
@@ -54,8 +54,8 @@ considered part of the public API.
 `ChannelCapabilities`, `NotificationChannel`, `MockChannel`,
 `EmailChannel`, `WebhookChannel`, `ChannelRegistry`, `get_channel`
 
-Everything else — internal modules, private functions, underscore-prefixed
-symbols, test helpers — is not part of the public API and may change
+Everything else, including internal modules, private functions, underscore-prefixed
+symbols, and test helpers, is not part of the public API and may change
 without notice.
 
 ---
@@ -138,7 +138,7 @@ section or in the repository-level `CHANGELOG.md`.
 
 ## Verify CLI Stability
 
-The `backend/verify.py` CLI follows its own stability contract:
+The `src/backend/verify.py` CLI follows its own stability contract:
 
 - `--json` output format is stable within a MAJOR version
 - Human-readable output may change without notice (it is for operators,

@@ -112,4 +112,4 @@ Negative:
 
 - ADR 0001: Platform Services
 - ADR 0002: Mail Service
-- `services/mail/` — used by EmailChannel
+- `services/mail/`: used by EmailChannel

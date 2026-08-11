@@ -173,7 +173,7 @@ has_progress_states = os.path.exists(search_progress_path) and (
 
 | Check | Method | What It Verifies |
 |-------|--------|------------------|
-| Search mode selector | File existence | Component file exists |
+| Search internal to Auto | String match | `LEGACY_SEARCH_MODES`/`normalizeMode` in App.tsx; no `search` in MODES |
 | Search progress states | String match | "Searching the web" in source |
 | Source cards | String match | "source-card" in source |
 | Target blank | String match | `target="_blank"` in source |

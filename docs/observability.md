@@ -89,9 +89,9 @@ Every log call uses the service name as the event key:
 
 Each service defines a `<Service>Logger` class with two methods:
 
-- `log_result(result, **context)` — logs the outcome of an operation,
+- `log_result(result, **context)`: logs the outcome of an operation,
   extracting all available metadata from the result object.
-- `log_send(..., **context)` or equivalent — logs a standalone operation
+- `log_send(..., **context)` or equivalent: logs a standalone operation
   with explicit parameters when no result object is available.
 
 ### Common log fields
@@ -112,9 +112,9 @@ Service-specific fields (e.g., `recipient`, `template`, `email`,
 
 ### Conventions
 
-- Use `logger.info(event_key, extra=entry)` — never `logger.warning`
+- Use `logger.info(event_key, extra=entry)`: never `logger.warning`
   or `logger.error` for audit events (status is encoded in the entry).
-- Conditionally include the `error` key — never set it to an empty string.
+- Conditionally include the `error` key: never set it to an empty string.
 - Timestamps are ISO 8601 strings.
 
 ---
@@ -148,7 +148,7 @@ a dataclass with service status information.
 
 ## Verify Alignment
 
-The `alma verify` CLI (`backend/verify.py`) reports health in a format
+The `alma verify` CLI (`src/backend/verify.py`) reports health in a format
 that mirrors each service's health() output.
 
 - Platform checks call `service.health()` directly and map its fields

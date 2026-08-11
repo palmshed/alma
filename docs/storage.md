@@ -62,13 +62,13 @@ health = svc.health()
 
 | Feature           | Mock | Local | Cloud | GCS | S3 | R2 | Azure |
 |-------------------|------|-------|-------|-----|-----|-----|-------|
-| Status            | ✓    | ✓     | stub  | —    | —    | —    | —     |
-| Public URLs       | ✓    | ✗     | ✓     | —    | —    | —    | —     |
-| Signed URLs       | ✓    | ✗     | ✓     | —    | —    | —    | —     |
-| Metadata          | ✓    | ✓     | ✓     | —    | —    | —    | —     |
-| Multipart upload  | ✓    | ✗     | ✓     | —    | —    | —    | —     |
-| Versioning        | ✓    | ✗     | ✓     | —    | —    | —    | —     |
-| Streaming         | ✓    | ✗     | ✓     | —    | —    | —    | —     |
+| Status            | ✓    | ✓     | stub  | no | no | no | no |
+| Public URLs       | ✓    | ✗     | ✓     | no | no | no | no |
+| Signed URLs       | ✓    | ✗     | ✓     | no | no | no | no |
+| Metadata          | ✓    | ✓     | ✓     | no | no | no | no |
+| Multipart upload  | ✓    | ✗     | ✓     | no | no | no | no |
+| Versioning        | ✓    | ✗     | ✓     | no | no | no | no |
+| Streaming         | ✓    | ✗     | ✓     | no | no | no | no |
 
 ### Mock
 
@@ -98,7 +98,7 @@ STORAGE_PROVIDER=cloud
 
 ### Adding a Provider
 
-1. Create `backend/services/storage/providers/gcs.py`
+1. Create `src/backend/services/storage/providers/gcs.py`
 2. Implement `StorageProvider` ABC
 3. Register in `providers/__init__.py`:
    ```python
@@ -116,8 +116,8 @@ No application code changes needed.
 |----------|---------|----------|-------------|
 | `STORAGE_PROVIDER` | `mock` | no | Provider name |
 | `STORAGE_BUCKET` | `alma` | no | Logical bucket/container name |
-| `STORAGE_BASE_PATH` | — | for local | Filesystem path for local provider |
-| `STORAGE_PUBLIC_URL` | — | no | Public base URL for serving objects |
+| `STORAGE_BASE_PATH` | no | for local | Filesystem path for local provider |
+| `STORAGE_PUBLIC_URL` | no | no | Public base URL for serving objects |
 | `MAX_UPLOAD_SIZE_MB` | `50` | no | Maximum upload size in MB |
 
 ---

@@ -15,7 +15,7 @@ reimplement email from scratch.
 
 ## Decision
 
-Build mail as a Platform Service under `backend/services/mail/`.
+Build mail as a Platform Service under `src/backend/services/mail/`.
 
 The service is:
 

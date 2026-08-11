@@ -42,12 +42,12 @@ jobs:
 
       - name: Build frontend
         run: |
-          cd frontend
+          cd src/frontend
           npm install
           npm run build
 
       - name: Run tests
-        run: PYTHONPATH=backend uv run pytest backend/tests/ -W ignore::DeprecationWarning
+        run: PYTHONPATH=src/backend uv run pytest src/backend/tests/ -W ignore::DeprecationWarning
 
       - name: Platform verification
         run: uv run python -m backend.verify --platform
@@ -55,7 +55,7 @@ jobs:
       - name: Start backend
         run: |
           # ensure logs are captured
-          nohup uv run python backend/app.py > /tmp/backend.log 2>&1 &
+          nohup uv run python src/backend/app.py > /tmp/backend.log 2>&1 &
           backend_pid=$!
           echo "Started backend, PID=$backend_pid"
 
@@ -122,7 +122,7 @@ jobs:
       - name: Get version
         id: version
         run: |
-          version=$(python3 -c "import re; f=open('backend/palmshed_ai/__init__.py'); print(re.search(r'__version__ = \"(.+?)\"', f.read()).group(1))")
+          version=$(python3 -c "import re; f=open('src/backend/palmshed_ai/__init__.py'); print(re.search(r'__version__ = \"(.+?)\"', f.read()).group(1))")
           echo "VERSION=$version" >> $GITHUB_OUTPUT
 
       - name: Validate tag does not exist

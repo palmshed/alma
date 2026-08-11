@@ -53,7 +53,7 @@ Available templates:
 ## Directory structure
 
 ```
-backend/services/mail/
+src/backend/services/mail/
 ├── __init__.py         # Public API exports
 ├── config.py           # MailConfig (all env vars centralized)
 ├── models.py           # MailMessage, MailResult, Address, etc.
@@ -67,7 +67,7 @@ backend/services/mail/
     ├── smtp.py         # SMTPProvider
     └── mock.py         # MockProvider (testing)
 
-backend/services/mail/templates/
+src/backend/services/mail/templates/
 ├── welcome.html / .txt
 ├── verification.html / .txt
 ├── password_reset.html / .txt
@@ -149,7 +149,7 @@ SMTP_PASSWORD=...
 
 ### Resend (recommended for production)
 
-Uses the Resend REST API over HTTPS. No SDK required — uses `urllib`.
+Uses the Resend REST API over HTTPS. No SDK required: uses `urllib`.
 
 ```
 MAIL_PROVIDER=resend
@@ -173,7 +173,7 @@ Provider capabilities:
 
 - **Local development**: Use `mock` (no credentials needed). Captures messages in memory.
 - **Integration testing**: Use `resend` with Resend's testing/onboarding domain to send real emails to your personal inbox. No custom domain required.
-- **Production**: Use `resend` with a verified `palmshed.dev` domain. Only configuration changes — no application code changes.
+- **Production**: Use `resend` with a verified `palmshed.dev` domain. Only configuration changes: no application code changes.
 
 ## Adding a provider
 
@@ -207,7 +207,7 @@ Set `MAIL_PROVIDER=myprovider`.
 
 ## Queue model
 
-Default: `ThreadMailQueue` — an in-process background thread.
+Default: `ThreadMailQueue`: an in-process background thread.
 
 ```
 enqueue(message) → Queue → Worker → Provider
@@ -250,7 +250,7 @@ Validation runs at startup:
 
 Add a template:
 
-1. Create `backend/services/mail/templates/{name}.html` and `backend/services/mail/templates/{name}.txt`
+1. Create `src/backend/services/mail/templates/{name}.html` and `src/backend/services/mail/templates/{name}.txt`
 2. Add the `MailTemplate` enum member in `templates.py`
 3. Add the `TemplateDefinition` with metadata and required placeholders
 
@@ -306,10 +306,10 @@ environment. If credentials are present, it sends a real email. If not,
 it exits with a clear error message.
 
 ```bash
-# With mock provider — simulates only
+# With mock provider: simulates only
 MAIL_PROVIDER=mock python -m services.mail.verify --to you@example.com
 
-# With Resend — sends a real email
+# With Resend: sends a real email
 MAIL_PROVIDER=resend RESEND_API_KEY=re_... \
   python -m services.mail.verify --to you@example.com
 
@@ -391,7 +391,7 @@ MAIL_FROM_NAME=Palmshed
 MAIL_REPLY_TO=support@palmshed.dev
 ```
 
-4. No code changes required — same `MailService`, same `MailTemplate`,
+4. No code changes required: same `MailService`, same `MailTemplate`,
    same `MailConfig` structure.
 
 ---
@@ -522,7 +522,7 @@ logging.getLogger("palmshed.mail").setLevel(logging.DEBUG)
 
 ## Logging
 
-Audit logs contain metadata only — never message bodies:
+Audit logs contain metadata only: never message bodies:
 
 - mail_id
 - recipient
@@ -552,7 +552,7 @@ Record the successful end-to-end delivery test here.
 | Arrived in inbox | ✅ |
 | HTML rendered correctly | ✅ |
 | Plain text rendered correctly | ✅ |
-| Migration required | Yes — sender still uses `onboarding@resend.dev` |
+| Migration required | Yes: sender still uses `onboarding@resend.dev` |
 
 ### Migration to custom domain
 

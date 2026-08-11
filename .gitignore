@@ -49,13 +49,13 @@ coverage.xml
 .ruff_cache/
 
 # Build artifacts
-frontend/dist/
+src/frontend/dist/
 
 # Swift
-swift/.build/
+src/swift/.build/
 
 # Verification artifacts
-backend/verify-output/
+src/backend/verify-output/
 
 # macOS packaging output
 output/
@@ -64,6 +64,6 @@ output/
 .build-dsstore/
 
 # Generated intermediate: 1024px render of canonical logo.svg, consumed by sips
-frontend/public/logo-1024.png
+src/frontend/public/logo-1024.png
 
 .env*

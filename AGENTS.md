@@ -155,11 +155,11 @@ ADRs explain **why** important decisions were made.
 
 Current records:
 
-- `0001-platform-services.md` — introducing the Platform Services layer
-- `0002-mail-service.md` — mail as a reusable platform capability
-- `0003-auth-service.md` — auth as a reusable platform capability
-- `0003-storage-service.md` — storage as a reusable platform capability
-- `0004-notifications-service.md` — notifications as a reusable platform capability
+- `0001-platform-services.md`: introducing the Platform Services layer
+- `0002-mail-service.md`: mail as a reusable platform capability
+- `0003-auth-service.md`: auth as a reusable platform capability
+- `0003-storage-service.md`: storage as a reusable platform capability
+- `0004-notifications-service.md`: notifications as a reusable platform capability
 
 ---
 
@@ -296,8 +296,10 @@ Before every merge, verify the UI through three layers.
 Start the app and exercise the product exactly like a user.
 
 ```bash
-./scripts/run-dev.sh all
+./scripts/dev.sh
 ```
+
+`./scripts/dev.sh` starts the React app and backend, the canonical development entrypoint. The older `./scripts/run-dev.sh` is kept only as a legacy/compatibility script; prefer `./scripts/dev.sh`.
 
 Walk through: landing page, new conversation, chat, search, thinking, voice, theme toggle, mobile sidebar, settings, source cards, audio playback, keyboard shortcuts. This tells you whether the product works.
 
@@ -313,7 +315,7 @@ Every supported flow is exercised automatically. Produces screenshots and traces
 
 ### Layer 3: Visual review
 
-Open the generated screenshots in `backend/verify-output/e2e/` and check for spacing, alignment, clipping, overflow, colors, theme contrast, and responsive layout. This catches regressions that tests won't.
+Open the generated screenshots in `src/backend/verify-output/e2e/` and check for spacing, alignment, clipping, overflow, colors, theme contrast, and responsive layout. This catches regressions that tests won't.
 
 ---
 
@@ -337,7 +339,7 @@ The automated verifier proves everything is connected correctly. The quick human
 
 ---
 
-`alma verify` is stable developer tooling. Treat it as frozen — do not add new checks unless a real production regression exposes a gap.
+`alma verify` is stable developer tooling. Treat it as frozen. Do not add new checks unless a real production regression exposes a gap.
 
 ### Exit criteria
 
@@ -363,7 +365,7 @@ See `docs/roadmap.md` for the high-level project roadmap.
 
 Platform infrastructure is locked at v0.1.0. Do not build new platform services unless a product feature requires it.
 
-v0.2.0 (Conversation History) is complete — persist, rename, delete,
+v0.2.0 (Conversation History) is complete: persist, rename, delete,
 sidebar, auto titles, restore, switching, search.
 
 Future releases should make the application more useful rather than

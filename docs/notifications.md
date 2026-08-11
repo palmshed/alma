@@ -42,7 +42,7 @@ No application code changes needed.
 |----------|---------|----------|-------------|
 | `NOTIFICATIONS_ENABLED` | `true` | no | Master toggle |
 | `NOTIFICATIONS_DEFAULT_CHANNEL` | `mock` | no | Channel to use when none specified |
-| `NOTIFICATIONS_WEBHOOK_URL` | — | for webhook | URL for webhook channel |
+| `NOTIFICATIONS_WEBHOOK_URL` | no | for webhook | URL for webhook channel |
 | `NOTIFICATIONS_WEBHOOK_TIMEOUT` | `10` | no | Webhook timeout in seconds |
 
 ---

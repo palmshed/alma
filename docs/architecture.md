@@ -51,7 +51,7 @@ at a high level and points to detailed documents for each component.
 
 ### PlatformManager
 
-`backend/services/platform.py` — the single entry point for all platform
+`src/backend/services/platform.py`: the single entry point for all platform
 services. Application code never constructs `MailService`, `AuthService`,
 etc. directly.
 
@@ -75,13 +75,13 @@ it trivial to expose a single `/api/health` endpoint.
 
 Each service follows an identical architecture:
 
-- **Config** — `from_env()` reads all settings from environment variables
-- **Provider/Channel ABC** — abstract base class for pluggable backends
-- **Registry** — provider registration and lookup by name
-- **Service** — public API (send, register, upload, health, shutdown)
-- **Metrics** — counters, histograms, snapshots
-- **Logging** — structured audit trail
-- **Verify** — standalone CLI for diagnostics
+- **Config**: `from_env()` reads all settings from environment variables
+- **Provider/Channel ABC**: abstract base class for pluggable backends
+- **Registry**: provider registration and lookup by name
+- **Service**: public API (send, register, upload, health, shutdown)
+- **Metrics**: counters, histograms, snapshots
+- **Logging**: structured audit trail
+- **Verify**: standalone CLI for diagnostics
 
 Provider selection is always configuration-only:
 `MAIL_PROVIDER`, `AUTH_PROVIDER`, `STORAGE_PROVIDER`,
@@ -89,7 +89,7 @@ Provider selection is always configuration-only:
 
 ### alma verify
 
-`backend/verify.py` — consolidated operational CLI that checks both
+`src/backend/verify.py`: consolidated operational CLI that checks both
 platform services (local) and application endpoints (API).
 
 ```bash
@@ -111,10 +111,10 @@ do not cause a failure). This makes it suitable for CI gating.
 
 | Service | Path | Public API | Providers |
 |---------|------|------------|-----------|
-| Mail | `backend/services/mail/` | `MailService.send()` | Mock, SMTP, Resend |
-| Auth | `backend/services/auth/` | `register`, `login`, `verify`, `refresh`, `logout` | Mock, JWT |
-| Storage | `backend/services/storage/` | `upload`, `download`, `delete`, `exists`, `metadata`, `list`, `signed_url` | Mock, Local, Cloud |
-| Notifications | `backend/services/notifications/` | `NotificationService.send()` | Mock, Email, Webhook |
+| Mail | `src/backend/services/mail/` | `MailService.send()` | Mock, SMTP, Resend |
+| Auth | `src/backend/services/auth/` | `register`, `login`, `verify`, `refresh`, `logout` | Mock, JWT |
+| Storage | `src/backend/services/storage/` | `upload`, `download`, `delete`, `exists`, `metadata`, `list`, `signed_url` | Mock, Local, Cloud |
+| Notifications | `src/backend/services/notifications/` | `NotificationService.send()` | Mock, Email, Webhook |
 
 ---
 
@@ -136,7 +136,7 @@ do not cause a failure). This makes it suitable for CI gating.
   All four services can be extracted into standalone packages without
   changing consumers.
 
-- **Configuration-driven**: Provider selection, timeouts, limits — all
+- **Configuration-driven**: Provider selection, timeouts, limits: all
   from environment variables. No code changes to switch backends.
 
 - **Mock by default**: Every service defaults to an in-memory mock.
@@ -170,11 +170,11 @@ Platform services currently share version 0.1.0.
 
 The platform layer intentionally does not include:
 
-- **Service discovery** — not needed at single-service scale
-- **Distributed tracing** — not needed at current scale
-- **Persistent queues** — thread-based queue is sufficient for current
+- **Service discovery**: not needed at single-service scale
+- **Distributed tracing**: not needed at current scale
+- **Persistent queues**: thread-based queue is sufficient for current
   throughput; replace with Redis/Celery if volume grows
-- **Circuit breakers** — added when external provider reliability
+- **Circuit breakers**: added when external provider reliability
   becomes a measurable concern
 
 These may be added to individual services as the application scales,

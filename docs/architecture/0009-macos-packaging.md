@@ -63,9 +63,9 @@ are independent concerns that are often combined into a single
 
 Instead, each capability lands in its own milestone:
 
-1. **Packaging** — produce a working unsigned DMG from CI (v0.3.3)
-2. **Signing** — remove the unidentified-developer warning (v0.3.4)
-3. **Distribution** — notarize, staple, optional auto-update (v0.3.5)
+1. **Packaging**: produce a working unsigned DMG from CI (v0.3.3)
+2. **Signing**: remove the unidentified-developer warning (v0.3.4)
+3. **Distribution**: notarize, staple, optional auto-update (v0.3.5)
 
 This ordering means packaging can be verified independently. If the DMG
 has structural problems, they are found before signing and notarization
@@ -77,7 +77,7 @@ configuration is added on top.
   Releases page without any developer tooling installed.
 - The unsigned DMG will show a Gatekeeper warning on first launch,
   which is acceptable for an open source project at this stage.
-- A `scripts/macos/` directory centralises all packaging knowledge —
+- A `release/macos/` directory centralises all packaging knowledge:
   CI configuration stays thin and local packaging mirrors CI packaging.
 - GitHub Actions macOS runner minutes will be consumed on each tagged
   release, but release cadence is low enough that this is not a concern.
@@ -89,7 +89,7 @@ configuration is added on top.
 ### DS_Store generation (v0.3.4+)
 
 The DMG `.DS_Store` is generated during packaging by
-`scripts/macos/generate-dsstore.py` using the `ds_store` and
+`release/macos/generate-dsstore.py` using the `ds_store` and
 `mac_alias` Python libraries.
 
 **Decision**
@@ -100,7 +100,7 @@ template or relying on AppleScript to configure Finder view state.
 **Rationale**
 
 - AppleScript's `set background picture` no longer persists Finder
-  window configuration to `.DS_Store` on macOS 15 — the background
+  window configuration to `.DS_Store` on macOS 15: the background
   image, icon size, and arrangement settings are lost when the window
   is closed or the volume is remounted.
 - A generated `.DS_Store` is deterministic, reviewable, and

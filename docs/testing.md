@@ -2,10 +2,10 @@
 
 ## Test Structure
 
-Tests are located in the `backend/tests/` directory:
+Tests are located in the `src/backend/tests/` directory:
 
 ```
-backend/tests/
+src/backend/tests/
 └── test_app.py    # Basic Flask app tests
 ```
 
@@ -16,10 +16,10 @@ backend/tests/
 make test
 
 # With coverage
-PYTHONPATH=backend uv run pytest --cov=palmshed_ai --cov-report=html
+PYTHONPATH=src/backend uv run pytest --cov=palmshed_ai --cov-report=html
 
 # Specific test file
-PYTHONPATH=backend uv run pytest backend/tests/test_app.py
+PYTHONPATH=src/backend uv run pytest src/backend/tests/test_app.py
 ```
 
 ## Current Test Coverage
@@ -112,7 +112,7 @@ uv run playwright install chromium --with-deps
 ### Running E2E
 
 ```bash
-# Full E2E (all flows, all viewports) — the default
+# Full E2E (all flows, all viewports), the default
 alma verify e2e
 
 # Specific flows only
@@ -122,7 +122,7 @@ alma verify e2e --flow chat search themes
 alma verify e2e --viewport desktop
 
 # JSON + HTML output
-alma verify e2e --json --output backend/verify-output
+alma verify e2e --json --output src/backend/verify-output
 
 # Just infrastructure check (no browser)
 alma verify e2e --flow infra
@@ -134,30 +134,30 @@ Available viewports: `desktop` (1280×800), `tablet` (768×1024), `mobile` (375�
 
 ### How It Works
 
-1. **Infrastructure check** — hits `/api/health` and loads the frontend URL to confirm both servers are up.
-2. **Disclaimer dismissal** — the first-visit disclaimer dialog is dismissed via JavaScript evaluate so it doesn't block interactions.
-3. **Flow execution** — each flow opens a fresh browser context, navigates to the app, and performs a series of actions (type, click, assert).
-4. **Error collection** — browser console errors are captured. Race-condition 404s and Gemini quota errors are filtered out.
-5. **Quota detection** — if the Gemini API returns 429 RESOURCE_EXHAUSTED, subsequent API-dependent flows are skipped with `infra_fail` status instead of false failures.
-6. **Report generation** — results are written to `report.json` and `report.html` in the output directory.
+1. **Infrastructure check**: hits `/api/health` and loads the frontend URL to confirm both servers are up.
+2. **Disclaimer dismissal**: the first-visit disclaimer dialog is dismissed via JavaScript evaluate so it doesn't block interactions.
+3. **Flow execution**: each flow opens a fresh browser context, navigates to the app, and performs a series of actions (type, click, assert).
+4. **Error collection**: browser console errors are captured. Race-condition 404s and Gemini quota errors are filtered out.
+5. **Quota detection**: if the Gemini API returns 429 RESOURCE_EXHAUSTED, subsequent API-dependent flows are skipped with `infra_fail` status instead of false failures.
+6. **Report generation**: results are written to `report.json` and `report.html` in the output directory.
 
 ### Reading the Report
 
 **Human-readable** (printed to terminal):
 
 ```
-E2E VERIFICATION RESULTS — 2026-07-23 18:43:28 UTC
+E2E VERIFICATION RESULTS: 2026-07-23 18:43:28 UTC
 
 PASSED 42 | FAILED 0 | SKIPPED 23 | 65 TOTAL
 
 DESKTOP (1420ms)    14/14 passed
-  chat              pass (320ms) — 2 messages exchanged
-  search            pass (210ms) — 6 source cards, 1 search bar
-  thinking          pass (180ms) — thinking toggle present
-  voice             pass (150ms) — TTS container, button, audio found
-  keyboard          pass (120ms) — Enter submits, Escape closes sidebar
-  themes            pass (140ms) — dark: present, light: present, toggle: present
-  infra             pass (100ms) — ...
+  chat              pass (320ms): 2 messages exchanged
+  search            pass (210ms): 6 source cards, 1 search bar
+  thinking          pass (180ms): thinking toggle present
+  voice             pass (150ms): TTS container, button, audio found
+  keyboard          pass (120ms): Enter submits, Escape closes sidebar
+  themes            pass (140ms): dark: present, light: present, toggle: present
+  infra             pass (100ms): ...
 
 TABLET (890ms)      14/14 passed
   ...

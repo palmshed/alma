@@ -37,12 +37,12 @@ uv sync
 
 # Compile TypeScript
 echo "Compiling TypeScript..."
-npx tsc --project deploy/static/static/ts
+npx tsc --project src/static/static/ts
 
 # Set up Go service (optional)
-if command -v go &> /dev/null && [ -f go/src/main.go ]; then
+if command -v go &> /dev/null && [ -f src/go/main.go ]; then
     echo "Starting Go text processing service..."
-    cd go/src
+    cd src/go
     go run main.go &
     GO_PID=$!
     cd ../..
