@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 // SPDX-License-Identifier: MIT
 import React, { useState, useRef, useEffect } from 'react';
 import { Layers, Sparkles, Globe, Image, Zap, MessageSquare, Code } from 'lucide-react';

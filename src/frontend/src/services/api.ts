@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 // SPDX-License-Identifier: MIT
 import type { ApiThinkingResult, AttachmentData, ConversationEntry, ConversationData, CreateConversationPayload, MessageData } from '../types';
 

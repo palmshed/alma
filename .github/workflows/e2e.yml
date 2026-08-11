@@ -43,7 +43,7 @@ jobs:
 
       - name: Install frontend deps
         run: npm install
-        working-directory: frontend
+        working-directory: src/frontend
 
       - name: Install Playwright
         run: |
@@ -73,7 +73,7 @@ jobs:
           echo "Frontend failed to start. Logs:"
           cat /tmp/frontend.log
           exit 1
-        working-directory: frontend
+        working-directory: src/frontend
 
       - name: Run E2E verification
         continue-on-error: true

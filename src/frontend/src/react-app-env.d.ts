@@ -1,3 +1,3 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 // SPDX-License-Identifier: MIT
 /// <reference types="react-scripts" />
