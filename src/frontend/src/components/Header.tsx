@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+// SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 // SPDX-License-Identifier: MIT
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';

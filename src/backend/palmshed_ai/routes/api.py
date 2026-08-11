@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 # SPDX-License-Identifier: MIT
 #
 # This module defines the API routes for the Alma AI application,

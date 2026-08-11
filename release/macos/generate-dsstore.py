@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
+# SPDX-FileCopyrightText: Copyright (c) 2026 Palmshed
 # SPDX-License-Identifier: MIT
 """Generate a .DS_Store file for the Alma DMG."""
 
