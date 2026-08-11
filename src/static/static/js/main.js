@@ -22,7 +22,6 @@ var MODE_ICONS = {
 var MODE_LABELS = {
   auto: 'Auto',
   chat: 'Chat',
-  search: 'Search',
   code: 'Code',
   canvas: 'Canvas',
   thinking: 'Thinking',
@@ -30,23 +29,28 @@ var MODE_LABELS = {
   images: 'Images',
 };
 
+function loadingIndicatorHTML() {
+  var isSearchMode = ['search', 'auto', 'code', 'web'].includes(currentMode);
+  if (isSearchMode) {
+    return '<div class="conversation-loading"><div class="search-progress-container" role="status" aria-label="Searching the web"><span class="search-progress-dot"></span><span class="search-progress-label">Searching the web&hellip;</span></div></div>';
+  }
+  return '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>';
+}
+
 function renderSourceCardsHTML(sources) {
   if (!sources || !sources.length) return '';
   var html = '<div class="source-cards-container">';
   html += '<div class="source-cards-header">';
   html += '<svg class="source-cards-header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>';
   html += '<span>Sources</span></div>';
-  html += '<div class="source-cards-grid">';
+  html += '<div class="source-cards-list">';
   for (var i = 0; i < sources.length; i++) {
     var s = sources[i];
     var domain = s.domain || (s.url ? s.url.replace(/^https?:\/\//, '').split('/')[0].replace('www.', '') : 'web');
     html += '<a href="' + s.url + '" target="_blank" rel="noopener noreferrer" class="source-card">';
-    html += '<div class="source-card-top"><span class="source-card-domain">' + domain + '</span>';
-    html += '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" width="12" height="12"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></div>';
-    html += '<div class="source-card-title">' + (s.title || '') + '</div>';
-    if (s.snippet) {
-      html += '<div class="source-card-snippet">' + s.snippet + '</div>';
-    }
+    html += '<span class="source-card-index">' + (i + 1) + '</span>';
+    html += '<span class="source-card-domain">' + domain + '</span>';
+    html += '<span class="source-card-title">' + (s.title || '') + '</span>';
     html += '</a>';
   }
   html += '</div></div>';
@@ -324,7 +328,7 @@ function handleSubmit() {
 
   /* Show loading immediately */
   var scroll = document.getElementById('conversation-scroll');
-  scroll.innerHTML = '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>';
+  scroll.innerHTML = loadingIndicatorHTML();
 
   var createPromise;
   if (activeConversationId) {
@@ -380,13 +384,13 @@ function handleSubmit() {
   /* Show the submitted message without waiting for the persistence request. */
   renderConversation();
   scroll = document.getElementById('conversation-scroll');
-  scroll.insertAdjacentHTML('beforeend', '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
+  scroll.insertAdjacentHTML('beforeend', loadingIndicatorHTML());
 
   createPromise.then(function () {
     renderConversation();
     /* Append loading indicator */
     var scroll = document.getElementById('conversation-scroll');
-    scroll.insertAdjacentHTML('beforeend', '<div class="conversation-loading"><div class="loading-dots" role="status" aria-label="Generating"><span class="loading-dots-label">Generating</span><div class="loading-dots-track" style="gap:5px"><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.2s"></span><span class="loading-dots-dot" style="width:6px;height:6px;animation-delay:0.4s"></span></div></div></div>');
+    scroll.insertAdjacentHTML('beforeend', loadingIndicatorHTML());
     if (currentMode === 'images') {
       handleImageGen(prompt);
     } else {

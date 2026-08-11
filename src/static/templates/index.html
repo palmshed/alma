@@ -14,7 +14,7 @@ SPDX-License-Identifier: MIT
     <link rel="alternate icon" href="{{ url_for('static', filename='img/logo_rounded.png') }}" sizes="32x32">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/marked/marked.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=8">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=9">
 </head>
 <body>
 
@@ -142,12 +142,6 @@ SPDX-License-Identifier: MIT
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                 </span>
                                 <span class="mode-menu-item-label">Chat</span>
-                            </button>
-                            <button class="mode-menu-item" data-mode="search" role="menuitemradio" aria-checked="false" type="button">
-                                <span class="mode-menu-item-icon">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
-                                </span>
-                                <span class="mode-menu-item-label">Search</span>
                             </button>
                             <button class="mode-menu-item" data-mode="code" role="menuitemradio" aria-checked="false" type="button">
                                 <span class="mode-menu-item-icon">
@@ -402,6 +396,6 @@ SPDX-License-Identifier: MIT
     </div>
     <div class="dialog-overlay" id="dialog-overlay" style="display:none"></div>
 
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4"></script>
 </body>
 </html>
