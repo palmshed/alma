@@ -44,7 +44,7 @@ runs:
         with open('src/backend/palmshed_ai/__init__.py', 'w') as f:
             f.write(content)
 
-        # pyproject.toml — only the top-level version line
+        # pyproject.toml: only the top-level version line
         with open('pyproject.toml', 'r') as f:
             lines = f.readlines()
         for i, line in enumerate(lines):

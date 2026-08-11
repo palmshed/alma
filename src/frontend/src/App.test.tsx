@@ -51,7 +51,7 @@ function getTriggerButtons() {
   };
 }
 
-describe('New conversation — entry points', () => {
+describe('New conversation: entry points', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -108,7 +108,7 @@ describe('Message submission', () => {
   });
 });
 
-describe('New conversation — keyboard shortcut', () => {
+describe('New conversation: keyboard shortcut', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -125,7 +125,7 @@ describe('New conversation — keyboard shortcut', () => {
   });
 });
 
-describe('Sidebar — conversation list', () => {
+describe('Sidebar: conversation list', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -176,7 +176,7 @@ describe('Sidebar — conversation list', () => {
   });
 });
 
-describe('Sidebar — rename', () => {
+describe('Sidebar: rename', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -225,7 +225,7 @@ describe('Sidebar — rename', () => {
   });
 });
 
-describe('Sidebar — search', () => {
+describe('Sidebar: search', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -312,7 +312,7 @@ describe('Sidebar — search', () => {
   });
 });
 
-describe('Sidebar — delete', () => {
+describe('Sidebar: delete', () => {
   beforeEach(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
     vi.clearAllMocks();
@@ -431,7 +431,7 @@ describe('Conversation rendering', () => {
     /* Second user message appears */
     expect(await screen.findByText('Second prompt')).not.toBeNull();
 
-    /* First exchange still present — not overwritten */
+    /* First exchange still present: not overwritten */
     expect(screen.getByText('First prompt')).not.toBeNull();
     expect(screen.getAllByText('mock response').length).toBeGreaterThanOrEqual(1);
 

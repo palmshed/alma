@@ -114,7 +114,7 @@ policy. Public API is defined by `__init__.py` exports.
 | Production | `resend` | Yes (`palmshed.dev`) | Verified domain with SPF/DKIM/DMARC. |
 
 Moving from integration testing to production requires only
-configuration and DNS changes — no application code changes.
+configuration and DNS changes: no application code changes.
 
 ## Adding a provider
 
@@ -202,7 +202,7 @@ svc = MailService()
 # Send (adds to queue, starts background thread)
 svc.send(MailTemplate.WELCOME, ...)
 
-# Graceful shutdown — drains queue, waits for in-flight sends
+# Graceful shutdown: drains queue, waits for in-flight sends
 svc.shutdown(timeout=5.0)
 ```
 
@@ -224,7 +224,7 @@ src/backend/services/mail/
 └── providers/
     ├── __init__.py     # Auto-registers mock, smtp, and resend providers
     ├── base.py         # MailProvider ABC
-    ├── registry.py     # ProviderRegistry — register, create, list
+    ├── registry.py     # ProviderRegistry: register, create, list
     ├── mock.py         # MockProvider (testing)
     ├── smtp.py         # SMTPProvider
     └── resend.py       # ResendProvider (production)

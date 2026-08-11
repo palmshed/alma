@@ -7,7 +7,7 @@ Before merging any UI-related pull request, verify each item below.
 - [ ] No new visual language introduced.
 - [ ] Uses the same typographic scale, spacing, and color tokens.
 - [ ] Reuses an existing pattern rather than inventing a new one.
-- [ ] Visual weight matches the surrounding page — nothing competes for attention.
+- [ ] Visual weight matches the surrounding page: nothing competes for attention.
 
 ## Responsive
 

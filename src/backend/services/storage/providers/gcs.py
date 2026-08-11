@@ -47,7 +47,7 @@ class GCSStorageProvider(StorageProvider):
                 self._client = gcs.Client()
         except Exception as exc:
             self._init_error = str(exc)
-            logger.warning("GCS init deferred — credentials not available yet: %s", exc)
+            logger.warning("GCS init deferred, credentials not available yet: %s", exc)
 
     @property
     def capabilities(self) -> ProviderCapabilities:

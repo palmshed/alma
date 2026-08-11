@@ -23,7 +23,7 @@ def verify(args: argparse.Namespace) -> int:
     print()
 
     if default_channel == "mock":
-        print("WARNING: NOTIFICATIONS_DEFAULT_CHANNEL=mock — no real notification.")
+        print("WARNING: NOTIFICATIONS_DEFAULT_CHANNEL=mock: no real notification.")
         print()
 
     try:

@@ -297,7 +297,7 @@ def classify_response(status: int, body: Any) -> str:
             return "config"
         if "PERMISSION_DENIED" in msg or "quota" in msg:
             return QUOTA
-    # Flask wraps Gemini errors in HTTP 500 — check body for Gemini error codes
+    # Flask wraps Gemini errors in HTTP 500: check body for Gemini error codes
     if status == 500:
         err_msg = body
         if isinstance(body, dict):
@@ -746,7 +746,7 @@ def check_attachments() -> Dict[str, Any]:
             result["error"] = "Attachment IDs mismatch after reload"
             return result
 
-        # 7. Delete conversation — clean up attachments first
+        # 7. Delete conversation: clean up attachments first
         for att_ref in msg.attachments:
             att_store.delete(att_ref["id"])
         conv_store.delete(conv_id)
@@ -808,7 +808,7 @@ def check_identity() -> Dict[str, Any]:
         app = create_app()
         client = app.test_client()
 
-        # First request — no cookie
+        # First request: no cookie
         resp1 = client.get("/api/conversations")
         cookie1 = resp1.headers.get("Set-Cookie", "")
         if COOKIE_NAME not in cookie1:
@@ -841,7 +841,7 @@ def check_identity() -> Dict[str, Any]:
             result["error"] = "Cookie missing Max-Age=31536000"
             return result
 
-        # Second request — test client sends cookie automatically
+        # Second request: test client sends cookie automatically
         resp2 = client.get("/api/conversations")
         cookie2 = resp2.headers.get("Set-Cookie", "")
         if COOKIE_NAME in cookie2:
@@ -870,13 +870,13 @@ def check_identity() -> Dict[str, Any]:
             result["error"] = "create: conversation id mismatch"
             return result
 
-        # Reload — still accessible
+        # Reload: still accessible
         loaded = store_a.load(conv.id)
         if loaded is None:
             result["error"] = "load: conversation lost after save"
             return result
 
-        # Different identity — no access
+        # Different identity: no access
         other_id = str(uuid.uuid4())
         store_b = ConversationStore(storage=platform.storage, owner_id=other_id)
         if store_b.load(conv.id) is not None:
@@ -928,7 +928,7 @@ def check_context(config: Dict[str, str]) -> Dict[str, Any]:
             result["error"] = "generate_chat returned empty response"
             return result
 
-        # Check that the response contains "Alice" — proof of context
+        # Check that the response contains "Alice": proof of context
         if "alice" not in response.lower():
             result["warning"] = (
                 f"Model response did not mention Alice (context may be missing): "

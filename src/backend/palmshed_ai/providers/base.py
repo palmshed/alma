@@ -16,7 +16,7 @@ server, network) instead of being turned into synthetic successes.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional
 
-# Error categories — deterministic classification for routing and HTTP mapping.
+# Error categories: deterministic classification for routing and HTTP mapping.
 CATEGORY_QUOTA = "quota"
 CATEGORY_AUTH = "auth"
 CATEGORY_UNAVAILABLE = "unavailable"

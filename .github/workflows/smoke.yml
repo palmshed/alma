@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# Smoke Test — Fast health check for every push and PR.
+# Smoke Test: Fast health check for every push and PR.
 #
 # Answers: "Did we break the application?"
 # Target: under 2 minutes.

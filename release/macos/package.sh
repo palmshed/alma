@@ -26,7 +26,7 @@ python3 -m venv "$PYENV_ROOT"
 # Patch mac_alias to use 64-bit Q format for CNID path entries.
 # APFS inode numbers exceed 32-bit range on macOS 15;
 # the shipped v2.2.3 uses I (32-bit) and struct.pack fails.
-# Use Python to discover and patch the installed path — avoids
+# Use Python to discover and patch the installed path, avoiding
 # brittle globs across Python releases and shell escaping issues.
 "$PYENV_ROOT/bin/python3" -c "
 import mac_alias, pathlib, shutil
@@ -66,7 +66,7 @@ if [ -f "$DMG_RESOURCES/background.png" ]; then
 fi
 
 # Generate a pristine .DS_Store that includes background image bookmark,
-# window settings, and icon positions — no AppleScript required.
+# window settings, and icon positions. No AppleScript required.
 "$PYENV_ROOT/bin/python3" "$DMG_RESOURCES/../generate-dsstore.py" "$STAGING_DIR"
 echo "  .DS_Store: generated"
 

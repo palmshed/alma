@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 
-"""AI provider registry — mirrors the ImageProviderRegistry pattern."""
+"""AI provider registry: mirrors the ImageProviderRegistry pattern."""
 
 from typing import Optional, Type
 

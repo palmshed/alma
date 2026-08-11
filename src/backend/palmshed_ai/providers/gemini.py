@@ -11,7 +11,7 @@ can treat Gemini exactly like any other provider.
 Mock keys (``dummy``, ``mock``, ``mock_key``, ...) produce deterministic
 synthetic responses so CI and verification run without network access.
 Real-key failures are raised as classified
-:class:`~palmshed_ai.providers.base.AIProviderError` exceptions — never
+:class:`~palmshed_ai.providers.base.AIProviderError` exceptions: never
 silently converted into synthetic successes.
 """
 
@@ -127,7 +127,7 @@ class GeminiAI(AIProvider):
 
     @property
     def image_provider(self) -> Any:
-        """Lazy image provider — built only when image generation is used."""
+        """Lazy image provider: built only when image generation is used."""
         if self._image_provider is None:
             self._image_provider = ImageProviderRegistry.create(
                 self.image_config.provider, self.image_config

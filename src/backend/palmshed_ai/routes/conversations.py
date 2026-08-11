@@ -40,7 +40,7 @@ def _ensure_message_ids(messages: list[dict]) -> None:
 def _populate_attachment_references(conversation_id: str, messages: list) -> None:
     """Store conversation_id and message_id on each referenced attachment.
 
-    These are references only, not ownership — the attachment remains
+    These are references only, not ownership: the attachment remains
     independently addressable and reusable.
     """
     att_store = _get_attachment_store()
@@ -66,7 +66,7 @@ def _cleanup_attachments_for_conversation(
     """Delete all attachments referenced by messages in a conversation.
 
     Returns a list of attachment IDs that could not be deleted.
-    Does not raise — failures are logged and collected.
+    Does not raise: failures are logged and collected.
     """
     store = _get_store()
     conv = store.load(conversation_id)

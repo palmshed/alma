@@ -34,7 +34,7 @@ def verify(args: argparse.Namespace) -> int:
     print()
 
     if provider == "mock":
-        print("WARNING: MAIL_PROVIDER=mock — no real email will be sent.")
+        print("WARNING: MAIL_PROVIDER=mock: no real email will be sent.")
         print("Set MAIL_PROVIDER=resend and RESEND_API_KEY to test real delivery.")
         print()
         print("Simulating send anyway...")

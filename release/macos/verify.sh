@@ -55,7 +55,7 @@ else
             "case \"\$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' \"$PLIST\" 2>/dev/null)\" in 0.0.0-dev|[0-9]*) true ;; *) false ;; esac"
     fi
 
-    # Structural verification — these check the bundle is valid even
+    # Structural verification: these check the bundle is valid even
     # though it is unsigned. Unexpected failures here indicate a change
     # in macOS behavior or a packaging regression.
     if codesign --verify --deep --strict "$APP_BUNDLE" 2>/dev/null; then
@@ -173,7 +173,7 @@ elif command -v open &>/dev/null; then
             check "App launches (signed build)" "true"
             kill "$ALMA_PID" 2>/dev/null || true
         elif echo "$LAUNCH_OUTPUT" | grep -q "code signing" || echo "$LAUNCH_OUTPUT" | grep -q "Launch failed" || echo "$LAUNCH_OUTPUT" | grep -q "unexpected reason"; then
-            check "App launches — unsigned (expected on macOS, resolved by signing)" "true"
+        check "App launches, unsigned (expected on macOS, resolved by signing)" "true"
         else
             check "App launches" "false"
         fi

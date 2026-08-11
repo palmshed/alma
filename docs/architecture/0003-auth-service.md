@@ -70,11 +70,11 @@ class AuthService:
 
 All environment variables are read exclusively in `AuthConfig.from_env()`:
 
-- `AUTH_PROVIDER` — provider name (default: `mock`)
-- `JWT_SECRET` — signing key for JWT tokens
-- `JWT_ALGORITHM` — signing algorithm (default: `HS256`)
-- `ACCESS_TOKEN_EXPIRE_MINUTES` — access token TTL (default: `15`)
-- `REFRESH_TOKEN_EXPIRE_DAYS` — refresh token TTL (default: `7`)
+- `AUTH_PROVIDER`: provider name (default: `mock`)
+- `JWT_SECRET`: signing key for JWT tokens
+- `JWT_ALGORITHM`: signing algorithm (default: `HS256`)
+- `ACCESS_TOKEN_EXPIRE_MINUTES`: access token TTL (default: `15`)
+- `REFRESH_TOKEN_EXPIRE_DAYS`: refresh token TTL (default: `7`)
 
 ### Mock provider
 
@@ -111,4 +111,4 @@ Negative:
 
 - ADR 0001: Platform Services
 - ADR 0002: Mail Service
-- `services/mail/` — reference implementation
+- `services/mail/`: reference implementation

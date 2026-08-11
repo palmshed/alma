@@ -25,7 +25,7 @@ def verify(args: argparse.Namespace) -> int:
     print()
 
     if provider == "mock":
-        print("WARNING: STORAGE_PROVIDER=mock — no real storage.")
+        print("WARNING: STORAGE_PROVIDER=mock: no real storage.")
         print("Set STORAGE_PROVIDER=local and STORAGE_BASE_PATH to test local storage.")
         print()
 

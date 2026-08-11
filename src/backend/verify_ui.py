@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 """
-UI verification for Alma — verifies that the frontend correctly
+UI verification for Alma: verifies that the frontend correctly
 represents every response lifecycle phase for every mode.
 
 Records raw response shapes, precise timing, and streaming
@@ -274,7 +274,7 @@ def detect_streaming(tresp: TimedResponse) -> Tuple[bool, StreamingDetection]:
     if "multipart/" in ct:
         return True, StreamingDetection("multipart", f"Content-Type: {ct}")
 
-    # 4. Incremental JSON — multiple top-level JSON objects in a single
+    # 4. Incremental JSON: multiple top-level JSON objects in a single
     #    response body (non-streaming endpoints won't have this).
     if isinstance(tresp.body, dict):
         pass  # single JSON object, not streaming
@@ -1307,13 +1307,13 @@ def _run_conversation_switching(
             page.wait_for_timeout(1000)
             return True
 
-        # ── Conversation A — Thinking mode ──
+        # ── Conversation A: Thinking mode ──
         # Start fresh if first run (sidebar is already open)
         if not _new_chat_from_sidebar():
             results.append(
                 UICheck(
                     "conv_a_new",
-                    "Conversation A — new chat",
+                    "Conversation A: new chat",
                     "skip",
                     "Could not create conversation A.",
                 )
@@ -1330,17 +1330,17 @@ def _run_conversation_switching(
 
         _send_prompt("What is 2+2?")
         screenshot_fn("conv-a-thinking")
-        conv_labels.append("Conv A — What is 2+2?")
+        conv_labels.append("Conv A: What is 2+2?")
         results.append(
             UICheck(
                 "conv_a_create",
-                "Conversation A — create",
+                "Conversation A: create",
                 "pass",
                 "Created conversation A with thinking mode.",
             )
         )
 
-        # ── Conversation B — Canvas mode, image via description ──
+        # ── Conversation B: Canvas mode, image via description ──
         page.wait_for_timeout(500)
 
         # Open sidebar and create new conversation
@@ -1351,7 +1351,7 @@ def _run_conversation_switching(
             results.append(
                 UICheck(
                     "conv_b_new",
-                    "Conversation B — new chat",
+                    "Conversation B: new chat",
                     "pass",
                     "New conversation button works (dialog confirmed).",
                 )
@@ -1375,11 +1375,11 @@ def _run_conversation_switching(
         _send_prompt("Say hello in French")
         page.wait_for_timeout(2000)
         screenshot_fn("conv-b-canvas")
-        conv_labels.append("Conv B — Say hello in French")
+        conv_labels.append("Conv B: Say hello in French")
         results.append(
             UICheck(
                 "conv_b_create",
-                "Conversation B — create",
+                "Conversation B: create",
                 "pass",
                 "Created conversation B with canvas mode.",
             )
@@ -1538,7 +1538,7 @@ def _run_conversation_search(
             return [
                 UICheck(
                     "search_sidebar",
-                    "Search — sidebar",
+                    "Search: sidebar",
                     "skip",
                     "Menu button not found.",
                 )
@@ -1553,7 +1553,7 @@ def _run_conversation_search(
                 results.append(
                     UICheck(
                         f"search_conv_{i}_new",
-                        f"Search — create {title}",
+                        f"Search: create {title}",
                         "skip",
                         "Could not create new chat.",
                     )
@@ -1568,7 +1568,7 @@ def _run_conversation_search(
             _send_prompt(f"Tell me about {title.lower()}")
             page.wait_for_timeout(1000)
             results.append(
-                UICheck(f"search_conv_{i}_create", f"Search — create {title}", "pass")
+                UICheck(f"search_conv_{i}_create", f"Search: create {title}", "pass")
             )
             menu_btn.first.click()
             page.wait_for_timeout(500)
@@ -1584,13 +1584,13 @@ def _run_conversation_search(
             results.append(
                 UICheck(
                     "search_input",
-                    "Search — input exists",
+                    "Search: input exists",
                     "fail",
                     "Search input not found.",
                 )
             )
             return results
-        results.append(UICheck("search_input", "Search — input exists", "pass"))
+        results.append(UICheck("search_input", "Search: input exists", "pass"))
 
         # Search for "Python"
         search_input.first.fill("Python")
@@ -1616,7 +1616,7 @@ def _run_conversation_search(
             results.append(
                 UICheck(
                     "search_filter",
-                    "Search — filters correctly",
+                    "Search: filters correctly",
                     "pass",
                     "Only 'Python tutorial' shown.",
                 )
@@ -1625,7 +1625,7 @@ def _run_conversation_search(
             results.append(
                 UICheck(
                     "search_filter",
-                    "Search — filters correctly",
+                    "Search: filters correctly",
                     "fail",
                     "No conversations visible after search.",
                 )
@@ -1634,7 +1634,7 @@ def _run_conversation_search(
             results.append(
                 UICheck(
                     "search_filter",
-                    "Search — filters correctly",
+                    "Search: filters correctly",
                     "pass",
                     f"Search narrowed results ({visible_count} visible).",
                 )
@@ -1657,13 +1657,13 @@ def _run_conversation_search(
             )
             if all_visible:
                 results.append(
-                    UICheck("search_clear", "Search — clear restores full list", "pass")
+                    UICheck("search_clear", "Search: clear restores full list", "pass")
                 )
             else:
                 results.append(
                     UICheck(
                         "search_clear",
-                        "Search — clear restores full list",
+                        "Search: clear restores full list",
                         "pass",
                         f"{conv_items.count()} items visible (expected {len(titles)}).",
                     )
@@ -1672,7 +1672,7 @@ def _run_conversation_search(
             results.append(
                 UICheck(
                     "search_clear",
-                    "Search — clear button",
+                    "Search: clear button",
                     "skip",
                     "Clear button not found.",
                 )
@@ -1687,14 +1687,14 @@ def _run_conversation_search(
         results.append(
             UICheck(
                 "search_cmd_k",
-                "Search — Cmd+K focuses input",
+                "Search: Cmd+K focuses input",
                 "pass" if focused else "skip",
                 None if focused else "Could not verify Cmd+K focus.",
             )
         )
 
     except Exception as exc:
-        results.append(UICheck("search_e2e_error", "Search — E2E", "fail", str(exc)))
+        results.append(UICheck("search_e2e_error", "Search: E2E", "fail", str(exc)))
 
     return results
 
@@ -1760,7 +1760,7 @@ def _run_search_ui_verification(
             )
             screenshot_fn("settings-dropdown")
 
-            # Check dropdown contents — expand Search section
+            # Check dropdown contents: expand Search section
             search_trigger = page.locator("[data-testid='settings-search-trigger']")
             if search_trigger.count():
                 search_trigger.first.click()
@@ -2227,7 +2227,7 @@ def _verify_chat_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
         _submit_message(page, "What is 2+2?")
         textarea_value_after = textarea.first.input_value()
 
-        # Wait for response (non-empty) dynamically — use longer timeout for CI
+        # Wait for response (non-empty) dynamically: use longer timeout for CI
         try:
             page.locator(".message-content, .markdown-content").first.wait_for(
                 state="visible", timeout=15000
@@ -2365,7 +2365,7 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
     if textarea.count():
         _submit_message(page, "What is the capital of France?")
 
-        # Wait for SearchProgress — try dynamic wait first, fall back to short delay
+        # Wait for SearchProgress: try dynamic wait first, fall back to short delay
         progress = page.locator("[data-testid='search-progress']")
         try:
             progress.first.wait_for(state="visible", timeout=5000)
@@ -2401,7 +2401,7 @@ def _verify_search_flow(page: "Any", screenshot_fn: "Any") -> List[E2EResult]:
                 )
             )
         else:
-            # Neither progress nor response yet — wait more for slow CI
+            # Neither progress nor response yet: wait more for slow CI
             page.wait_for_timeout(5000)
             response_check2 = page.locator(".response-container .markdown-content")
             has_response2 = False
@@ -3817,7 +3817,7 @@ def _format_e2e_html(
         ".check { margin: 5px 0; padding: 5px 10px; }",
         ".check.pass::before { content: '✓ '; color: #16a34a; }",
         ".check.fail::before { content: '✗ '; color: #dc2626; }",
-        ".check.skip::before { content: '— '; color: #9ca3af; }",
+        ".check.skip::before { content: '\u2212 '; color: #9ca3af; }",
         ".timing { margin: 20px 0; }",
         ".timing table { border-collapse: collapse; width: 100%; }",
         ".timing td, .timing th { border: 1px solid #eee; padding: 8px; text-align: left; }",
@@ -4204,7 +4204,7 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
                     input_box.first.fill(f"Say hello in one word for {label} mode.")
                     page.wait_for_timeout(200)
 
-                    # Submit — look for send button or Enter
+                    # Submit: look for send button or Enter
                     send_btn = page.locator(
                         "button[aria-label*='send'], button:has(svg):not([aria-label*='menu'])"
                     )
@@ -4301,11 +4301,11 @@ def run_browser_verification(output_dir: str, modes: List[str]) -> List[UICheck]
 # Behaves like a headless QA engineer: submits deterministic prompts to
 # the backend API, extracts the raw markdown, drives the browser with the
 # same prompts, then compares DOM text, elements, and clipboard content
-# to the backend originals — pixel-perfect or it fails.
+# to the backend originals: pixel-perfect or it fails.
 #
 # This is organised as:
 #   1. helpers (fetch, normalise, compare, probe)
-#   2. run_render_fidelity() — the entry-point
+#   2. run_render_fidelity(): the entry-point
 
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -4512,7 +4512,7 @@ def _visual_regression(mode: str, screenshot_path: str, output_dir: str) -> UICh
 
     When the baseline exists and the hash differs, this records the
     screenshot as a review-required regression.  Updating a baseline
-    is an explicit manual action — copy the new hash from
+    is an explicit manual action: copy the new hash from
     verify-output/ into verify-output/baselines/ and commit it.
     """
     global _CHANGED_SCREENSHOTS
@@ -4536,7 +4536,7 @@ def _visual_regression(mode: str, screenshot_path: str, output_dir: str) -> UICh
             f"{mode}_visual_regression",
             f"{mode.capitalize()} visual regression",
             "fail",
-            f"❌ Review required — hash {hash_val} differs from baseline {baseline}. "
+            f"❌ Review required: hash {hash_val} differs from baseline {baseline}. "
             f"Changed file: {os.path.basename(screenshot_path)}. "
             f"To approve, copy verify-output/{mode}-screenshot-hash.txt to "
             f"verify-output/baselines/ and commit.",
@@ -4878,7 +4878,7 @@ class ModeFidelityReport:
 
 
 def run_render_fidelity(output_dir: str) -> List[UICheck]:
-    """Headless QA — compare rendered DOM against the backend response
+    """Headless QA: compare rendered DOM against the backend response
     for every mode without requiring human screenshot inspection."""
     if not check_playwright_installed():
         return [
@@ -5871,7 +5871,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="UI verification for Alma — validates that the frontend "
+        description="UI verification for Alma: validates that the frontend "
         "correctly represents every response lifecycle phase.",
     )
     parser.add_argument(

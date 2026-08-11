@@ -26,7 +26,7 @@ health = svc.health()
 |----------|--------|-------------|
 | `mock`   | (default) | In-memory store, no persistence. |
 | `local`  | `STORAGE_BASE_PATH` | Local filesystem storage. |
-| `cloud`  | — | Interface stub. Replace with GCS, S3, R2, or Azure. |
+| `cloud`  | no | Interface stub. Replace with GCS, S3, R2, or Azure. |
 
 ## Configuration
 
@@ -34,8 +34,8 @@ health = svc.health()
 |----------|---------|-------------|
 | `STORAGE_PROVIDER` | `mock` | Provider name (`mock`, `local`, `cloud`) |
 | `STORAGE_BUCKET` | `alma` | Logical bucket/container name |
-| `STORAGE_BASE_PATH` | — | Filesystem path for local provider |
-| `STORAGE_PUBLIC_URL` | — | Public base URL for serving objects |
+| `STORAGE_BASE_PATH` | no | Filesystem path for local provider |
+| `STORAGE_PUBLIC_URL` | no | Public base URL for serving objects |
 | `MAX_UPLOAD_SIZE_MB` | `50` | Maximum upload size in MB |
 
 ## Health

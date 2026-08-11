@@ -8,8 +8,8 @@
 # through Vercel executes the same `create_app()` code that
 # development and CI use.
 #
-# The alternative — duplicating API logic in a separate
-# BaseHTTPRequestHandler — was intentionally avoided to
+# The alternative of duplicating API logic in a separate
+# BaseHTTPRequestHandler was intentionally avoided to
 # prevent drift between environments.
 
 import sys
@@ -23,4 +23,4 @@ for path in (_ROOT, _BACKEND):
     if path not in sys.path:
         sys.path.insert(0, path)
 
-from backend.app import app  # noqa: E402, F401 — WSGI handler for Vercel
+from backend.app import app  # noqa: E402, F401  (WSGI handler for Vercel)

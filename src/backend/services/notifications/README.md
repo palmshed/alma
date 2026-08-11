@@ -16,7 +16,7 @@ Multi-channel notification delivery for Palmshed products.
 |----------|---------|-------------|
 | `NOTIFICATIONS_ENABLED` | `true` | Master toggle |
 | `NOTIFICATIONS_DEFAULT_CHANNEL` | `mock` | Channel name |
-| `NOTIFICATIONS_WEBHOOK_URL` | — | URL for webhook channel |
+| `NOTIFICATIONS_WEBHOOK_URL` | no | URL for webhook channel |
 | `NOTIFICATIONS_WEBHOOK_TIMEOUT` | `10` | Webhook timeout in seconds |
 
 ## Usage

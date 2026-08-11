@@ -685,7 +685,7 @@ class TestResendProvider:
 
 
 class TestArchitecture:
-    """Architectural boundary tests — prevent accidental dependency drift."""
+    """Architectural boundary tests: prevent accidental dependency drift."""
 
     FORBIDDEN_IMPORTS = {
         "services.mail": [
@@ -703,7 +703,7 @@ class TestArchitecture:
     }
 
     def test_mail_never_imports_application_modules(self):
-        """Mail is a platform service — must not depend on application code."""
+        """Mail is a platform service: must not depend on application code."""
         import services.mail
 
         mail_path = os.path.dirname(services.mail.__file__)
@@ -789,7 +789,7 @@ class TestArchitecture:
         svc = MailService(config=MailConfig(sync=True, provider="mock"))
         with pytest.raises((TypeError, AttributeError, ValueError)):
             svc.send(
-                "welcome",  # bare string — should be MailTemplate.WELCOME
+                "welcome",  # bare string: should be MailTemplate.WELCOME
                 "user@example.com",
                 context={"name": "T", "product": "Alma", "link": "https://x"},
             )

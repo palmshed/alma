@@ -12,15 +12,15 @@ where attachments live in the domain model and how they are stored.
 
 ### Attachments belong to messages, not conversations
 
-Every file has context — it was uploaded as part of a specific message.
+Every file has context: it was uploaded as part of a specific message.
 Attaching to the message rather than the conversation keeps the model
 simple and enables:
 
-- **Search** — find files by their surrounding message text
-- **Export** — export a message and its files together
-- **Retrieval** — retrieve files only when the message is loaded
-- **Sharing** — share a message with its attachments intact
-- **Cleanup** — delete files when the message is deleted
+- **Search**: find files by their surrounding message text
+- **Export**: export a message and its files together
+- **Retrieval**: retrieve files only when the message is loaded
+- **Sharing**: share a message with its attachments intact
+- **Cleanup**: delete files when the message is deleted
 
 A conversation never references attachments directly. It stores
 messages, and messages store attachment IDs.
@@ -54,16 +54,16 @@ into the storage layer and gives flexibility to:
 
 The `Attachment` model contains only its own identity and properties:
 
-- `id` — unique identifier
-- `filename` — original upload name
-- `mime_type` — validated media type
-- `size` — file size in bytes
-- `checksum` — SHA-256 of file bytes
-- `storage_key` — path within the storage provider
-- `created_at` — timestamp
-- `metadata` — optional key-value map for extensibility
-- `schema_version` — for forward compatibility
-- preserved unknown fields — for safe deserialization
+- `id`: unique identifier
+- `filename`: original upload name
+- `mime_type`: validated media type
+- `size`: file size in bytes
+- `checksum`: SHA-256 of file bytes
+- `storage_key`: path within the storage provider
+- `created_at`: timestamp
+- `metadata`: optional key-value map for extensibility
+- `schema_version`: for forward compatibility
+- preserved unknown fields: for safe deserialization
 
 The model does not contain `conversation_id` or `message_id`. Those are
 metadata of the *relationship*, not properties of the attachment
@@ -74,7 +74,7 @@ relationship.
 
 - Attachments are first-class domain objects with their own lifecycle
   and identity.
-- Messages reference attachments by ID only — the attachment exists
+- Messages reference attachments by ID only: the attachment exists
   independently.
 - Storage layout is flat, making it easy to reorganize conversations
   without moving file bytes.

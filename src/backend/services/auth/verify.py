@@ -22,7 +22,7 @@ def verify(args: argparse.Namespace) -> int:
     print()
 
     if provider == "mock":
-        print("WARNING: AUTH_PROVIDER=mock — no real authentication.")
+        print("WARNING: AUTH_PROVIDER=mock: no real authentication.")
         print("Set AUTH_PROVIDER=jwt and JWT_SECRET to test real JWT tokens.")
         print()
 

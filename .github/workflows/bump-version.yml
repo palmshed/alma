@@ -4,7 +4,7 @@
 # Bump Version
 #
 # Manual workflow to bump the version, create a branch,
-# and open a version-bump PR — all attributed to the GitHub App.
+# and open a version-bump PR, all attributed to the GitHub App.
 # The Publish Release workflow takes over once the PR is merged.
 
 name: Bump Version

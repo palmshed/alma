@@ -480,7 +480,7 @@ class TestAttachmentConversationLifecycle:
         assert client.get(f"/api/attachments/{att_id}/metadata").status_code == 404
 
     def test_conversation_with_same_attachment_multiple_messages(self, client):
-        """Deduplication: same attachment in multiple messages — only deleted once."""
+        """Deduplication: same attachment in multiple messages: only deleted once."""
         att_id = self._upload(client, b"shared-att", "shared.txt", "text/plain")
         conv = self._create_conv(
             client,

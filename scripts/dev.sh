@@ -5,7 +5,7 @@
 
 # Alma local development launcher.
 #
-# Default: React frontend (:3000) + Flask backend (:8000) — the only
+# Default: React frontend (:3000) + Flask backend (:8000), the only
 # services a normal Alma developer needs.
 #
 # Static interface and Go service are optional and never started by default.

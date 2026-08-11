@@ -10,9 +10,9 @@ should have for platform services.
 
 Platform services follow [Semantic Versioning 2.0.0](https://semver.org/):
 
-- **MAJOR** — incompatible API changes
-- **MINOR** — backward-compatible additions
-- **PATCH** — backward-compatible bug fixes
+- **MAJOR**: incompatible API changes
+- **MINOR**: backward-compatible additions
+- **PATCH**: backward-compatible bug fixes
 
 All four services share the same version number (currently 0.1.0).
 Application code depends on `services` as a single unit, so there is
@@ -54,8 +54,8 @@ considered part of the public API.
 `ChannelCapabilities`, `NotificationChannel`, `MockChannel`,
 `EmailChannel`, `WebhookChannel`, `ChannelRegistry`, `get_channel`
 
-Everything else — internal modules, private functions, underscore-prefixed
-symbols, test helpers — is not part of the public API and may change
+Everything else, including internal modules, private functions, underscore-prefixed
+symbols, and test helpers, is not part of the public API and may change
 without notice.
 
 ---

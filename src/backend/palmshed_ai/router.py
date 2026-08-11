@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 """
-AI router — the single entry point for all text generation.
+AI router: the single entry point for all text generation.
 
 Routes never talk to a concrete provider.  They call :class:`AIRouter`,
 which applies a small deterministic policy:
@@ -12,7 +12,7 @@ which applies a small deterministic policy:
 3. fallback to the next configured provider when the preferred one fails.
 
 Provider failures are classified and re-raised as
-:class:`~palmshed_ai.providers.base.AIProviderError` — never converted
+:class:`~palmshed_ai.providers.base.AIProviderError`: never converted
 into synthetic success.  When no provider has credentials the router uses
 the synthetic provider so CI and verification still run, and reports it as
 ``synthetic/mock``.

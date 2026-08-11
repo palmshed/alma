@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 Palmshed
 # SPDX-License-Identifier: MIT
 ---
-# End-to-End — Full browser verification.
+# End-to-End: Full browser verification.
 #
 # Answers: "Can a user actually use Alma?"
 # Runs Playwright against the deployed app or a local instance.
