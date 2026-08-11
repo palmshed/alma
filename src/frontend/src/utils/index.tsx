@@ -12,10 +12,25 @@ export function getModelLabel(value: string): string {
   return MODELS.find(m => m.value === value)?.label || 'Auto';
 }
 
+const CITATION_RE = /\[(\d+(?:\]\s*\[\d+)*)\]/g;
+
+export function linkCitations(content: string, sources: { url?: string }[] | undefined | null): string {
+  if (!content || !sources || sources.length === 0) return content;
+  return content.replace(CITATION_RE, (match, nums: string) => {
+    return nums
+      .split(/\s*\[\s*/)
+      .map((n) => {
+        const idx = parseInt(n.trim(), 10) - 1;
+        const src = sources[idx];
+        return src && src.url ? `[${idx + 1}](${src.url})` : `[${n.trim()}]`;
+      })
+      .join('');
+  });
+}
+
 export const MODES: ModeOption[] = [
   { value: 'auto', label: 'Auto', icon: 'zap' },
   { value: 'chat', label: 'Chat', icon: 'message-square' },
-  { value: 'search', label: 'Search', icon: 'globe' },
   { value: 'code', label: 'Code', icon: 'code' },
   { value: 'canvas', label: 'Canvas', icon: 'layers' },
   { value: 'thinking', label: 'Thinking', icon: 'sparkles' },
@@ -25,7 +40,6 @@ export const MODES: ModeOption[] = [
 export const SUGGESTIONS: Record<string, string[]> = {
   auto: ['Explain this code', 'Summarize this article', 'Generate release notes'],
   chat: ['Explain this code', 'Summarize this article', 'Generate release notes'],
-  search: ['Search Wikipedia for quantum physics', 'Find latest AI research', 'Check GitHub trends'],
   code: ['Explain this code', 'Refactor this function', 'Write unit tests for this module'],
   canvas: ['Summarize this article', 'Explain this code', 'Generate release notes'],
   thinking: ['Solve step by step: train distance problem', 'Explain the water cycle', 'Calculate compound interest'],

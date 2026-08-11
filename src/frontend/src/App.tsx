@@ -17,7 +17,7 @@ import SourceCards from './components/SourceCards';
 import SearchProgress from './components/SearchProgress';
 import { useComposer } from './hooks/useComposer';
 import { useConversation } from './hooks/useConversation';
-import { MODES, SUGGESTIONS, ACCENT_PRESETS, playNavSound } from './utils';
+import { MODES, SUGGESTIONS, ACCENT_PRESETS, playNavSound, linkCitations } from './utils';
 import { api } from './services/api';
 import { AttachmentData, ConversationData, SearchSettings } from './types';
 
@@ -44,8 +44,14 @@ function removeStorage(key: string): void {
   try { localStorage.removeItem(key); } catch { /* noop */ }
 }
 
+const LEGACY_SEARCH_MODES = new Set(['search', 'web']);
+
+function normalizeMode(mode: string | undefined): string {
+  return mode && !LEGACY_SEARCH_MODES.has(mode) ? mode : 'auto';
+}
+
 function App() {
-  const [mode, setMode] = useState('search');
+  const [mode, setMode] = useState('auto');
   const [searchSettings, setSearchSettings] = useState<SearchSettings>(() => {
     try {
       const stored = localStorage.getItem('alma_search_settings');
@@ -117,7 +123,7 @@ function App() {
       activeConversationRef.current = conv;
       setActiveConversationId(storedId);
       loadConversation(conv);
-      if (conv.mode) setMode(conv.mode);
+      setMode(normalizeMode(conv.mode));
     }).catch(() => {
       if (!cancelled) removeStorage(STORAGE_ACTIVE_CONV);
     }).finally(() => {
@@ -548,7 +554,7 @@ function App() {
                       {msg.image ? (
                         <ImageContainer imageUrl={msg.image} />
                       ) : (
-                        <ResponseContainer content={msg.content}>
+                        <ResponseContainer content={linkCitations(msg.content, msg.sources)}>
                           <TTSButton text={msg.content} />
                         </ResponseContainer>
                       )}
@@ -568,8 +574,7 @@ function App() {
                     <LoadingDots label="Generating" />
                   )}
                 </div>
-              )}
-              {error && !isLoading && (
+              )}              {error && !isLoading && (
                 <div className="response-container">
                   <em>Error: {error}</em>
                 </div>
@@ -627,7 +632,7 @@ function App() {
             activeConversationRef.current = conv;
             setActiveConversationId(id);
             loadConversation(conv);
-            if (conv.mode) setMode(conv.mode);
+            setMode(normalizeMode(conv.mode));
           }).catch(() => {});
         }}
         onDeleteConversation={async () => {
@@ -642,7 +647,7 @@ function App() {
               activeConversationRef.current = conv;
               setActiveConversationId(next.id);
               loadConversation(conv);
-              if (conv.mode) setMode(conv.mode);
+              setMode(normalizeMode(conv.mode));
               return;
             }
           } catch {}
