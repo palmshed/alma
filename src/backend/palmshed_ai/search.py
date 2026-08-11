@@ -414,26 +414,51 @@ class SearchService:
         return FallbackSearchProvider()
 
     def route_intent(self, query: str, mode: str = "auto") -> str:
-        """Classify user query intent into 'chat', 'search', or 'code'."""
+        """Classify user query intent into 'chat', 'search', or 'code'.
+
+        Auto decides whether a request needs the web.  Pure conversation,
+        arithmetic, rewrites, and creative tasks never trigger a search; only
+        requests that genuinely need current or external information do.
+        """
         mode = (mode or "auto").lower()
         if mode in ("chat", "search", "code"):
             return mode
 
-        q_lower = query.lower()
+        q_lower = query.strip().lower()
 
-        # Conversational / creative triggers
+        # Pure arithmetic / math: no web needed.
+        if re.search(r"\d[\d\s]*[\+\-\*/%^][\d\s]*\d", q_lower) or re.search(
+            r"\b(what is|calculate|solve)\b.*\b(plus|minus|times|divided by|\+|-|\*|/)\b",
+            q_lower,
+        ) or re.search(r"\d+\s*%", q_lower):
+            return "chat"
+
+        # Conversational / creative / writing tasks: no web needed.
         chat_triggers = [
-            "write me a poem",
-            "tell me a story",
-            "write a poem",
-            "tell a story",
             "hello",
             "hi there",
             "hey alma",
+            "write a poem",
+            "write me a poem",
             "compose a poem",
+            "tell me a story",
+            "tell a story",
+            "rewrite",
+            "rephrase",
+            "paraphrase",
+            "translate",
+            "summarize this",
+            "proofread",
+            "fix grammar",
+            "make it more",
+            "improve this",
+            "explain this code",
+            "what does this code",
+            "how do i fix",
+            "help me",
         ]
-        if any(q_lower.startswith(c) for c in chat_triggers) and not any(
-            k in q_lower for k in ["latest", "news", "weather", "documentation", "http"]
+        if any(q_lower.startswith(t) for t in chat_triggers) and not any(
+            k in q_lower for k in ["latest", "news", "weather", "today", "version 2026"]
         ):
             return "chat"
 
@@ -471,7 +496,8 @@ class SearchService:
             "search",
             "find",
             "who is",
-            "what is",
+            "what is the latest",
+            "what happened",
             "where is",
             "when did",
             "latest",
@@ -480,6 +506,8 @@ class SearchService:
             "weather",
             "today",
             "price",
+            "release",
+            "version",
             "documentation",
             "how to",
             "vs",
@@ -621,19 +649,33 @@ class SearchService:
         return sorted(results, key=get_score, reverse=True)
 
     def format_grounded_context(self, results: List[SearchResult]) -> str:
-        """Step 5 & 6: Extract relevant passages and assemble grounded context."""
+        """Step 5 & 6: Extract relevant passages and assemble grounded context.
+
+        Prefers full page content (``raw_content``) when a provider fetched it,
+        falling back to the search snippet.  Each source is numbered so the
+        synthesis model can cite it inline as ``[n]``.
+        """
         if not results:
             return ""
         passages = []
         for idx, r in enumerate(results, start=1):
-            passages.append(
-                f"Source [{idx}]\n"
-                f"Title: {r.title}\n"
-                f"URL: {r.url}\n"
-                f"Domain: {r.domain}\n"
-                f"Snippet: {r.snippet}\n"
-            )
-        return "\n---\n".join(passages)
+            excerpt = (r.raw_content or "").strip()
+            if len(excerpt) < 40:
+                excerpt = (r.snippet or "").strip()
+            if len(excerpt) > 2500:
+                excerpt = excerpt[:2500].rsplit(" ", 1)[0] + "..."
+            lines = [
+                f"Source [{idx}]",
+                f"Title: {r.title}",
+                f"URL: {r.url}",
+                f"Domain: {r.domain}",
+            ]
+            if r.published_date:
+                lines.append(f"Published: {r.published_date}")
+            if excerpt:
+                lines.append(f"Excerpt: {excerpt}")
+            passages.append("\n".join(lines))
+        return "\n\n---\n\n".join(passages)
 
     def extract_previous_sources(
         self, messages: Optional[List[dict]]
@@ -688,9 +730,20 @@ class SearchService:
 
         steps = ["Searching the web..."]
 
-        # Follow-up source reuse check
+        # Follow-up source reuse: when the conversation already carries sources
+        # and the follow-up is short and does not explicitly ask for new/current
+        # information, reuse those sources instead of running a fresh search.
         reused_sources = self.extract_previous_sources(messages)
-        if reused_sources and mode != "search" and len(query.split()) <= 6:
+        time_sensitive = any(
+            k in query.lower()
+            for k in ["latest", "today", "news", "now", "newly", "current"]
+        )
+        if (
+            reused_sources
+            and mode != "search"
+            and len(query.split()) <= 8
+            and not time_sensitive
+        ):
             steps.append("Reusing conversation sources...")
             steps.append("Generating answer...")
             grounded_ctx = self.format_grounded_context(reused_sources)

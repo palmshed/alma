@@ -143,16 +143,32 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 )
         else:
             lang_instruction = _language_instruction(data.get("language"))
-            system_instruction = (
-                "You are Alma, an intelligent coding and research assistant. "
-                "Answer the user's prompt grounded in the provided web search context. "
-                "Synthesize clear answers with relevant citations.\n\n"
-                f"SEARCH SOURCES:\n{grounded_context}\n"
+            synthesis_instruction = (
+                "You are Alma, an AI assistant. Answer the user's question "
+                "directly and confidently, using the web sources below as your "
+                "evidence. Do not describe the search process, do not narrate "
+                "how you found the information, and do not summarize or list "
+                "the sources one by one. Write a coherent answer that the user "
+                "can use immediately.\n\n"
+                "Rules:\n"
+                "- Answer the question head-on. State facts, dates, versions, "
+                "and comparisons plainly.\n"
+                "- When a claim comes from a source, cite it inline with its "
+                "number in square brackets, e.g. [1] or [1][2]. Only cite "
+                "sources that actually support the claim.\n"
+                "- If sources conflict or are missing key details, say so "
+                "briefly and move on. Never fabricate.\n"
+                "- Do not say 'based on the search results', 'according to the "
+                "sources', 'the search shows', or anything similar.\n"
+                "- The answer must stand on its own as useful information.\n\n"
+                f"SOURCES:\n{grounded_context}\n"
             )
             if lang_instruction:
-                system_instruction = f"{lang_instruction}\n\n{system_instruction}"
+                synthesis_instruction = (
+                    f"{lang_instruction}\n\n{synthesis_instruction}"
+                )
             if messages:
-                augmented = [{"role": "user", "content": system_instruction}] + list(
+                augmented = [{"role": "user", "content": synthesis_instruction}] + list(
                     messages
                 )
                 full_response = ai.generate_chat(
@@ -160,7 +176,7 @@ def search_and_generate() -> Union[Response, Tuple[Response, int]]:
                 )
             else:
                 full_response = ai.generate_text(
-                    f"{system_instruction}\nUSER REQUEST: {user_query}",
+                    f"{synthesis_instruction}\nUSER REQUEST: {user_query}",
                     info=info,
                     provider=ai_provider,
                 )
