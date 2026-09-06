@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/palmshed/alma/main/.github/assets/thumbnail.png" alt="alma" width="100%">
+</p>
+
 # Alma
 
 Alma is an AI assistant for chat, web search, step-by-step reasoning, code, images, voice, and multilingual conversation, all persisted and restorable within a single interface.
