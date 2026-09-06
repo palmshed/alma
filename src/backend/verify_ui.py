@@ -3736,6 +3736,8 @@ def _collect_browser_errors(page: "Any") -> Tuple[List[str], List[str], List[str
     Filters out infrastructure noise that does not indicate product bugs:
     - 404 from conversation save race (PUT /api/conversations/{id})
     - 429 from Gemini quota exhaustion
+    - blob: URLs aborted when audio elements are revoked/torn down
+      (net::ERR_ABORTED on object URLs is not a network failure)
     """
     errors: List[str] = []
     warnings: List[str] = []
@@ -3771,6 +3773,10 @@ def _collect_browser_errors(page: "Any") -> Tuple[List[str], List[str], List[str
     def on_request_failed(request: "Any") -> None:
         url = request.url
         failure = request.failure
+        # Blob object URLs (e.g. TTS audio) aborted on teardown revoke —
+        # not a real network failure, so ignore them.
+        if url.startswith("blob:") and failure == "net::ERR_ABORTED":
+            return
         failed_requests.append(f"{url} ({failure})")
 
     page.on("response", on_response)
